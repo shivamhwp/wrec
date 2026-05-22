@@ -7,4 +7,5 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+serde = { version = "1.0.228", features = ["derive"] }
 thiserror.workspace = true

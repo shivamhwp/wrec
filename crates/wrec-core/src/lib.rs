@@ -1,18 +1,19 @@
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CaptureSourceKind {
     Display,
     Window,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Codec {
     Hevc,
     H264,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FrameRate {
     Fps30,
     Fps60,
@@ -27,14 +28,33 @@ impl FrameRate {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+impl Codec {
+    pub const fn as_arg(self) -> &'static str {
+        match self {
+            Self::Hevc => "hevc",
+            Self::H264 => "h264",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Quality {
     Efficient,
     Balanced,
     High,
 }
 
-#[derive(Debug, Clone)]
+impl Quality {
+    pub const fn as_arg(self) -> &'static str {
+        match self {
+            Self::Efficient => "efficient",
+            Self::Balanced => "balanced",
+            Self::High => "high",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecorderSettings {
     pub source: CaptureSourceKind,
     pub fps: FrameRate,
@@ -73,7 +93,15 @@ pub struct CaptureTarget {
 
 #[derive(Debug, Clone)]
 pub struct RecordingSession {
+    pub id: u64,
     pub output_path: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+pub struct RecorderMetrics {
+    pub elapsed_secs: u64,
+    pub output_bytes: u64,
+    pub estimated_bitrate_mbps: f32,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -98,4 +126,33 @@ pub trait RecorderEngine: Send {
         settings: RecorderSettings,
     ) -> Result<RecordingSession>;
     fn stop(&mut self) -> Result<()>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn codec_args_match_helper_contract() {
+        assert_eq!(Codec::Hevc.as_arg(), "hevc");
+        assert_eq!(Codec::H264.as_arg(), "h264");
+    }
+
+    #[test]
+    fn quality_args_match_helper_contract() {
+        assert_eq!(Quality::Efficient.as_arg(), "efficient");
+        assert_eq!(Quality::Balanced.as_arg(), "balanced");
+        assert_eq!(Quality::High.as_arg(), "high");
+    }
+
+    #[test]
+    fn default_settings_are_low_overhead() {
+        let settings = RecorderSettings::default();
+
+        assert_eq!(settings.source, CaptureSourceKind::Display);
+        assert_eq!(settings.fps, FrameRate::Fps30);
+        assert_eq!(settings.codec, Codec::Hevc);
+        assert_eq!(settings.quality, Quality::Balanced);
+        assert!(settings.include_cursor);
+    }
 }

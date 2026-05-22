@@ -2,26 +2,34 @@
 
 ## Current v0 backend
 
-The app starts a tiny Swift helper from `crates/wrec-macos/native/wrec_helper.swift`.
+Cargo compiles the tiny Swift helper from `crates/wrec-macos/native/wrec_helper.swift`
+into the build output, and the app starts that compiled helper at runtime.
 
 Why this route for v0:
 
 - Uses real native macOS ScreenCaptureKit immediately.
 - Keeps the frame path inside Apple's native stack.
 - Rust does not receive, copy, or retain raw pixels.
-- Uses `SCRecordingOutput` with HEVC `.mov` output.
+- Uses `SCStreamOutput` and `AVAssetWriter` with HEVC `.mov` output.
 
 Current recording path:
 
 ```text
 Rust GPUI app
-  -> spawn Swift helper
+  -> spawn compiled Swift helper
   -> ScreenCaptureKit SCStream
-  -> SCRecordingOutput
+  -> SCStreamOutput CMSampleBuffer
+  -> AVAssetWriter / VideoToolbox
   -> HEVC .mov
 ```
 
-This is efficient enough for first testing, but the next backend should replace `SCRecordingOutput` with:
+The helper accepts the selected display/window target, fps, cursor setting,
+codec, and quality mode from the GPUI app. The helper keeps ScreenCaptureKit
+queue depth low and drops frames when the writer is backpressured rather than
+allowing memory to grow.
+
+The next backend improvement is to replace AVAssetWriter-managed compression
+with an explicit `VTCompressionSession`:
 
 ```text
 SCStreamOutput
