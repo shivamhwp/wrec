@@ -5,6 +5,7 @@
     "": {
       "dependencies": {
         "astro": "^6.3.7",
+        "onedollarstats": "^0.0.23",
       },
       "devDependencies": {
         "@astrojs/check": "^0.9.9",
@@ -642,6 +643,8 @@
     "ofetch": ["ofetch@1.5.1", "", { "dependencies": { "destr": "^2.0.5", "node-fetch-native": "^1.6.7", "ufo": "^1.6.1" } }, "sha512-2W4oUZlVaqAPAil6FUg/difl6YhqhUR7x2eZY4bQCko22UXg3hptq9KLQdqFClV+Wu85UX7hNtdGTngi/1BxcA=="],
 
     "ohash": ["ohash@2.0.11", "", {}, "sha512-RdR9FQrFwNBNXAr4GixM8YaRZRJ5PUWbKYbE5eOsrwAjJW0q2REGcf79oYPsLyskQCZG1PLN+S/K1V00joZAoQ=="],
+
+    "onedollarstats": ["onedollarstats@0.0.23", "", { "peerDependencies": { "expo-router": ">=3.0.0", "react": ">=18.0.0", "react-native": ">=0.73.0" }, "optionalPeers": ["expo-router", "react", "react-native"] }, "sha512-wn8hy4wDJjeC9+1lVcKyLQ69iWmyIKx55t4IehaaJhDW/P1lbAXV25CDsICgAGbtljyszNpAf9hzr09af8Waxw=="],
 
     "oniguruma-parser": ["oniguruma-parser@0.12.2", "", {}, "sha512-6HVa5oIrgMC6aA6WF6XyyqbhRPJrKR02L20+2+zpDtO5QAzGHAUGw5TKQvwi5vctNnRHkJYmjAhRVQF2EKdTQw=="],
 
