@@ -169,6 +169,7 @@ fn chrono_like_timestamp() -> String {
 mod platform {
     use super::*;
     use std::io::{BufRead, BufReader};
+    use std::path::{Path, PathBuf};
     use std::sync::{
         atomic::{AtomicBool, Ordering},
         mpsc, Arc, Mutex, OnceLock,
@@ -190,6 +191,7 @@ mod platform {
     }
 
     static CHILD: OnceLock<Mutex<Option<RecordingProcess>>> = OnceLock::new();
+    const HELPER_NAME: &str = "wrec-helper";
 
     pub fn screen_recording_permission_status() -> Result<ScreenRecordingPermissionStatus> {
         run_permission_command("--permission-status")
@@ -202,7 +204,7 @@ mod platform {
     pub fn list_targets() -> Result<Vec<CaptureTarget>> {
         use std::process::Command;
 
-        let output = Command::new(helper_path())
+        let output = Command::new(helper_path()?)
             .arg("--list")
             .output()
             .map_err(|err| RecorderError::Backend(format!("failed to list targets: {err}")))?;
@@ -254,7 +256,7 @@ mod platform {
         std::fs::create_dir_all(&settings.output_dir)
             .map_err(|err| RecorderError::Backend(err.to_string()))?;
 
-        let helper = helper_path();
+        let helper = helper_path()?;
         let child_slot = CHILD.get_or_init(|| Mutex::new(None));
         let mut active_child = child_slot.lock().unwrap();
         if active_child.is_some() {
@@ -566,7 +568,7 @@ mod platform {
     fn run_permission_command(arg: &str) -> Result<ScreenRecordingPermissionStatus> {
         use std::process::Command;
 
-        let output = Command::new(helper_path())
+        let output = Command::new(helper_path()?)
             .arg(arg)
             .output()
             .map_err(|err| {
@@ -591,8 +593,66 @@ mod platform {
         }
     }
 
-    fn helper_path() -> std::path::PathBuf {
-        std::path::PathBuf::from(env!("WREC_HELPER_PATH"))
+    fn helper_path() -> Result<PathBuf> {
+        std::env::var_os("WREC_HELPER_PATH")
+            .map(PathBuf::from)
+            .filter(|path| path.is_file())
+            .or_else(packaged_helper_path)
+            .or_else(cargo_helper_path)
+            .ok_or_else(|| {
+                RecorderError::Backend(format!(
+                    "{HELPER_NAME} was not found next to the app executable or in Cargo build output"
+                ))
+            })
+    }
+
+    fn packaged_helper_path() -> Option<PathBuf> {
+        std::env::current_exe()
+            .ok()
+            .as_deref()
+            .and_then(sibling_helper_path)
+    }
+
+    fn sibling_helper_path(exe_path: &Path) -> Option<PathBuf> {
+        exe_path
+            .parent()
+            .map(|dir| dir.join(HELPER_NAME))
+            .filter(|path| path.is_file())
+    }
+
+    fn cargo_helper_path() -> Option<PathBuf> {
+        option_env!("WREC_HELPER_PATH")
+            .map(PathBuf::from)
+            .filter(|path| path.is_file())
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn sibling_helper_path_finds_packaged_helper() {
+            let dir = std::env::temp_dir().join(format!("wrec-helper-test-{}", std::process::id()));
+            let exe = dir.join("wrec");
+            let helper = dir.join(HELPER_NAME);
+
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(&exe, "").unwrap();
+            std::fs::write(&helper, "").unwrap();
+
+            assert_eq!(sibling_helper_path(&exe), Some(helper.clone()));
+
+            let _ = std::fs::remove_file(exe);
+            let _ = std::fs::remove_file(helper);
+            let _ = std::fs::remove_dir(dir);
+        }
+
+        #[test]
+        fn sibling_helper_path_ignores_missing_helper() {
+            let exe = PathBuf::from("/tmp/wrec-missing-helper/wrec");
+
+            assert_eq!(sibling_helper_path(&exe), None);
+        }
     }
 }
 

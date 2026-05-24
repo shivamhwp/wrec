@@ -118,7 +118,7 @@ impl Default for RecorderSettings {
 fn dirs_output_dir() -> PathBuf {
     std::env::var_os("HOME")
         .map(PathBuf::from)
-        .map(|home| home.join("Movies"))
+        .map(|home| home.join("Movies").join("Wrec"))
         .unwrap_or_else(|| PathBuf::from("."))
 }
 

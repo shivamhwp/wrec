@@ -1,5 +1,5 @@
 use crate::{
-    config::{save_config, wrec_dir, AppConfig},
+    config::{save_config, store_path, wrec_dir, AppConfig},
     platform::{choose_output_dir, open_path},
     ui::{
         fps_label, push_app_notification, resolution_label, target_key, AppTab, ControlSelect,
@@ -98,7 +98,7 @@ impl WrecApp {
     pub(crate) fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let config = AppConfig::load();
         let settings = config.settings;
-        let store = match Store::open(wrec_dir().join("wrec.sqlite")) {
+        let store = match Store::open(store_path()) {
             Ok(store) => Some(store),
             Err(err) => {
                 tracing::warn!("failed to open wrec store: {err}");

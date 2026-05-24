@@ -19,6 +19,9 @@ The recording path stays inside Apple's native media stack. Rust controls app st
 ## Backend
 
 `crates/macos/build.rs` compiles `crates/macos/native/wrec_helper.swift` with `swiftc` into Cargo's build output. At runtime, the Rust backend launches that compiled helper directly.
+Packaged apps bundle the helper next to the main executable at
+`Wrec.app/Contents/MacOS/wrec-helper`; Cargo development falls back to the
+helper path emitted by the build script.
 
 The helper:
 
@@ -96,9 +99,36 @@ cargo check
 cargo test
 ```
 
+## Package
+
+The macOS direct-distribution bundle is assembled by:
+
+```bash
+./scripts/package-macos.sh
+```
+
+The script creates `dist/macos/Wrec.app`, copies the Rust GPUI app as `wrec`,
+copies the compiled Swift `wrec-helper`, signs both executables, and optionally
+creates a `.dmg`.
+
+Local packaging uses ad-hoc signing by default. Developer ID signing and
+notarization can be enabled with environment variables:
+
+```bash
+CODESIGN_IDENTITY="Developer ID Application: Example, Inc. (TEAMID)" \
+APPLE_ID="dev@example.com" \
+APPLE_TEAM_ID="TEAMID" \
+APPLE_APP_PASSWORD="app-specific-password" \
+NOTARIZE=1 \
+./scripts/package-macos.sh
+```
+
+Runtime app data lives in `~/Library/Application Support/Wrec`. Recordings
+default to `~/Movies/Wrec`.
+
 ## Current Limitations
 
 - No audio capture yet.
 - Output is `.mov`.
 - Compression is currently AVAssetWriter-managed. Moving to an explicit `VTCompressionSession` is the next step if we need lower-level bitrate, keyframe, timestamp, and encoder control.
-- The compiled helper is a development-time Cargo output. A packaged app should bundle and codesign the helper inside the `.app`, or replace it with an in-process native library.
+- The Swift helper is still out-of-process. Packaged builds bundle and codesign it inside the `.app`; replacing it with an in-process native library remains the cleaner long-term shape.

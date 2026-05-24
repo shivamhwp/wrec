@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>Wrec</string>
+	<key>CFBundleExecutable</key>
+	<string>wrec</string>
+	<key>CFBundleIdentifier</key>
+	<string>app.wrec.wrec</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Wrec</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>0.1.0</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.video</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>15.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>Wrec needs Screen Recording access to capture selected displays and windows.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Wrec needs access to save recordings when you choose a folder in Documents.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Wrec needs access to save recordings when you choose a folder in Downloads.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Wrec needs access to save recordings when you choose a folder on the Desktop.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>Wrec needs access to save recordings when you choose a removable drive.</string>
+	<key>NSSupportsAutomaticGraphicsSwitching</key>
+	<true/>
+</dict>
+</plist>
