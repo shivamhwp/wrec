@@ -101,18 +101,33 @@ cargo test
 
 ## Package
 
-The macOS direct-distribution bundle is assembled by:
+The macOS packaging script has two channels.
+
+Contributor/dev builds are the default:
 
 ```bash
 ./scripts/package-macos.sh
 ```
 
-The script creates `dist/macos/Wrec.app`, copies the Rust GPUI app as `wrec`,
-copies the compiled Swift `wrec-helper`, signs both executables, and optionally
-creates a `.dmg`.
+This uses Cargo's dev profile and creates `dist/dev/Wrec Dev.app`.
+Dev packaging also writes `dist/dev/README.md` with the local open/rebuild
+commands and generated build details.
+
+Release builds are explicit:
+
+```bash
+./scripts/package-macos.sh release
+```
+
+This uses Cargo's release profile and creates `dist/release/Wrec.app`.
+Release packaging does not create a companion README.
+
+Both channels copy the Rust GPUI app as `wrec`, copy the compiled Swift
+`wrec-helper`, and sign both executables. Dev builds use the bundle identifier
+`app.wrec.wrec.dev`; release builds use `app.wrec.wrec`.
 
 Local packaging uses ad-hoc signing by default. Developer ID signing and
-notarization can be enabled with environment variables:
+notarization can be enabled for release builds with environment variables:
 
 ```bash
 CODESIGN_IDENTITY="Developer ID Application: Example, Inc. (TEAMID)" \
@@ -120,11 +135,14 @@ APPLE_ID="dev@example.com" \
 APPLE_TEAM_ID="TEAMID" \
 APPLE_APP_PASSWORD="app-specific-password" \
 NOTARIZE=1 \
-./scripts/package-macos.sh
+./scripts/package-macos.sh release
 ```
 
-Runtime app data lives in `~/Library/Application Support/Wrec`. Recordings
-default to `~/Movies/Wrec`.
+Runtime app data lives in `~/Library/Application Support/<app name>`.
+Recordings default to `~/Movies/<app name>`.
+
+Pushing a `v*` tag whose commit is on `main` runs the release workflow and
+uploads the notarized `.dmg` to GitHub Releases.
 
 ## Current Limitations
 

@@ -104,7 +104,7 @@ fn default_wrec_dir() -> PathBuf {
         .map(|home| {
             home.join("Library")
                 .join("Application Support")
-                .join("Wrec")
+                .join(app_name())
         })
         .unwrap_or_else(|| Path::new(".").join("Wrec"))
 }
@@ -132,4 +132,16 @@ fn legacy_config_paths() -> Vec<PathBuf> {
             ]
         })
         .unwrap_or_else(|| vec![Path::new(".").join("wrec.json")])
+}
+
+#[cfg(target_os = "macos")]
+fn app_name() -> String {
+    std::env::current_exe()
+        .ok()
+        .and_then(|path| {
+            path.ancestors()
+                .filter_map(|path| path.file_name()?.to_str())
+                .find_map(|name| name.strip_suffix(".app").map(ToOwned::to_owned))
+        })
+        .unwrap_or_else(|| "Wrec".to_string())
 }

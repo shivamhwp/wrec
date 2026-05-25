@@ -77,6 +77,13 @@ xcodebuild -downloadComponent MetalToolchain
 ./scripts/package-macos.sh
 ```
 
-By default this creates an ad-hoc signed `dist/macos/Wrec.app` and `.dmg`.
-Set `CODESIGN_IDENTITY` for Developer ID signing and `NOTARIZE=1` with App
-Store Connect credentials to submit and staple the `.dmg`.
+By default this creates an ad-hoc signed `dist/dev/Wrec Dev.app` with the
+debug Cargo profile. Release packaging is explicit:
+
+```bash
+./scripts/package-macos.sh release
+```
+
+Release packaging creates `dist/release/Wrec.app` with the release Cargo
+profile and a `.dmg`. Set `CODESIGN_IDENTITY` for Developer ID signing and
+`NOTARIZE=1` with App Store Connect credentials to submit and staple the `.dmg`.

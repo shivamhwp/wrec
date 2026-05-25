@@ -1,9 +1,9 @@
 # macOS packaging
 
-`scripts/package-macos.sh` assembles the direct-distribution app bundle:
+`scripts/package-macos.sh` assembles the macOS app bundle:
 
 ```text
-Wrec.app/
+Wrec*.app/
   Contents/
     Info.plist
     MacOS/
@@ -16,17 +16,33 @@ The packaged app resolves `wrec-helper` beside the `wrec` executable at runtime.
 Cargo development still falls back to the helper path emitted by
 `crates/macos/build.rs`.
 
-For local ad-hoc packaging:
+For contributor/dev packaging:
 
 ```bash
 ./scripts/package-macos.sh
 ```
 
-For Developer ID signing:
+This creates `dist/dev/Wrec Dev.app` with the dev Cargo profile, ad-hoc
+signing, bundle id `app.wrec.wrec.dev`, app data in
+`~/Library/Application Support/Wrec Dev`, and recordings in `~/Movies/Wrec Dev`.
+It also writes `dist/dev/README.md` on every run with the local commands and
+build details for that generated app.
+
+For release packaging:
+
+```bash
+./scripts/package-macos.sh release
+```
+
+This creates `dist/release/Wrec.app` with the release Cargo profile,
+bundle id `app.wrec.wrec`, and a `.dmg` by default. Release packaging does not
+generate the companion README.
+
+For Developer ID signing a release:
 
 ```bash
 CODESIGN_IDENTITY="Developer ID Application: Example, Inc. (TEAMID)" \
-./scripts/package-macos.sh
+./scripts/package-macos.sh release
 ```
 
 For notarization, provide App Store Connect credentials and enable notarization:
@@ -37,8 +53,26 @@ APPLE_ID="dev@example.com" \
 APPLE_TEAM_ID="TEAMID" \
 APPLE_APP_PASSWORD="app-specific-password" \
 NOTARIZE=1 \
-./scripts/package-macos.sh
+./scripts/package-macos.sh release
 ```
 
 Add `packaging/macos/AppIcon.icns` when the icon is ready; the script copies it
 automatically if present.
+
+## GitHub release workflow
+
+`.github/workflows/release.yml` publishes macOS release downloads when a `v*`
+tag is pushed and the tagged commit is on `origin/main`. GitHub Actions cannot
+filter tags by source branch in the trigger itself, so the workflow does an
+explicit ancestry check before packaging.
+
+The workflow uploads the notarized `.dmg` as a GitHub Release asset. Required
+repository secrets:
+
+- `MACOS_CERTIFICATE_BASE64` - base64-encoded Developer ID Application `.p12`
+- `MACOS_CERTIFICATE_PASSWORD` - password for that `.p12`
+- `MACOS_KEYCHAIN_PASSWORD` - temporary CI keychain password
+- `MACOS_CODESIGN_IDENTITY` - Developer ID Application identity name
+- `APPLE_ID` - App Store Connect Apple ID
+- `APPLE_TEAM_ID` - Apple developer team id
+- `APPLE_APP_PASSWORD` - app-specific password for notarization

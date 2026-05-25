@@ -118,8 +118,25 @@ impl Default for RecorderSettings {
 fn dirs_output_dir() -> PathBuf {
     std::env::var_os("HOME")
         .map(PathBuf::from)
-        .map(|home| home.join("Movies").join("Wrec"))
+        .map(|home| home.join("Movies").join(recordings_dir_name()))
         .unwrap_or_else(|| PathBuf::from("."))
+}
+
+#[cfg(target_os = "macos")]
+fn recordings_dir_name() -> String {
+    std::env::current_exe()
+        .ok()
+        .and_then(|path| {
+            path.ancestors()
+                .filter_map(|path| path.file_name()?.to_str())
+                .find_map(|name| name.strip_suffix(".app").map(ToOwned::to_owned))
+        })
+        .unwrap_or_else(|| "Wrec".to_string())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn recordings_dir_name() -> String {
+    "Wrec".to_string()
 }
 
 #[derive(Debug, Clone)]
