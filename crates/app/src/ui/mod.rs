@@ -16,7 +16,7 @@ use gpui_component::{
     WindowExt as _,
 };
 use wrec_core::{
-    CaptureSourceKind, CaptureTarget, FrameRate, RecorderMetrics, Resolution,
+    CaptureSourceKind, CaptureTarget, FrameRate, OutputFormat, RecorderMetrics, Resolution,
     ScreenRecordingPermissionStatus,
 };
 
@@ -29,6 +29,7 @@ pub(crate) const WINDOW_HEIGHT: f32 = 540.;
 pub(crate) const WINDOW_MIN_WIDTH: f32 = 390.;
 pub(crate) const WINDOW_MIN_HEIGHT: f32 = 500.;
 pub(crate) const SOURCE_OPTIONS: [&str; 2] = ["Display", "Window"];
+pub(crate) const FORMAT_OPTIONS: [&str; 2] = ["MOV", "GIF"];
 pub(crate) const CODEC_OPTIONS: [&str; 2] = ["HEVC", "H.264"];
 pub(crate) const QUALITY_OPTIONS: [&str; 3] = ["Balanced", "Efficient", "High"];
 pub(crate) const RESOLUTION_OPTIONS: [&str; 5] = ["Original", "4K", "2K", "1080p", "720p"];
@@ -157,6 +158,7 @@ impl WrecApp {
         muted_foreground: Hsla,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let is_gif = self.settings.output_format == OutputFormat::Gif;
         let source_row = div()
             .flex()
             .items_center()
@@ -182,13 +184,21 @@ impl WrecApp {
                 .menu_max_h(rems(14.))
                 .disabled(controls_disabled),
         );
-        let format_row = labeled_select_row(
+        let output_format_row = labeled_select_row(
             "Format",
             muted_foreground,
-            Select::new(&self.codec_select)
+            Select::new(&self.output_format_select)
                 .h(px(CONTROL_HEIGHT))
                 .placeholder("Format")
                 .disabled(controls_disabled),
+        );
+        let format_row = labeled_select_row(
+            "Codec",
+            muted_foreground,
+            Select::new(&self.codec_select)
+                .h(px(CONTROL_HEIGHT))
+                .placeholder("Codec")
+                .disabled(controls_disabled || is_gif),
         );
         let quality_row = labeled_select_row(
             "Quality",
@@ -227,9 +237,13 @@ impl WrecApp {
         let audio_row = label_switch_row(
             "System Audio",
             Switch::new("system-audio-switch")
-                .checked(self.settings.include_system_audio)
-                .tooltip("Capture system audio")
-                .disabled(controls_disabled)
+                .checked(self.settings.include_system_audio && !is_gif)
+                .tooltip(if is_gif {
+                    "GIF recordings do not include audio"
+                } else {
+                    "Capture system audio"
+                })
+                .disabled(controls_disabled || is_gif)
                 .on_click(cx.listener(|this, checked, _, cx| {
                     this.set_include_system_audio(*checked, cx);
                 })),
@@ -253,6 +267,7 @@ impl WrecApp {
                             .flex()
                             .flex_col()
                             .gap_2()
+                            .child(output_format_row)
                             .child(format_row)
                             .child(resolution_row)
                             .child(quality_row)
@@ -742,6 +757,13 @@ pub(crate) fn fps_label(fps: FrameRate) -> &'static str {
     match fps {
         FrameRate::Fps60 => "60 FPS",
         FrameRate::Fps30 => "30 FPS",
+    }
+}
+
+pub(crate) fn output_format_label(format: OutputFormat) -> &'static str {
+    match format {
+        OutputFormat::Mov => "MOV",
+        OutputFormat::Gif => "GIF",
     }
 }
 

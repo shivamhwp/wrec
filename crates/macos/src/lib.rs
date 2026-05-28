@@ -152,7 +152,11 @@ fn next_session_id() -> u64 {
 }
 
 fn recording_output_path(settings: &RecorderSettings) -> std::path::PathBuf {
-    let filename = format!("wrec-{}.mov", chrono_like_timestamp());
+    let filename = format!(
+        "wrec-{}.{}",
+        chrono_like_timestamp(),
+        settings.output_format.file_extension()
+    );
     settings.output_dir.join(filename)
 }
 
@@ -266,6 +270,8 @@ mod platform {
         // Temporary v0 native bridge: run a compiled Swift helper that uses
         // ScreenCaptureKit + AVAssetWriter. The frame path stays inside
         // Apple's native stack; Rust never receives/copies pixels.
+        let include_system_audio =
+            settings.include_system_audio && settings.output_format.supports_audio();
         let mut child = Command::new(helper)
             .arg(&output_path)
             .arg(settings.fps.as_u32().to_string())
@@ -282,11 +288,12 @@ mod platform {
             .arg(settings.codec.as_arg())
             .arg(settings.quality.as_arg())
             .arg(settings.resolution.as_arg())
-            .arg(if settings.include_system_audio {
+            .arg(if include_system_audio {
                 "true"
             } else {
                 "false"
             })
+            .arg(settings.output_format.as_arg())
             .stdin(Stdio::piped())
             .stdout(Stdio::inherit())
             .stderr(Stdio::piped())

@@ -3,11 +3,21 @@ import AppKit
 import ScreenCaptureKit
 import AVFoundation
 import AudioToolbox
+import CoreImage
 import CoreGraphics
 import CoreMedia
 import CoreVideo
+import ImageIO
+import UniformTypeIdentifiers
 
-final class SampleRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
+protocol CaptureRecorder: NSObjectProtocol, SCStreamOutput, SCStreamDelegate {
+    var queue: DispatchQueue { get }
+
+    func waitUntilStarted(timeout: DispatchTimeInterval) -> Bool
+    func finish(timeout: DispatchTimeInterval) -> Bool
+}
+
+final class SampleRecorder: NSObject, CaptureRecorder {
     let queue = DispatchQueue(label: "wrec.capture.writer", qos: .userInitiated)
 
     private let writer: AVAssetWriter
@@ -207,6 +217,152 @@ final class SampleRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     }
 }
 
+final class GifRecorder: NSObject, CaptureRecorder {
+    let queue = DispatchQueue(label: "wrec.capture.gif-writer", qos: .userInitiated)
+
+    private let destination: CGImageDestination
+    private let frameDelay: Double
+    private let context = CIContext()
+    private let started = DispatchSemaphore(value: 0)
+    private let finished = DispatchSemaphore(value: 0)
+    private var didStart = false
+    private var didFinish = false
+    private var frameCount: Int64 = 0
+    private var droppedFrameCount: Int64 = 0
+    private var firstPTS: CMTime?
+    private var pendingImage: CGImage?
+    private var pendingPTS: CMTime?
+    private var lastMetricTime = DispatchTime.now()
+
+    init(outputURL: URL, fps: Int32) throws {
+        guard let destination = CGImageDestinationCreateWithURL(outputURL as CFURL, UTType.gif.identifier as CFString, 0, nil) else {
+            throw HelperError.writerInputRejected
+        }
+
+        self.destination = destination
+        frameDelay = max(1.0 / Double(max(fps, 1)), 0.02)
+        let gifProperties = [
+            kCGImagePropertyGIFDictionary as String: [
+                kCGImagePropertyGIFLoopCount as String: 0,
+            ],
+        ]
+        CGImageDestinationSetProperties(destination, gifProperties as CFDictionary)
+    }
+
+    func stream(_ stream: SCStream, didStopWithError error: Error) {
+        FileHandle.standardError.write(Data("wrec-helper: stream stopped with error: \(error)\n".utf8))
+    }
+
+    func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of outputType: SCStreamOutputType) {
+        guard outputType == .screen else {
+            return
+        }
+        appendFrame(sampleBuffer)
+    }
+
+    private func appendFrame(_ sampleBuffer: CMSampleBuffer) {
+        guard sampleBuffer.isValid else {
+            droppedFrameCount += 1
+            return
+        }
+        guard frameStatus(sampleBuffer) == .complete else {
+            droppedFrameCount += 1
+            return
+        }
+        let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        guard pts.isValid else {
+            droppedFrameCount += 1
+            return
+        }
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+            droppedFrameCount += 1
+            return
+        }
+
+        let image = CIImage(cvPixelBuffer: pixelBuffer)
+        guard let cgImage = context.createCGImage(image, from: image.extent) else {
+            droppedFrameCount += 1
+            FileHandle.standardError.write(Data("wrec-helper: gif frame conversion failed\n".utf8))
+            return
+        }
+
+        if !didStart {
+            firstPTS = pts
+            didStart = true
+            FileHandle.standardError.write(Data("wrec-helper: recording started\n".utf8))
+            started.signal()
+        }
+
+        if let pendingImage, let pendingPTS {
+            addFrame(pendingImage, delay: frameDelay(from: pendingPTS, to: pts))
+        }
+        pendingImage = cgImage
+        pendingPTS = pts
+        frameCount += 1
+        emitMetricsIfNeeded(currentPTS: pts)
+    }
+
+    func waitUntilStarted(timeout: DispatchTimeInterval) -> Bool {
+        started.wait(timeout: .now() + timeout) == .success
+    }
+
+    func finish(timeout: DispatchTimeInterval) -> Bool {
+        queue.async {
+            guard !self.didFinish else {
+                self.finished.signal()
+                return
+            }
+
+            self.didFinish = true
+            if let pendingImage = self.pendingImage {
+                self.addFrame(pendingImage, delay: self.frameDelay)
+                self.pendingImage = nil
+                self.pendingPTS = nil
+            }
+
+            if CGImageDestinationFinalize(self.destination) {
+                FileHandle.standardError.write(Data("wrec-helper: recording finished frames=\(self.frameCount) dropped=\(self.droppedFrameCount) audio=0 audio_dropped=0\n".utf8))
+            } else {
+                FileHandle.standardError.write(Data("wrec-helper: recording failed: gif finalization failed\n".utf8))
+            }
+            self.finished.signal()
+        }
+
+        return finished.wait(timeout: .now() + timeout) == .success
+    }
+
+    private func addFrame(_ image: CGImage, delay: Double) {
+        let properties = [
+            kCGImagePropertyGIFDictionary as String: [
+                kCGImagePropertyGIFDelayTime as String: delay,
+            ],
+        ]
+        CGImageDestinationAddImage(destination, image, properties as CFDictionary)
+    }
+
+    private func frameDelay(from previousPTS: CMTime, to currentPTS: CMTime) -> Double {
+        let elapsed = CMTimeSubtract(currentPTS, previousPTS).seconds
+        guard elapsed.isFinite, elapsed > 0 else {
+            return frameDelay
+        }
+        return max(elapsed, 0.02)
+    }
+
+    private func emitMetricsIfNeeded(currentPTS: CMTime) {
+        let now = DispatchTime.now()
+        guard now.uptimeNanoseconds - lastMetricTime.uptimeNanoseconds >= 1_000_000_000 else {
+            return
+        }
+        lastMetricTime = now
+
+        let elapsed = firstPTS.map { CMTimeSubtract(currentPTS, $0).seconds } ?? 0
+        let elapsedSeconds = max(0, Int64(elapsed.rounded()))
+        FileHandle.standardError.write(
+            Data("wrec-helper: metrics elapsed=\(elapsedSeconds) frames=\(frameCount) dropped=\(droppedFrameCount)\n".utf8)
+        )
+    }
+}
+
 enum HelperError: Error {
     case writerInputRejected
 }
@@ -235,7 +391,7 @@ func run() async {
     }
 
     guard args.count >= 9 else {
-        fputs("usage: wrec_helper <output-path> <fps> <include-cursor> <display|window> <id> <hevc|h264> <efficient|balanced|high> <native|720p|1080p|2k|4k> [include-system-audio]\n", stderr)
+        fputs("usage: wrec_helper <output-path> <fps> <include-cursor> <display|window> <id> <hevc|h264> <efficient|balanced|high> <native|720p|1080p|2k|4k> [include-system-audio] [mov|gif]\n", stderr)
         Foundation.exit(64)
     }
 
@@ -248,6 +404,8 @@ func run() async {
     let quality = args[7]
     let resolution = args[8]
     let includeSystemAudio = args.count >= 10 ? args[9] == "true" : false
+    let outputFormat = args.count >= 11 ? args[10] : "mov"
+    let recordsSystemAudio = includeSystemAudio && outputFormat == "mov"
 
     guard ensureScreenCapturePermission() else {
         fputs("wrec-helper: permission denied: Screen Recording access is required\n", stderr)
@@ -299,49 +457,68 @@ func run() async {
         streamConfig.minimumFrameInterval = CMTime(value: 1, timescale: fps)
         streamConfig.queueDepth = quality == "high" ? 4 : 2
         streamConfig.showsCursor = includeCursor
-        streamConfig.capturesAudio = includeSystemAudio
+        streamConfig.capturesAudio = recordsSystemAudio
         streamConfig.excludesCurrentProcessAudio = true
         streamConfig.sampleRate = 48_000
         streamConfig.channelCount = 2
-        streamConfig.pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        streamConfig.pixelFormat = outputFormat == "gif" ? kCVPixelFormatType_32BGRA : kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
 
         FileHandle.standardError.write(
             Data(
-                "wrec-helper: target=\(targetKind) id=\(targetId) native=\(nativeSize.width)x\(nativeSize.height) size=\(captureWidth)x\(captureHeight) fps=\(fps) cursor=\(includeCursor) system_audio=\(includeSystemAudio) codec=\(codec) quality=\(quality) resolution=\(resolution) pipeline=scstream-avassetwriter\n"
+                "wrec-helper: target=\(targetKind) id=\(targetId) native=\(nativeSize.width)x\(nativeSize.height) size=\(captureWidth)x\(captureHeight) fps=\(fps) cursor=\(includeCursor) system_audio=\(recordsSystemAudio) format=\(outputFormat) codec=\(codec) quality=\(quality) resolution=\(resolution) pipeline=scstream-native-writer\n"
                     .utf8
             )
         )
 
         let outputURL = URL(fileURLWithPath: outputPath)
-        let recorder = try SampleRecorder(
-            outputURL: outputURL,
-            width: captureWidth,
-            height: captureHeight,
-            fps: fps,
-            codec: codec,
-            quality: quality,
-            includeSystemAudio: includeSystemAudio
+        let recorder: any CaptureRecorder
+        if outputFormat == "gif" {
+            recorder = try GifRecorder(outputURL: outputURL, fps: fps)
+        } else {
+            recorder = try SampleRecorder(
+                outputURL: outputURL,
+                width: captureWidth,
+                height: captureHeight,
+                fps: fps,
+                codec: codec,
+                quality: quality,
+                includeSystemAudio: recordsSystemAudio
+            )
+        }
+        try await recordCapture(
+            filter: filter,
+            streamConfig: streamConfig,
+            recorder: recorder,
+            includeSystemAudio: recordsSystemAudio
         )
-        let stream = SCStream(filter: filter, configuration: streamConfig, delegate: recorder)
-        try stream.addStreamOutput(recorder, type: .screen, sampleHandlerQueue: recorder.queue)
-        if includeSystemAudio {
-            try stream.addStreamOutput(recorder, type: .audio, sampleHandlerQueue: recorder.queue)
-        }
-
-        try await stream.startCapture()
-        _ = recorder.waitUntilStarted(timeout: .seconds(3))
-
-        // Parent process writes a line to stdin to stop. EOF also stops.
-        await waitForStopSignal()
-
-        try await stream.stopCapture()
-        guard recorder.finish(timeout: .seconds(15)) else {
-            fputs("wrec-helper: timed out waiting for writer finalization\n", stderr)
-            Foundation.exit(6)
-        }
     } catch {
         fputs("wrec-helper: error: \(error)\n", stderr)
         Foundation.exit(1)
+    }
+}
+
+func recordCapture(
+    filter: SCContentFilter,
+    streamConfig: SCStreamConfiguration,
+    recorder: any CaptureRecorder,
+    includeSystemAudio: Bool
+) async throws {
+    let stream = SCStream(filter: filter, configuration: streamConfig, delegate: recorder)
+    try stream.addStreamOutput(recorder, type: .screen, sampleHandlerQueue: recorder.queue)
+    if includeSystemAudio {
+        try stream.addStreamOutput(recorder, type: .audio, sampleHandlerQueue: recorder.queue)
+    }
+
+    try await stream.startCapture()
+    _ = recorder.waitUntilStarted(timeout: .seconds(3))
+
+    // Parent process writes a line to stdin to stop. EOF also stops.
+    await waitForStopSignal()
+
+    try await stream.stopCapture()
+    guard recorder.finish(timeout: .seconds(15)) else {
+        fputs("wrec-helper: timed out waiting for writer finalization\n", stderr)
+        Foundation.exit(6)
     }
 }
 

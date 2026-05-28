@@ -13,6 +13,13 @@ pub enum Codec {
     H264,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum OutputFormat {
+    #[default]
+    Mov,
+    Gif,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FrameRate {
     Fps30,
@@ -34,6 +41,26 @@ impl Codec {
             Self::Hevc => "hevc",
             Self::H264 => "h264",
         }
+    }
+}
+
+impl OutputFormat {
+    pub const fn as_arg(self) -> &'static str {
+        match self {
+            Self::Mov => "mov",
+            Self::Gif => "gif",
+        }
+    }
+
+    pub const fn file_extension(self) -> &'static str {
+        match self {
+            Self::Mov => "mov",
+            Self::Gif => "gif",
+        }
+    }
+
+    pub const fn supports_audio(self) -> bool {
+        matches!(self, Self::Mov)
     }
 }
 
@@ -92,6 +119,8 @@ impl ScreenRecordingPermissionStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecorderSettings {
     pub source: CaptureSourceKind,
+    #[serde(default)]
+    pub output_format: OutputFormat,
     pub fps: FrameRate,
     pub codec: Codec,
     pub quality: Quality,
@@ -107,6 +136,7 @@ impl Default for RecorderSettings {
     fn default() -> Self {
         Self {
             source: CaptureSourceKind::Display,
+            output_format: OutputFormat::Mov,
             fps: FrameRate::Fps30,
             codec: Codec::Hevc,
             quality: Quality::Balanced,
@@ -201,6 +231,16 @@ mod tests {
     }
 
     #[test]
+    fn output_format_args_match_helper_contract() {
+        assert_eq!(OutputFormat::Mov.as_arg(), "mov");
+        assert_eq!(OutputFormat::Gif.as_arg(), "gif");
+        assert_eq!(OutputFormat::Mov.file_extension(), "mov");
+        assert_eq!(OutputFormat::Gif.file_extension(), "gif");
+        assert!(OutputFormat::Mov.supports_audio());
+        assert!(!OutputFormat::Gif.supports_audio());
+    }
+
+    #[test]
     fn quality_args_match_helper_contract() {
         assert_eq!(Quality::Efficient.as_arg(), "efficient");
         assert_eq!(Quality::Balanced.as_arg(), "balanced");
@@ -221,6 +261,7 @@ mod tests {
         let settings = RecorderSettings::default();
 
         assert_eq!(settings.source, CaptureSourceKind::Display);
+        assert_eq!(settings.output_format, OutputFormat::Mov);
         assert_eq!(settings.fps, FrameRate::Fps30);
         assert_eq!(settings.codec, Codec::Hevc);
         assert_eq!(settings.quality, Quality::Balanced);

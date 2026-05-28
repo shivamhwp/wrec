@@ -2,9 +2,9 @@ use crate::{
     config::{save_config, store_path, wrec_dir, AppConfig},
     platform::{choose_output_dir, open_path},
     ui::{
-        fps_label, push_app_notification, resolution_label, target_key, AppTab, ControlSelect,
-        TargetOption, TargetSelect, CODEC_OPTIONS, FPS_OPTIONS, QUALITY_OPTIONS,
-        RESOLUTION_OPTIONS, SOURCE_OPTIONS,
+        fps_label, output_format_label, push_app_notification, resolution_label, target_key,
+        AppTab, ControlSelect, TargetOption, TargetSelect, CODEC_OPTIONS, FORMAT_OPTIONS,
+        FPS_OPTIONS, QUALITY_OPTIONS, RESOLUTION_OPTIONS, SOURCE_OPTIONS,
     },
 };
 use gpui::*;
@@ -21,8 +21,9 @@ use std::{
     time::Duration,
 };
 use wrec_core::{
-    CaptureSourceKind, CaptureTarget, Codec, FrameRate, Quality, RecorderEngine, RecorderMetrics,
-    RecorderSettings, RecordingSession, Resolution, ScreenRecordingPermissionStatus,
+    CaptureSourceKind, CaptureTarget, Codec, FrameRate, OutputFormat, Quality, RecorderEngine,
+    RecorderMetrics, RecorderSettings, RecordingSession, Resolution,
+    ScreenRecordingPermissionStatus,
 };
 use wrec_macos::{MacosRecorder, RecorderEvent};
 use wrec_store::{
@@ -86,6 +87,7 @@ pub(crate) struct WrecApp {
     pub(crate) logs: VecDeque<String>,
     pub(crate) source_select: Entity<ControlSelect>,
     pub(crate) target_select: Entity<TargetSelect>,
+    pub(crate) output_format_select: Entity<ControlSelect>,
     pub(crate) codec_select: Entity<ControlSelect>,
     pub(crate) quality_select: Entity<ControlSelect>,
     pub(crate) resolution_select: Entity<ControlSelect>,
@@ -145,6 +147,14 @@ impl WrecApp {
         });
         let target_select =
             cx.new(|cx| SelectState::new(Vec::<TargetOption>::new(), None, window, cx));
+        let output_format_select = cx.new(|cx| {
+            SelectState::new(
+                FORMAT_OPTIONS.to_vec(),
+                Some(IndexPath::default()),
+                window,
+                cx,
+            )
+        });
         let codec_select = cx.new(|cx| {
             SelectState::new(
                 CODEC_OPTIONS.to_vec(),
@@ -182,6 +192,8 @@ impl WrecApp {
             .detach();
         cx.subscribe_in(&target_select, window, Self::on_target_select)
             .detach();
+        cx.subscribe_in(&output_format_select, window, Self::on_output_format_select)
+            .detach();
         cx.subscribe_in(&codec_select, window, Self::on_codec_select)
             .detach();
         cx.subscribe_in(&quality_select, window, Self::on_quality_select)
@@ -198,6 +210,13 @@ impl WrecApp {
         });
         source_select.update(cx, |select, cx| {
             select.set_selected_value(&source_label(settings.source).into(), window, cx);
+        });
+        output_format_select.update(cx, |select, cx| {
+            select.set_selected_value(
+                &output_format_label(settings.output_format).into(),
+                window,
+                cx,
+            );
         });
         codec_select.update(cx, |select, cx| {
             select.set_selected_value(&codec_label(settings.codec).into(), window, cx);
@@ -229,6 +248,7 @@ impl WrecApp {
             logs: VecDeque::new(),
             source_select,
             target_select,
+            output_format_select,
             codec_select,
             quality_select,
             resolution_select,
@@ -275,6 +295,25 @@ impl WrecApp {
         if let Some(target) = self.selected_target() {
             self.push_log(format!("target: {}", target.name));
         }
+        self.save_config();
+        cx.notify();
+    }
+
+    fn on_output_format_select(
+        &mut self,
+        _: &Entity<ControlSelect>,
+        event: &SelectEvent<Vec<&'static str>>,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let SelectEvent::Confirm(Some(value)) = event else {
+            return;
+        };
+        self.settings.output_format = match *value {
+            "GIF" => OutputFormat::Gif,
+            _ => OutputFormat::Mov,
+        };
+        self.push_log(format!("format: {value}"));
         self.save_config();
         cx.notify();
     }
@@ -1042,7 +1081,7 @@ impl WrecApp {
                 target_kind: capture_kind_arg(target.kind).to_string(),
                 target_id: target.id,
                 target_name: target.name.clone(),
-                codec: settings.codec.as_arg().to_string(),
+                codec: recording_codec(settings).to_string(),
                 quality: settings.quality.as_arg().to_string(),
                 resolution: settings.resolution.as_arg().to_string(),
                 fps: settings.fps.as_u32(),
@@ -1125,6 +1164,13 @@ fn codec_label(codec: Codec) -> &'static str {
     match codec {
         Codec::H264 => "H.264",
         Codec::Hevc => "HEVC",
+    }
+}
+
+fn recording_codec(settings: &RecorderSettings) -> &'static str {
+    match settings.output_format {
+        OutputFormat::Gif => "gif",
+        OutputFormat::Mov => settings.codec.as_arg(),
     }
 }
 
