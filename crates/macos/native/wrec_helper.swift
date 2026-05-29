@@ -330,13 +330,7 @@ final class SampleRecorder: NSObject, CaptureRecorder {
 }
 
 private struct FrameFingerprint {
-    let samples: [UInt8]
-
-    func distance(to other: FrameFingerprint) -> Int {
-        zip(samples, other.samples).reduce(0) { total, pair in
-            total + abs(Int(pair.0) - Int(pair.1))
-        }
-    }
+    let hash: UInt64
 }
 
 final class GifRecorder: NSObject, CaptureRecorder {
@@ -344,6 +338,7 @@ final class GifRecorder: NSObject, CaptureRecorder {
 
     private let destination: CGImageDestination
     private let frameDelay: Double
+    private let duplicateHeartbeatSeconds = 1.0
     private let finished = DispatchSemaphore(value: 0)
     private var didStart = false
     private var didFinish = false
@@ -421,7 +416,7 @@ final class GifRecorder: NSObject, CaptureRecorder {
             droppedFrameCount += 1
             return
         }
-        if let lastFingerprint, fingerprint.distance(to: lastFingerprint) <= 96 {
+        if let lastFingerprint, fingerprint.hash == lastFingerprint.hash, !shouldKeepDuplicate(at: adjustedPTS) {
             skippedFrameCount += 1
             emitMetricsIfNeeded(currentPTS: adjustedPTS)
             return
@@ -525,6 +520,14 @@ final class GifRecorder: NSObject, CaptureRecorder {
         CGImageDestinationAddImage(destination, image, properties as CFDictionary)
     }
 
+    private func shouldKeepDuplicate(at pts: CMTime) -> Bool {
+        guard let pendingPTS else {
+            return false
+        }
+        let elapsed = CMTimeSubtract(pts, pendingPTS).seconds
+        return elapsed.isFinite && elapsed >= duplicateHeartbeatSeconds
+    }
+
     private func createCGImage(from pixelBuffer: CVPixelBuffer) -> CGImage? {
         var image: CGImage?
         let status = VTCreateCGImageFromCVPixelBuffer(pixelBuffer, options: nil, imageOut: &image)
@@ -553,25 +556,23 @@ final class GifRecorder: NSObject, CaptureRecorder {
             return nil
         }
 
-        let gridWidth = 8
-        let gridHeight = 8
         let bytes = baseAddress.assumingMemoryBound(to: UInt8.self)
-        var samples = [UInt8]()
-        samples.reserveCapacity(gridWidth * gridHeight)
+        var hash: UInt64 = 14_695_981_039_346_656_037
+        let sampleStride = 4
 
-        for gridY in 0..<gridHeight {
-            let y = min(height - 1, (gridY * height + height / 2) / gridHeight)
-            for gridX in 0..<gridWidth {
-                let x = min(width - 1, (gridX * width + width / 2) / gridWidth)
+        for y in stride(from: 0, to: height, by: sampleStride) {
+            for x in stride(from: 0, to: width, by: sampleStride) {
                 let offset = y * bytesPerRow + x * 4
                 let blue = Int(bytes[offset])
                 let green = Int(bytes[offset + 1])
                 let red = Int(bytes[offset + 2])
-                samples.append(UInt8((red * 54 + green * 183 + blue * 19) >> 8))
+                let luma = UInt64((red * 54 + green * 183 + blue * 19) >> 8)
+                hash ^= luma
+                hash = hash &* 1_099_511_628_211
             }
         }
 
-        return FrameFingerprint(samples: samples)
+        return FrameFingerprint(hash: hash)
     }
 
     private func frameDelay(from previousPTS: CMTime, to currentPTS: CMTime) -> Double {
@@ -732,7 +733,8 @@ func run() async {
             filter: filter,
             streamConfig: streamConfig,
             recorder: recorder,
-            includeSystemAudio: recordsSystemAudio
+            includeSystemAudio: recordsSystemAudio,
+            maxDurationSeconds: outputFormat == "gif" ? 15 : nil
         )
     } catch {
         fputs("wrec-helper: error: \(error)\n", stderr)
@@ -744,7 +746,8 @@ func recordCapture(
     filter: SCContentFilter,
     streamConfig: SCStreamConfiguration,
     recorder: any CaptureRecorder,
-    includeSystemAudio: Bool
+    includeSystemAudio: Bool,
+    maxDurationSeconds: Int? = nil
 ) async throws {
     let stream = SCStream(filter: filter, configuration: streamConfig, delegate: recorder)
     try stream.addStreamOutput(recorder, type: .screen, sampleHandlerQueue: recorder.queue)
@@ -755,7 +758,7 @@ func recordCapture(
     try await stream.startCapture()
 
     // Parent process writes commands to stdin. EOF also stops.
-    await waitForStopSignal(recorder: recorder)
+    await waitForStopSignal(recorder: recorder, maxDurationSeconds: maxDurationSeconds)
 
     try await stream.stopCapture()
     guard recorder.finish(timeout: .seconds(15)) else {
@@ -834,7 +837,7 @@ func initializeGraphicsClient() {
     NSApplication.shared.setActivationPolicy(.prohibited)
 }
 
-func waitForStopSignal(recorder: any CaptureRecorder) async {
+func waitForStopSignal(recorder: any CaptureRecorder, maxDurationSeconds: Int? = nil) async {
     let stopped = DispatchSemaphore(value: 0)
     DispatchQueue.global(qos: .userInitiated).async {
         while let line = readLine() {
@@ -854,7 +857,13 @@ func waitForStopSignal(recorder: any CaptureRecorder) async {
     }
 
     await Task.detached(priority: .userInitiated) {
-        stopped.wait()
+        if let maxDurationSeconds {
+            if stopped.wait(timeout: .now() + .seconds(maxDurationSeconds)) == .timedOut {
+                FileHandle.standardError.write(Data("wrec-helper: max duration reached seconds=\(maxDurationSeconds)\n".utf8))
+            }
+        } else {
+            stopped.wait()
+        }
     }.value
 }
 
