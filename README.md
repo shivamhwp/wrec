@@ -118,13 +118,19 @@ Recording-affecting controls are disabled while recording so the UI cannot diver
 cargo run -p wrec-app
 ```
 
-The terminal client uses the same saved settings as the app, with flags acting
-as per-run overrides:
+The terminal client is intended to be automation-first. It uses the same saved
+settings as the app, with flags acting as per-run overrides:
 
 ```bash
-cargo run -p wrec-cli -- list
-cargo run -p wrec-cli -- record
+cargo run -p wrec-cli -- targets --json
+cargo run -p wrec-cli -- record start --target display:1 --duration 30s
+cargo run -p wrec-cli -- record start --app Safari --duration 5m --json
 ```
+
+`list` remains an alias for `targets`, and `record` remains an alias for
+`record start`. Foreground recordings can still be controlled from stdin with
+`pause`, `resume`, and `stop`; recordings started with `--duration` keep running
+even if stdin is closed.
 
 If GPUI shader compilation fails, select full Xcode:
 
