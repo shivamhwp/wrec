@@ -26,6 +26,13 @@ impl FrameRate {
             Self::Fps60 => 60,
         }
     }
+
+    pub const fn capped_at(self, cap: Self) -> Self {
+        match (self, cap) {
+            (Self::Fps60, Self::Fps30) => Self::Fps30,
+            _ => self,
+        }
+    }
 }
 
 impl Codec {
@@ -52,6 +59,21 @@ impl Quality {
             Self::High => "high",
         }
     }
+
+    pub const fn max_resolution(self) -> Option<Resolution> {
+        match self {
+            Self::Efficient => Some(Resolution::R720p),
+            Self::Balanced => Some(Resolution::R1080p),
+            Self::High => None,
+        }
+    }
+
+    pub const fn max_fps(self) -> FrameRate {
+        match self {
+            Self::High => FrameRate::Fps60,
+            Self::Efficient | Self::Balanced => FrameRate::Fps30,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -72,6 +94,25 @@ impl Resolution {
             Self::R1080p => "1080p",
             Self::R2k => "2k",
             Self::R4k => "4k",
+        }
+    }
+
+    pub const fn capped_at(self, cap: Self) -> Self {
+        match cap {
+            Self::Native => self,
+            Self::R720p => Self::R720p,
+            Self::R1080p => match self {
+                Self::Native | Self::R4k | Self::R2k => Self::R1080p,
+                _ => self,
+            },
+            Self::R2k => match self {
+                Self::Native | Self::R4k => Self::R2k,
+                _ => self,
+            },
+            Self::R4k => match self {
+                Self::Native => Self::R4k,
+                _ => self,
+            },
         }
     }
 }
@@ -112,12 +153,22 @@ impl Default for RecorderSettings {
             fps: FrameRate::Fps30,
             codec: Codec::Hevc,
             quality: Quality::Balanced,
-            resolution: Resolution::Native,
+            resolution: Resolution::R1080p,
             output_dir: dirs_output_dir(),
             include_cursor: true,
             include_system_audio: true,
             hide_wrec: true,
         }
+    }
+}
+
+impl RecorderSettings {
+    pub fn with_preset_limits(mut self) -> Self {
+        if let Some(max_resolution) = self.quality.max_resolution() {
+            self.resolution = self.resolution.capped_at(max_resolution);
+        }
+        self.fps = self.fps.capped_at(self.quality.max_fps());
+        self
     }
 }
 
@@ -260,9 +311,47 @@ mod tests {
         assert_eq!(settings.fps, FrameRate::Fps30);
         assert_eq!(settings.codec, Codec::Hevc);
         assert_eq!(settings.quality, Quality::Balanced);
-        assert_eq!(settings.resolution, Resolution::Native);
+        assert_eq!(settings.resolution, Resolution::R1080p);
         assert!(settings.include_cursor);
         assert!(settings.include_system_audio);
         assert!(settings.hide_wrec);
+    }
+
+    #[test]
+    fn preset_limits_cap_expensive_settings() {
+        assert_eq!(Quality::Efficient.max_resolution(), Some(Resolution::R720p));
+        assert_eq!(Quality::Balanced.max_resolution(), Some(Resolution::R1080p));
+        assert_eq!(Quality::High.max_resolution(), None);
+
+        assert_eq!(
+            FrameRate::Fps60.capped_at(FrameRate::Fps30),
+            FrameRate::Fps30
+        );
+        assert_eq!(
+            Resolution::Native.capped_at(Resolution::R1080p),
+            Resolution::R1080p
+        );
+        assert_eq!(
+            Resolution::R4k.capped_at(Resolution::R720p),
+            Resolution::R720p
+        );
+        assert_eq!(
+            Resolution::R720p.capped_at(Resolution::R1080p),
+            Resolution::R720p
+        );
+    }
+
+    #[test]
+    fn recorder_settings_enforce_preset_limits() {
+        let settings = RecorderSettings {
+            quality: Quality::Efficient,
+            fps: FrameRate::Fps60,
+            resolution: Resolution::Native,
+            ..RecorderSettings::default()
+        }
+        .with_preset_limits();
+
+        assert_eq!(settings.fps, FrameRate::Fps30);
+        assert_eq!(settings.resolution, Resolution::R720p);
     }
 }

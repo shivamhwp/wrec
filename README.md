@@ -81,7 +81,10 @@ Current controls:
 - Codec: HEVC or H.264.
 - Cursor capture toggle.
 - System audio capture toggle.
-- Quality: efficient, balanced, high.
+- Preset: efficient, balanced, high. Efficient caps capture at 720p/30 FPS,
+  balanced caps capture at 1080p/30 FPS, and high allows native/60 FPS.
+- Resolution defaults to 1080p, FPS defaults to 30, and preset defaults to
+  balanced.
 - Output folder picker.
 - Recording status and basic metrics.
 
@@ -205,5 +208,9 @@ uploads the notarized `.dmg` to GitHub Releases.
 
 - Microphone capture is not implemented.
 - Output is `.mov`.
-- Compression is AVAssetWriter-managed, without explicit low-level bitrate, keyframe, or timestamp control.
+- Compression stays AVAssetWriter-managed so disk writing, audio muxing, and
+  media finalization remain owned by AVFoundation.
+- Pause/resume currently retimes samples after a pause. The next efficiency
+  pass is to verify AVAssetWriter session boundaries for pause gaps so we can
+  avoid copying every later sample buffer.
 - The Swift helper is still out-of-process. Packaged builds bundle and codesign it inside the `.app`; replacing it with an in-process native library remains the cleaner long-term shape.

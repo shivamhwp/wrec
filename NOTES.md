@@ -31,6 +31,16 @@ system audio setting, codec, and quality mode from the GPUI app. The helper
 keeps ScreenCaptureKit queue depth low and drops samples when the writer is
 backpressured rather than allowing memory to grow.
 
+The next backend improvement is to keep AVAssetWriter, but reduce avoidable work
+around it:
+
+- Enforce preset limits so efficient/balanced recordings cannot accidentally
+  run at native 5K or 60 FPS.
+- Benchmark CPU, peak RSS, bitrate, and output size across the preset matrix.
+- Investigate AVAssetWriter session boundaries for pause/resume. If `endSession`
+  at pause and `startSession` at resume produce a gap-free file, we can remove
+  the current post-pause per-sample retiming copy.
+
 ## Requirements
 
 - Apple Silicon Mac

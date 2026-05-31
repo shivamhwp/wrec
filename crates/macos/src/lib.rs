@@ -159,12 +159,14 @@ mod platform {
     use super::*;
     use std::io::{BufRead, BufReader};
     use std::path::{Path, PathBuf};
+    use std::process::{Command, Output, Stdio};
     use std::sync::{
         atomic::{AtomicBool, Ordering},
         mpsc, Arc, Mutex, OnceLock,
     };
     use std::time::{Duration, Instant};
 
+    const HELPER_COMMAND_TIMEOUT: Duration = Duration::from_secs(5);
     const START_TIMEOUT: Duration = Duration::from_secs(5);
     const STOP_TIMEOUT: Duration = Duration::from_secs(20);
     const STOP_POLL_INTERVAL: Duration = Duration::from_millis(50);
@@ -193,12 +195,7 @@ mod platform {
     }
 
     pub fn list_targets() -> Result<Vec<CaptureTarget>> {
-        use std::process::Command;
-
-        let output = Command::new(helper_path()?)
-            .arg("--list")
-            .output()
-            .map_err(|err| RecorderError::Backend(format!("failed to list targets: {err}")))?;
+        let output = run_helper_command(&["--list"], "target listing")?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -242,8 +239,6 @@ mod platform {
         output_path: std::path::PathBuf,
         events: Option<std::sync::mpsc::Sender<RecorderEvent>>,
     ) -> Result<RecordingSession> {
-        use std::process::{Command, Stdio};
-
         std::fs::create_dir_all(&settings.output_dir)
             .map_err(|err| RecorderError::Backend(err.to_string()))?;
 
@@ -629,16 +624,7 @@ mod platform {
     }
 
     fn run_permission_command(arg: &str) -> Result<ScreenRecordingPermissionStatus> {
-        use std::process::Command;
-
-        let output = Command::new(helper_path()?)
-            .arg(arg)
-            .output()
-            .map_err(|err| {
-                RecorderError::Backend(format!(
-                    "failed to check screen recording permission: {err}"
-                ))
-            })?;
+        let output = run_helper_command(&[arg], "screen recording permission check")?;
 
         if !output.status.success() {
             return Err(RecorderError::Backend(format!(
@@ -653,6 +639,42 @@ mod platform {
             status => Err(RecorderError::Backend(format!(
                 "unknown screen recording permission status: {status}"
             ))),
+        }
+    }
+
+    fn run_helper_command(args: &[&str], label: &str) -> Result<Output> {
+        let mut child = Command::new(helper_path()?)
+            .args(args)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|err| RecorderError::Backend(format!("{label} failed to start: {err}")))?;
+        let started_at = Instant::now();
+
+        loop {
+            match child.try_wait() {
+                Ok(Some(_)) => {
+                    return child.wait_with_output().map_err(|err| {
+                        RecorderError::Backend(format!(
+                            "{label} failed to read helper output: {err}"
+                        ))
+                    });
+                }
+                Ok(None) if started_at.elapsed() >= HELPER_COMMAND_TIMEOUT => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(RecorderError::Backend(format!(
+                        "{label} timed out after {}s; killed helper. Run `wrec targets --json` again, and if this repeats, restart Wrec/Terminal and verify Screen Recording permission.",
+                        HELPER_COMMAND_TIMEOUT.as_secs()
+                    )));
+                }
+                Ok(None) => std::thread::sleep(STOP_POLL_INTERVAL),
+                Err(err) => {
+                    return Err(RecorderError::Backend(format!(
+                        "{label} failed while waiting for helper: {err}"
+                    )));
+                }
+            }
         }
     }
 

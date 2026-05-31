@@ -16,11 +16,12 @@ use gpui_component::{
     ThemeMode, WindowExt as _,
 };
 use wrec_core::{
-    CaptureSourceKind, CaptureTarget, FrameRate, RecorderMetrics, Resolution,
+    CaptureSourceKind, CaptureTarget, FrameRate, Quality, RecorderMetrics, Resolution,
     ScreenRecordingPermissionStatus,
 };
 
 pub(crate) type ControlSelect = SelectState<Vec<&'static str>>;
+pub(crate) type LimitedSelect = SelectState<Vec<LimitedOption>>;
 pub(crate) type TargetSelect = SelectState<Vec<TargetOption>>;
 
 pub(crate) const CONTROL_HEIGHT: f32 = 32.;
@@ -31,8 +32,6 @@ pub(crate) const WINDOW_MIN_HEIGHT: f32 = 500.;
 pub(crate) const SOURCE_OPTIONS: [&str; 2] = ["Display", "Window"];
 pub(crate) const CODEC_OPTIONS: [&str; 2] = ["HEVC", "H.264"];
 pub(crate) const QUALITY_OPTIONS: [&str; 3] = ["Balanced", "Efficient", "High"];
-pub(crate) const RESOLUTION_OPTIONS: [&str; 5] = ["Original", "4K", "2K", "1080p", "720p"];
-pub(crate) const FPS_OPTIONS: [&str; 2] = ["30 FPS", "60 FPS"];
 
 const TAB_HEIGHT: f32 = 32.;
 const FIELD_LABEL_WIDTH: f32 = 96.;
@@ -202,6 +201,69 @@ impl SelectItem for TargetOption {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct LimitedOption {
+    value: SharedString,
+    title: SharedString,
+    disabled: bool,
+}
+
+impl LimitedOption {
+    fn new(label: &'static str, disabled: bool) -> Self {
+        Self {
+            value: label.into(),
+            title: label.into(),
+            disabled,
+        }
+    }
+}
+
+impl SelectItem for LimitedOption {
+    type Value = SharedString;
+
+    fn title(&self) -> SharedString {
+        self.title.clone()
+    }
+
+    fn value(&self) -> &Self::Value {
+        &self.value
+    }
+
+    fn disabled(&self) -> bool {
+        self.disabled
+    }
+}
+
+pub(crate) fn resolution_options_for(quality: Quality) -> Vec<LimitedOption> {
+    [
+        (Resolution::Native, "Original"),
+        (Resolution::R4k, "4K"),
+        (Resolution::R2k, "2K"),
+        (Resolution::R1080p, "1080p"),
+        (Resolution::R720p, "720p"),
+    ]
+    .into_iter()
+    .map(|(resolution, label)| LimitedOption::new(label, resolution_disabled(quality, resolution)))
+    .collect()
+}
+
+pub(crate) fn fps_options_for(quality: Quality) -> Vec<LimitedOption> {
+    [(FrameRate::Fps30, "30 FPS"), (FrameRate::Fps60, "60 FPS")]
+        .into_iter()
+        .map(|(fps, label)| LimitedOption::new(label, fps_disabled(quality, fps)))
+        .collect()
+}
+
+pub(crate) fn resolution_disabled(quality: Quality, resolution: Resolution) -> bool {
+    quality
+        .max_resolution()
+        .is_some_and(|cap| resolution.capped_at(cap) != resolution)
+}
+
+pub(crate) fn fps_disabled(quality: Quality, fps: FrameRate) -> bool {
+    fps.capped_at(quality.max_fps()) != fps
+}
+
 impl WrecApp {
     pub(crate) fn render_tabs(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let refresh_disabled = !self.permission_status.is_granted()
@@ -297,11 +359,11 @@ impl WrecApp {
                 .disabled(controls_disabled),
         );
         let quality_row = labeled_select_row(
-            "Quality",
+            "Preset",
             muted_foreground,
             Select::new(&self.quality_select)
                 .h(px(CONTROL_HEIGHT))
-                .placeholder("Quality")
+                .placeholder("Preset")
                 .disabled(controls_disabled),
         );
         let resolution_row = labeled_select_row(

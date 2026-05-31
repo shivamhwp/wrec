@@ -1,11 +1,12 @@
 use crate::{
     platform::{choose_output_dir, open_path},
     ui::{
-        fps_label, push_app_notification, resolution_label, target_key, AppTab, ControlSelect,
-        TargetOption, TargetSelect, CODEC_OPTIONS, FPS_OPTIONS, QUALITY_OPTIONS,
-        RESOLUTION_OPTIONS, SOURCE_OPTIONS,
+        fps_disabled, fps_label, fps_options_for, push_app_notification, resolution_disabled,
+        resolution_label, resolution_options_for, target_key, AppTab, ControlSelect, LimitedOption,
+        LimitedSelect, TargetOption, TargetSelect, CODEC_OPTIONS, QUALITY_OPTIONS, SOURCE_OPTIONS,
     },
 };
+use futures::{channel::mpsc::UnboundedSender, StreamExt};
 use gpui::*;
 use gpui_component::{
     input::{InputEvent, InputState},
@@ -17,7 +18,6 @@ use std::{
     collections::VecDeque,
     path::{Path, PathBuf},
     sync::{mpsc, Arc, Mutex},
-    time::Duration,
 };
 use wrec_backend::{load_config, persist_config, BackendEvent, ClientEventLevel, WrecBackend};
 use wrec_config::{wrec_dir, AppConfig};
@@ -83,10 +83,15 @@ enum AppEvent {
     Stopped(std::result::Result<(), String>),
 }
 
+enum UiEvent {
+    Recorder(RecorderEvent),
+    App(AppEvent),
+}
+
 pub(crate) struct WrecApp {
     engine: Arc<Mutex<MacosRecorder>>,
     backend: WrecBackend,
-    app_events: mpsc::Sender<AppEvent>,
+    app_events: UnboundedSender<UiEvent>,
     pub(crate) settings: RecorderSettings,
     targets: Vec<CaptureTarget>,
     selected_target_key: Option<String>,
@@ -105,8 +110,8 @@ pub(crate) struct WrecApp {
     pub(crate) target_select: Entity<TargetSelect>,
     pub(crate) codec_select: Entity<ControlSelect>,
     pub(crate) quality_select: Entity<ControlSelect>,
-    pub(crate) resolution_select: Entity<ControlSelect>,
-    pub(crate) fps_select: Entity<ControlSelect>,
+    pub(crate) resolution_select: Entity<LimitedSelect>,
+    pub(crate) fps_select: Entity<LimitedSelect>,
     pub(crate) output_input: Entity<InputState>,
     _event_task: Task<()>,
 }
@@ -114,36 +119,35 @@ pub(crate) struct WrecApp {
 impl WrecApp {
     pub(crate) fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let config = load_config();
-        let settings = config.settings;
+        let settings = config.settings.with_preset_limits();
         let backend = WrecBackend::open();
 
         let (events, receiver) = mpsc::channel();
-        let (app_events, app_receiver) = mpsc::channel();
-        let event_task = cx.spawn_in(window, async move |this, cx| loop {
-            while let Ok(event) = receiver.try_recv() {
+        let (ui_events, mut ui_receiver) = futures::channel::mpsc::unbounded();
+        let app_events = ui_events.clone();
+        std::thread::spawn(move || {
+            for event in receiver {
+                if ui_events.unbounded_send(UiEvent::Recorder(event)).is_err() {
+                    break;
+                }
+            }
+        });
+        let event_task = cx.spawn_in(window, async move |this, cx| {
+            while let Some(event) = ui_receiver.next().await {
                 if this
-                    .update_in(cx, |this, window, cx| {
-                        this.handle_recorder_event(event, window, cx);
+                    .update_in(cx, |this, window, cx| match event {
+                        UiEvent::Recorder(event) => {
+                            this.handle_recorder_event(event, window, cx);
+                        }
+                        UiEvent::App(event) => {
+                            this.handle_app_event(event, window, cx);
+                        }
                     })
                     .is_err()
                 {
                     return;
                 }
             }
-            while let Ok(event) = app_receiver.try_recv() {
-                if this
-                    .update_in(cx, |this, window, cx| {
-                        this.handle_app_event(event, window, cx);
-                    })
-                    .is_err()
-                {
-                    return;
-                }
-            }
-
-            cx.background_executor()
-                .timer(Duration::from_millis(150))
-                .await;
         });
 
         let source_select = cx.new(|cx| {
@@ -174,14 +178,19 @@ impl WrecApp {
         });
         let resolution_select = cx.new(|cx| {
             SelectState::new(
-                RESOLUTION_OPTIONS.to_vec(),
+                resolution_options_for(settings.quality),
                 Some(IndexPath::default()),
                 window,
                 cx,
             )
         });
         let fps_select = cx.new(|cx| {
-            SelectState::new(FPS_OPTIONS.to_vec(), Some(IndexPath::default()), window, cx)
+            SelectState::new(
+                fps_options_for(settings.quality),
+                Some(IndexPath::default()),
+                window,
+                cx,
+            )
         });
         let output_input = cx.new(|cx| {
             InputState::new(window, cx)
@@ -313,7 +322,7 @@ impl WrecApp {
         &mut self,
         _: &Entity<ControlSelect>,
         event: &SelectEvent<Vec<&'static str>>,
-        _: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let SelectEvent::Confirm(Some(value)) = event else {
@@ -324,28 +333,30 @@ impl WrecApp {
             "High" => Quality::High,
             _ => Quality::Balanced,
         };
-        self.push_log(format!("quality: {value}"));
+        self.push_log(format!("preset: {value}"));
+        self.apply_preset_limits(window, cx);
         self.save_config();
         cx.notify();
     }
 
     fn on_resolution_select(
         &mut self,
-        _: &Entity<ControlSelect>,
-        event: &SelectEvent<Vec<&'static str>>,
-        _: &mut Window,
+        _: &Entity<LimitedSelect>,
+        event: &SelectEvent<Vec<LimitedOption>>,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let SelectEvent::Confirm(Some(value)) = event else {
             return;
         };
-        self.settings.resolution = match *value {
-            "720p" => Resolution::R720p,
-            "1080p" => Resolution::R1080p,
-            "2K" => Resolution::R2k,
-            "4K" => Resolution::R4k,
-            _ => Resolution::Native,
-        };
+        let resolution = resolution_from_label(value.as_ref());
+        if resolution_disabled(self.settings.quality, resolution) {
+            self.sync_capture_selects(window, cx);
+            cx.notify();
+            return;
+        }
+        self.settings.resolution = resolution;
+        self.apply_preset_limits(window, cx);
         self.push_log(format!("resolution: {value}"));
         self.save_config();
         cx.notify();
@@ -353,19 +364,21 @@ impl WrecApp {
 
     fn on_fps_select(
         &mut self,
-        _: &Entity<ControlSelect>,
-        event: &SelectEvent<Vec<&'static str>>,
-        _: &mut Window,
+        _: &Entity<LimitedSelect>,
+        event: &SelectEvent<Vec<LimitedOption>>,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let SelectEvent::Confirm(Some(value)) = event else {
             return;
         };
-        let fps = match *value {
-            "60 FPS" => FrameRate::Fps60,
-            _ => FrameRate::Fps30,
-        };
-        self.set_fps(fps, cx);
+        let fps = fps_from_label(value.as_ref());
+        if fps_disabled(self.settings.quality, fps) {
+            self.sync_capture_selects(window, cx);
+            cx.notify();
+            return;
+        }
+        self.set_fps(fps, window, cx);
     }
 
     fn on_output_input(
@@ -389,8 +402,9 @@ impl WrecApp {
         }
     }
 
-    fn set_fps(&mut self, fps: FrameRate, cx: &mut Context<Self>) {
+    fn set_fps(&mut self, fps: FrameRate, window: &mut Window, cx: &mut Context<Self>) {
         self.settings.fps = fps;
+        self.apply_preset_limits(window, cx);
         self.push_log(format!("fps: {}", fps.as_u32()));
         self.save_config();
         cx.notify();
@@ -529,10 +543,10 @@ impl WrecApp {
                 .unwrap()
                 .screen_recording_permission_status()
                 .map_err(|err| err.to_string());
-            let _ = app_events.send(AppEvent::PermissionChecked {
+            let _ = app_events.unbounded_send(UiEvent::App(AppEvent::PermissionChecked {
                 result,
                 refresh_targets_after_granted,
-            });
+            }));
         });
         cx.notify();
     }
@@ -553,7 +567,7 @@ impl WrecApp {
                 .unwrap()
                 .request_screen_recording_permission()
                 .map_err(|err| err.to_string());
-            let _ = app_events.send(AppEvent::PermissionRequested(result));
+            let _ = app_events.unbounded_send(UiEvent::App(AppEvent::PermissionRequested(result)));
         });
         cx.notify();
     }
@@ -579,7 +593,7 @@ impl WrecApp {
                 .unwrap()
                 .list_targets()
                 .map_err(|err| err.to_string());
-            let _ = app_events.send(AppEvent::TargetsLoaded(result));
+            let _ = app_events.unbounded_send(UiEvent::App(AppEvent::TargetsLoaded(result)));
         });
         cx.notify();
     }
@@ -607,6 +621,43 @@ impl WrecApp {
                 select.set_selected_index(None, window, cx);
             }
         });
+    }
+
+    fn sync_capture_selects(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.codec_select.update(cx, |select, cx| {
+            select.set_selected_value(&codec_label(self.settings.codec).into(), window, cx);
+        });
+        self.quality_select.update(cx, |select, cx| {
+            select.set_selected_value(&quality_label(self.settings.quality).into(), window, cx);
+        });
+        self.resolution_select.update(cx, |select, cx| {
+            select.set_items(resolution_options_for(self.settings.quality), window, cx);
+            select.set_selected_value(
+                &resolution_label(self.settings.resolution).into(),
+                window,
+                cx,
+            );
+        });
+        self.fps_select.update(cx, |select, cx| {
+            select.set_items(fps_options_for(self.settings.quality), window, cx);
+            select.set_selected_value(&fps_label(self.settings.fps).into(), window, cx);
+        });
+    }
+
+    fn apply_preset_limits(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let before = (self.settings.resolution, self.settings.fps);
+        self.settings = self.settings.clone().with_preset_limits();
+        let after = (self.settings.resolution, self.settings.fps);
+
+        if before != after {
+            self.push_log(format!(
+                "preset limit: {} maxes at {}, {} fps",
+                quality_label(self.settings.quality),
+                resolution_label(self.settings.resolution),
+                self.settings.fps.as_u32()
+            ));
+        }
+        self.sync_capture_selects(window, cx);
     }
 
     pub(crate) fn selected_target(&self) -> Option<CaptureTarget> {
@@ -644,7 +695,7 @@ impl WrecApp {
             let app_events = self.app_events.clone();
             std::thread::spawn(move || {
                 let result = engine.lock().unwrap().stop().map_err(|err| err.to_string());
-                let _ = app_events.send(AppEvent::Stopped(result));
+                let _ = app_events.unbounded_send(UiEvent::App(AppEvent::Stopped(result)));
             });
             cx.notify();
             return;
@@ -680,7 +731,7 @@ impl WrecApp {
                 .unwrap()
                 .start(target, settings)
                 .map_err(|err| err.to_string());
-            let _ = app_events.send(AppEvent::Started(result));
+            let _ = app_events.unbounded_send(UiEvent::App(AppEvent::Started(result)));
         });
         cx.notify();
     }
@@ -699,7 +750,7 @@ impl WrecApp {
                         .unwrap()
                         .pause()
                         .map_err(|err| err.to_string());
-                    let _ = app_events.send(AppEvent::Paused(result));
+                    let _ = app_events.unbounded_send(UiEvent::App(AppEvent::Paused(result)));
                 });
                 cx.notify();
             }
@@ -715,7 +766,7 @@ impl WrecApp {
                         .unwrap()
                         .resume()
                         .map_err(|err| err.to_string());
-                    let _ = app_events.send(AppEvent::Resumed(result));
+                    let _ = app_events.unbounded_send(UiEvent::App(AppEvent::Resumed(result)));
                 });
                 cx.notify();
             }
@@ -1129,6 +1180,23 @@ fn quality_label(quality: Quality) -> &'static str {
         Quality::Efficient => "Efficient",
         Quality::High => "High",
         Quality::Balanced => "Balanced",
+    }
+}
+
+fn resolution_from_label(label: &str) -> Resolution {
+    match label {
+        "720p" => Resolution::R720p,
+        "1080p" => Resolution::R1080p,
+        "2K" => Resolution::R2k,
+        "4K" => Resolution::R4k,
+        _ => Resolution::Native,
+    }
+}
+
+fn fps_from_label(label: &str) -> FrameRate {
+    match label {
+        "60 FPS" => FrameRate::Fps60,
+        _ => FrameRate::Fps30,
     }
 }
 

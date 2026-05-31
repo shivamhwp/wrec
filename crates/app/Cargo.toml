@@ -22,3 +22,4 @@ gpui.workspace = true
 gpui_platform.workspace = true
 gpui-component.workspace = true
 phosphor-svgs = "0.3.0"
+futures = "0.3.32"

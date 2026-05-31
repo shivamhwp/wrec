@@ -5,7 +5,7 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use wrec_backend::{
-    build_settings, capture_kind_arg, load_config, resolve_target, selected_target_id,
+    build_settings_report, capture_kind_arg, load_config, resolve_target, selected_target_id,
     BackendEvent, RecordingOverrides, WrecBackend,
 };
 use wrec_core::{
@@ -60,7 +60,7 @@ pub fn record(args: RecordArgs) -> ExitCode {
     let duration = args.duration;
     let config = load_config();
     let overrides = recording_overrides(&args);
-    let mut settings = build_settings(&config.settings, &overrides);
+    let (mut settings, preset_warning) = build_settings_report(&config.settings, &overrides);
     let saved_target_id = if overrides.target_id.is_none() && args.target_query.is_none() {
         selected_target_id(&config, settings.source)
     } else {
@@ -69,6 +69,17 @@ pub fn record(args: RecordArgs) -> ExitCode {
     let mut backend = WrecBackend::open();
     let (tx, rx) = mpsc::channel();
     let engine = Arc::new(Mutex::new(MacosRecorder::new(tx)));
+
+    if let Some(message) = preset_warning {
+        emit(
+            json,
+            &format!("warning: {message}"),
+            serde_json::json!({
+                "event": "warning",
+                "message": message,
+            }),
+        );
+    }
 
     let targets = match engine.lock().unwrap().list_targets() {
         Ok(targets) => targets,

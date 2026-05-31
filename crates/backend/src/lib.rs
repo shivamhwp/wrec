@@ -337,6 +337,24 @@ pub fn build_settings(
     saved: &RecorderSettings,
     overrides: &RecordingOverrides,
 ) -> RecorderSettings {
+    build_settings_report(saved, overrides).0
+}
+
+pub fn build_settings_report(
+    saved: &RecorderSettings,
+    overrides: &RecordingOverrides,
+) -> (RecorderSettings, Option<String>) {
+    let settings = settings_with_overrides(saved, overrides);
+    let capped = settings.clone().with_preset_limits();
+    let warning = preset_limit_warning(&settings, &capped);
+
+    (capped, warning)
+}
+
+fn settings_with_overrides(
+    saved: &RecorderSettings,
+    overrides: &RecordingOverrides,
+) -> RecorderSettings {
     let mut settings = saved.clone();
 
     if let Some(source) = overrides.source_kind {
@@ -370,6 +388,32 @@ pub fn build_settings(
     settings
 }
 
+fn preset_limit_warning(before: &RecorderSettings, after: &RecorderSettings) -> Option<String> {
+    let mut changes = Vec::new();
+    if before.fps != after.fps {
+        changes.push(format!(
+            "fps {} -> {}",
+            before.fps.as_u32(),
+            after.fps.as_u32()
+        ));
+    }
+    if before.resolution != after.resolution {
+        changes.push(format!(
+            "resolution {} -> {}",
+            before.resolution.as_arg(),
+            after.resolution.as_arg()
+        ));
+    }
+
+    (!changes.is_empty()).then(|| {
+        format!(
+            "preset limits applied: {} caps {}. Use --quality high to allow native/60 FPS.",
+            after.quality.as_arg(),
+            changes.join(", ")
+        )
+    })
+}
+
 pub fn selected_target_id(config: &AppConfig, kind: CaptureSourceKind) -> Option<u64> {
     let (selected_kind, id) = parse_target_key(config.selected_target_key.as_deref()?)?;
     (selected_kind == kind).then_some(id)
@@ -386,7 +430,13 @@ pub fn resolve_target(
             .iter()
             .find(|target| target.id == id && target.kind == kind)
             .cloned()
-            .ok_or_else(|| format!("no {} with id {id}", capture_kind_arg(kind)));
+            .ok_or_else(|| {
+                format!(
+                    "no {} with id {id}. Run `wrec targets --json` and pass one of the listed `{}` ids.",
+                    capture_kind_arg(kind),
+                    capture_kind_arg(kind)
+                )
+            });
     }
 
     if let Some(target) = saved_id.and_then(|id| {
@@ -402,7 +452,12 @@ pub fn resolve_target(
         .iter()
         .find(|target| target.kind == kind)
         .cloned()
-        .ok_or_else(|| format!("no {} capture targets available", capture_kind_arg(kind)))
+        .ok_or_else(|| {
+            format!(
+                "no {} capture targets available. Run `wrec targets --json` to inspect targets; if it fails, grant Screen Recording permission.",
+                capture_kind_arg(kind)
+            )
+        })
 }
 
 pub fn capture_kind_arg(kind: CaptureSourceKind) -> &'static str {
@@ -465,6 +520,39 @@ mod tests {
     }
 
     #[test]
+    fn build_settings_enforces_preset_limits_for_cli_overrides() {
+        let overrides = RecordingOverrides {
+            quality: Some(Quality::Efficient),
+            fps: Some(FrameRate::Fps60),
+            resolution: Some(Resolution::Native),
+            ..RecordingOverrides::default()
+        };
+        let settings = build_settings(&RecorderSettings::default(), &overrides);
+
+        assert_eq!(settings.quality, Quality::Efficient);
+        assert_eq!(settings.fps, FrameRate::Fps30);
+        assert_eq!(settings.resolution, Resolution::R720p);
+    }
+
+    #[test]
+    fn build_settings_report_describes_preset_limits() {
+        let overrides = RecordingOverrides {
+            quality: Some(Quality::Efficient),
+            fps: Some(FrameRate::Fps60),
+            resolution: Some(Resolution::Native),
+            ..RecordingOverrides::default()
+        };
+        let (_, warning) = build_settings_report(&RecorderSettings::default(), &overrides);
+
+        assert_eq!(
+            warning.as_deref(),
+            Some(
+                "preset limits applied: efficient caps fps 60 -> 30, resolution native -> 720p. Use --quality high to allow native/60 FPS."
+            )
+        );
+    }
+
+    #[test]
     fn explicit_target_beats_saved_target() {
         let targets = vec![
             CaptureTarget {
@@ -482,6 +570,16 @@ mod tests {
         let target =
             resolve_target(&targets, CaptureSourceKind::Display, Some(2), Some(1)).unwrap();
         assert_eq!(target.id, 2);
+    }
+
+    #[test]
+    fn missing_explicit_target_error_is_actionable() {
+        let err = resolve_target(&[], CaptureSourceKind::Display, Some(99), None).unwrap_err();
+
+        assert_eq!(
+            err,
+            "no display with id 99. Run `wrec targets --json` and pass one of the listed `display` ids."
+        );
     }
 
     #[test]
