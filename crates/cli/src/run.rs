@@ -8,7 +8,9 @@ use wrec_backend::{
     build_settings, capture_kind_arg, load_config, resolve_target, selected_target_id,
     BackendEvent, RecordingOverrides, WrecBackend,
 };
-use wrec_core::{CaptureSourceKind, CaptureTarget, RecorderEngine, RecorderSettings};
+use wrec_core::{
+    CaptureSourceKind, CaptureTarget, RecorderEngine, RecorderEvent, RecorderSettings,
+};
 use wrec_macos::MacosRecorder;
 
 use crate::args::{ListArgs, RecordArgs, TargetQuery};
@@ -91,6 +93,11 @@ pub fn record(args: RecordArgs) -> ExitCode {
     settings.source = target.kind;
 
     if let Err(err) = engine.lock().unwrap().start(target, settings) {
+        while let Ok(event) = rx.try_recv() {
+            if let EventAction::Exit(code) = handle_backend_event(json, &mut backend, &event) {
+                return code;
+            }
+        }
         eprintln!("error: {err}");
         return ExitCode::FAILURE;
     }
@@ -103,105 +110,124 @@ pub fn record(args: RecordArgs) -> ExitCode {
 
     let mut code = ExitCode::SUCCESS;
     while let Ok(event) = rx.recv() {
-        match backend.handle_recorder_event(&event) {
-            BackendEvent::Starting {
-                session_id,
-                target,
-                settings,
-                output_path,
-                ..
-            } => {
-                emit(
-                    json,
-                    &format!("starting: {} -> {}", target.name, output_path.display()),
-                    serde_json::json!({
-                        "event": "starting",
-                        "session_id": session_id,
-                        "target": target_json(&target),
-                        "settings": settings_json(&settings),
-                        "output": output_path.display().to_string(),
-                    }),
-                );
-            }
-            BackendEvent::Log {
-                session_id,
-                message,
-                marked_started,
-            } => {
-                emit(
-                    json,
-                    &message,
-                    serde_json::json!({
-                        "event": "log",
-                        "session_id": session_id,
-                        "message": message,
-                        "marked_started": marked_started,
-                    }),
-                );
-            }
-            BackendEvent::Metrics {
-                session_id,
-                metrics,
-            } => {
-                emit(
-                    json,
-                    &format!(
-                        "{}s  {}  {:.2} Mbps",
-                        metrics.elapsed_secs,
-                        human_bytes(metrics.output_bytes),
-                        metrics.estimated_bitrate_mbps,
-                    ),
-                    serde_json::json!({
-                        "event": "metrics",
-                        "session_id": session_id,
-                        "elapsed_secs": metrics.elapsed_secs,
-                        "output_bytes": metrics.output_bytes,
-                        "bitrate_mbps": metrics.estimated_bitrate_mbps,
-                    }),
-                );
-            }
-            BackendEvent::Failed {
-                recording_id,
-                message,
-            } => {
-                emit(
-                    json,
-                    &format!("error: {message}"),
-                    serde_json::json!({
-                        "event": "failed",
-                        "recording_id": recording_id,
-                        "message": message,
-                    }),
-                );
-                code = ExitCode::FAILURE;
-                break;
-            }
-            BackendEvent::Exited {
-                session_id,
-                output_path,
-                success,
-                status,
-            } => {
-                emit(
-                    json,
-                    &format!("exited: {status}"),
-                    serde_json::json!({
-                        "event": "exited",
-                        "session_id": session_id,
-                        "success": success,
-                        "status": status,
-                        "output": output_path.as_ref().map(|path| path.display().to_string()),
-                    }),
-                );
-                if !success {
-                    code = ExitCode::FAILURE;
-                }
-                break;
-            }
+        if let EventAction::Exit(exit_code) = handle_backend_event(json, &mut backend, &event) {
+            code = exit_code;
+            break;
         }
     }
 
     code
+}
+
+enum EventAction {
+    Continue,
+    Exit(ExitCode),
+}
+
+fn handle_backend_event(
+    json: bool,
+    backend: &mut WrecBackend,
+    event: &RecorderEvent,
+) -> EventAction {
+    match backend.handle_recorder_event(event) {
+        BackendEvent::Starting {
+            session_id,
+            target,
+            settings,
+            output_path,
+            ..
+        } => {
+            emit(
+                json,
+                &format!("starting: {} -> {}", target.name, output_path.display()),
+                serde_json::json!({
+                    "event": "starting",
+                    "session_id": session_id,
+                    "target": target_json(&target),
+                    "settings": settings_json(&settings),
+                    "output": output_path.display().to_string(),
+                }),
+            );
+            EventAction::Continue
+        }
+        BackendEvent::Log {
+            session_id,
+            message,
+            marked_started,
+        } => {
+            emit(
+                json,
+                &message,
+                serde_json::json!({
+                    "event": "log",
+                    "session_id": session_id,
+                    "message": message,
+                    "marked_started": marked_started,
+                }),
+            );
+            EventAction::Continue
+        }
+        BackendEvent::Metrics {
+            session_id,
+            metrics,
+        } => {
+            emit(
+                json,
+                &format!(
+                    "{}s  {}  {:.2} Mbps",
+                    metrics.elapsed_secs,
+                    human_bytes(metrics.output_bytes),
+                    metrics.estimated_bitrate_mbps,
+                ),
+                serde_json::json!({
+                    "event": "metrics",
+                    "session_id": session_id,
+                    "elapsed_secs": metrics.elapsed_secs,
+                    "output_bytes": metrics.output_bytes,
+                    "bitrate_mbps": metrics.estimated_bitrate_mbps,
+                }),
+            );
+            EventAction::Continue
+        }
+        BackendEvent::Failed {
+            recording_id,
+            message,
+        } => {
+            emit(
+                json,
+                &format!("error: {message}"),
+                serde_json::json!({
+                    "event": "failed",
+                    "recording_id": recording_id,
+                    "message": message,
+                }),
+            );
+            EventAction::Exit(ExitCode::FAILURE)
+        }
+        BackendEvent::Exited {
+            session_id,
+            output_path,
+            success,
+            status,
+        } => {
+            emit(
+                json,
+                &format!("exited: {status}"),
+                serde_json::json!({
+                    "event": "exited",
+                    "session_id": session_id,
+                    "success": success,
+                    "status": status,
+                    "output": output_path.as_ref().map(|path| path.display().to_string()),
+                }),
+            );
+            EventAction::Exit(if success {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            })
+        }
+    }
 }
 
 fn resolve_record_target(
