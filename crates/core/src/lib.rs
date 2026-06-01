@@ -2,20 +2,27 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum CaptureSourceKind {
+    #[serde(alias = "Display")]
     Display,
+    #[serde(alias = "Window")]
     Window,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Codec {
+    #[serde(rename = "hevc", alias = "Hevc")]
     Hevc,
+    #[serde(rename = "h264", alias = "H264")]
     H264,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FrameRate {
+    #[serde(rename = "30", alias = "Fps30")]
     Fps30,
+    #[serde(rename = "60", alias = "Fps60")]
     Fps60,
 }
 
@@ -45,9 +52,13 @@ impl Codec {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Quality {
+    #[serde(alias = "Efficient")]
     Efficient,
+    #[serde(alias = "Balanced")]
     Balanced,
+    #[serde(alias = "High")]
     High,
 }
 
@@ -79,10 +90,15 @@ impl Quality {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum Resolution {
     #[default]
+    #[serde(rename = "native", alias = "Native")]
     Native,
+    #[serde(rename = "720p", alias = "R720p")]
     R720p,
+    #[serde(rename = "1080p", alias = "R1080p")]
     R1080p,
+    #[serde(rename = "2k", alias = "R2k")]
     R2k,
+    #[serde(rename = "4k", alias = "R4k")]
     R4k,
 }
 
@@ -208,20 +224,20 @@ fn recordings_dir_name() -> String {
     "Wrec".to_string()
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CaptureTarget {
     pub id: u64,
     pub name: String,
     pub kind: CaptureSourceKind,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecordingSession {
     pub id: u64,
     pub output_path: PathBuf,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecorderMetrics {
     pub elapsed_secs: u64,
     pub output_bytes: u64,

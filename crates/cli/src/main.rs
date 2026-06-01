@@ -19,6 +19,9 @@ fn main() -> ExitCode {
         }
         Ok(Command::List(list_args)) => run::list(list_args),
         Ok(Command::Record(record_args)) => run::record(record_args),
+        Ok(Command::Daemon(command)) => run::daemon(command),
+        Ok(Command::Jobs(args)) => run::jobs(args),
+        Ok(Command::Job(command)) => run::job(command),
         Err(message) => {
             eprintln!("error: {message}");
             ExitCode::FAILURE

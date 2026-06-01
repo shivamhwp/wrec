@@ -7,6 +7,9 @@ use wrec_core::{CaptureSourceKind, Codec, FrameRate, Quality, Resolution};
 pub enum Command {
     List(ListArgs),
     Record(RecordArgs),
+    Daemon(DaemonCommand),
+    Jobs(JobsArgs),
+    Job(JobCommand),
     Help,
     Version,
 }
@@ -14,6 +17,29 @@ pub enum Command {
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct ListArgs {
     pub json: bool,
+}
+
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct JobsArgs {
+    pub json: bool,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum DaemonCommand {
+    Start { json: bool },
+    Status { json: bool },
+    Stop { json: bool },
+    Serve,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum JobCommand {
+    Show { id: u64, json: bool },
+    Logs { id: u64, json: bool },
+    Pause { id: u64, json: bool },
+    Resume { id: u64, json: bool },
+    Stop { id: u64, json: bool },
+    Cancel { id: u64, json: bool },
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -31,6 +57,8 @@ pub struct RecordArgs {
     pub hide_wrec: Option<bool>,
     pub duration: Option<Duration>,
     pub json: bool,
+    pub detach: bool,
+    pub queue: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -58,6 +86,8 @@ impl Default for RecordArgs {
             hide_wrec: None,
             duration: None,
             json: false,
+            detach: false,
+            queue: true,
         }
     }
 }
@@ -71,6 +101,9 @@ pub fn usage() -> String {
      Commands:\n\
      \u{20}\u{20}targets [list]       List capture targets (displays and windows)\n\
      \u{20}\u{20}record start         Record with saved app settings plus per-run overrides\n\
+     \u{20}\u{20}jobs                 List queued and recent recording jobs\n\
+     \u{20}\u{20}job <action> <id>    Show, pause, resume, stop, cancel, or read logs\n\
+     \u{20}\u{20}daemon <action>      Start/status/stop/serve the local coordinator\n\
      \u{20}\u{20}list                 Alias for targets\n\
      \u{20}\u{20}record               Alias for record start\n\
      \u{20}\u{20}help                 Show this help\n\
@@ -81,6 +114,15 @@ pub fn usage() -> String {
      \n\
      list options:\n\
      \u{20}\u{20}--json               Print targets as JSON\n\
+     \n\
+     job options:\n\
+     \u{20}\u{20}jobs --json\n\
+     \u{20}\u{20}job show <id> [--json]\n\
+     \u{20}\u{20}job logs <id> [--json]\n\
+     \u{20}\u{20}job pause <id> [--json]\n\
+     \u{20}\u{20}job resume <id> [--json]\n\
+     \u{20}\u{20}job stop <id> [--json]\n\
+     \u{20}\u{20}job cancel <id> [--json]\n\
      \n\
      record options:\n\
      \u{20}\u{20}--target <kind:id>    Capture a target like display:1 or window:42\n\
@@ -102,11 +144,13 @@ pub fn usage() -> String {
      \u{20}\u{20}--no-system-audio    Do not capture system audio for this recording\n\
      \u{20}\u{20}--hide-wrec          Hide Wrec windows for this recording\n\
      \u{20}\u{20}--no-hide-wrec       Do not hide Wrec windows for this recording\n\
+     \u{20}\u{20}--detach             Submit the job and return immediately\n\
+     \u{20}\u{20}--queue              Queue behind the active recording (default)\n\
+     \u{20}\u{20}--no-queue           Fail if another recording is active\n\
      \u{20}\u{20}--json               Emit recorder events as JSON lines\n\
      \n\
-     While recording, type a command on stdin and press Enter:\n\
-     \u{20}\u{20}pause   resume   stop\n\
-     Closing stdin (Ctrl+D / a closed pipe) also stops and finalizes the file unless --duration is set.\n"
+     Foreground record commands wait for the submitted job to finish. Use --detach\n\
+     to return immediately, then control active work with job pause/resume/stop.\n"
         .to_string()
 }
 
@@ -126,9 +170,67 @@ where
         "list" => parse_list(args),
         "targets" => parse_targets(args),
         "record" => parse_record_command(args),
+        "daemon" => parse_daemon(args),
+        "jobs" => parse_jobs(args),
+        "job" => parse_job(args),
         "help" | "-h" | "--help" => Ok(Command::Help),
         "-V" | "--version" => Ok(Command::Version),
         other => Err(format!("unknown command `{other}`\n\n{}", usage())),
+    }
+}
+
+fn parse_daemon<I>(args: I) -> Result<Command, String>
+where
+    I: Iterator<Item = String>,
+{
+    let mut args = args.collect::<Vec<_>>().into_iter();
+    let Some(action) = args.next() else {
+        return Ok(Command::Daemon(DaemonCommand::Status { json: false }));
+    };
+    let json = parse_json_tail(args, "daemon")?;
+    match action.as_str() {
+        "start" => Ok(Command::Daemon(DaemonCommand::Start { json })),
+        "status" => Ok(Command::Daemon(DaemonCommand::Status { json })),
+        "stop" => Ok(Command::Daemon(DaemonCommand::Stop { json })),
+        "serve" => Ok(Command::Daemon(DaemonCommand::Serve)),
+        "-h" | "--help" | "help" => Ok(Command::Help),
+        other => Err(format!("unknown daemon action `{other}`\n\n{}", usage())),
+    }
+}
+
+fn parse_jobs<I>(args: I) -> Result<Command, String>
+where
+    I: Iterator<Item = String>,
+{
+    Ok(Command::Jobs(JobsArgs {
+        json: parse_json_tail(args, "jobs")?,
+    }))
+}
+
+fn parse_job<I>(args: I) -> Result<Command, String>
+where
+    I: Iterator<Item = String>,
+{
+    let mut args = args.collect::<Vec<_>>().into_iter();
+    let Some(action) = args.next() else {
+        return Err(format!("missing job action\n\n{}", usage()));
+    };
+    if matches!(action.as_str(), "-h" | "--help" | "help") {
+        return Ok(Command::Help);
+    }
+    let Some(id) = args.next() else {
+        return Err(format!("missing job id for `job {action}`"));
+    };
+    let id = parse_u64(&id, "job id")?;
+    let json = parse_json_tail(args, "job")?;
+    match action.as_str() {
+        "show" => Ok(Command::Job(JobCommand::Show { id, json })),
+        "logs" => Ok(Command::Job(JobCommand::Logs { id, json })),
+        "pause" => Ok(Command::Job(JobCommand::Pause { id, json })),
+        "resume" => Ok(Command::Job(JobCommand::Resume { id, json })),
+        "stop" => Ok(Command::Job(JobCommand::Stop { id, json })),
+        "cancel" => Ok(Command::Job(JobCommand::Cancel { id, json })),
+        other => Err(format!("unknown job action `{other}`\n\n{}", usage())),
     }
 }
 
@@ -174,9 +276,14 @@ where
         Some("start") => parse_record(args.into_iter().skip(1)),
         Some("help" | "-h" | "--help") => Ok(Command::Help),
         Some("pause" | "resume" | "stop" | "status") => Err(format!(
-            "`record {}` needs a background controller, which is not wired yet.\n\
-             Use `record start --duration <time>` for non-interactive automation, or control a foreground recording with stdin: pause | resume | stop.",
-            args[0]
+            "`record {}` is now handled through daemon jobs.\n\
+             Use `wrec jobs --json` to find the active job, then `wrec job {} <id>`.",
+            args[0],
+            if args[0] == "status" {
+                "show"
+            } else {
+                &args[0]
+            }
         )),
         Some(first) if first.starts_with('-') => parse_record(args.into_iter()),
         Some(other) => Err(format!(
@@ -254,6 +361,10 @@ where
             "--no-system-audio" => out.include_system_audio = Some(false),
             "--hide-wrec" => out.hide_wrec = Some(true),
             "--no-hide-wrec" => out.hide_wrec = Some(false),
+            "--detach" => out.detach = true,
+            "--wait" => out.detach = false,
+            "--queue" => out.queue = true,
+            "--no-queue" => out.queue = false,
             "--json" => out.json = true,
             other => {
                 return Err(format!(
@@ -265,6 +376,23 @@ where
     }
 
     Ok(Command::Record(out))
+}
+
+fn parse_json_tail<I>(args: I, command: &str) -> Result<bool, String>
+where
+    I: Iterator<Item = String>,
+{
+    let mut json = false;
+    for arg in args {
+        match arg.as_str() {
+            "--json" => json = true,
+            "-h" | "--help" => {
+                return Err(format!("use `wrec {command} --help` from top-level help"))
+            }
+            other => return Err(format!("unknown option for `{command}`: {other}")),
+        }
+    }
+    Ok(json)
 }
 
 fn set_target(current: &mut Option<&'static str>, flag: &'static str) -> Result<(), String> {
@@ -455,6 +583,44 @@ mod tests {
     }
 
     #[test]
+    fn parses_daemon_and_job_commands() {
+        assert_eq!(
+            parse_vec(&["daemon", "start", "--json"]).unwrap(),
+            Command::Daemon(DaemonCommand::Start { json: true })
+        );
+        assert_eq!(
+            parse_vec(&["daemon", "stop", "--json"]).unwrap(),
+            Command::Daemon(DaemonCommand::Stop { json: true })
+        );
+        assert_eq!(
+            parse_vec(&["jobs", "--json"]).unwrap(),
+            Command::Jobs(JobsArgs { json: true })
+        );
+        assert_eq!(
+            parse_vec(&["job", "show", "42", "--json"]).unwrap(),
+            Command::Job(JobCommand::Show { id: 42, json: true })
+        );
+        assert_eq!(
+            parse_vec(&["job", "stop", "42"]).unwrap(),
+            Command::Job(JobCommand::Stop {
+                id: 42,
+                json: false
+            })
+        );
+        assert_eq!(
+            parse_vec(&["job", "pause", "42"]).unwrap(),
+            Command::Job(JobCommand::Pause {
+                id: 42,
+                json: false
+            })
+        );
+        assert_eq!(
+            parse_vec(&["job", "resume", "42", "--json"]).unwrap(),
+            Command::Job(JobCommand::Resume { id: 42, json: true })
+        );
+    }
+
+    #[test]
     fn record_uses_defaults() {
         assert_eq!(
             parse_vec(&["record"]).unwrap(),
@@ -507,6 +673,8 @@ mod tests {
                 hide_wrec: None,
                 duration: Some(Duration::from_secs(5 * 60)),
                 json: true,
+                detach: false,
+                queue: true,
             })
         );
     }
@@ -520,6 +688,18 @@ mod tests {
                 source_kind: Some(CaptureSourceKind::Display),
                 target_id: Some(1),
                 fps: Some(FrameRate::Fps60),
+                ..RecordArgs::default()
+            })
+        );
+    }
+
+    #[test]
+    fn record_parses_queue_controls() {
+        assert_eq!(
+            parse_vec(&["record", "start", "--detach", "--no-queue"]).unwrap(),
+            Command::Record(RecordArgs {
+                detach: true,
+                queue: false,
                 ..RecordArgs::default()
             })
         );

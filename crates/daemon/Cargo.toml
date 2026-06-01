@@ -1,17 +1,13 @@
 [package]
-name = "wrec"
+name = "wrec-daemon"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
-[[bin]]
-name = "wrec"
-path = "src/main.rs"
-
 [dependencies]
-wrec-core = { path = "../core" }
 wrec-backend = { path = "../backend" }
-wrec-daemon = { path = "../daemon" }
+wrec-core = { path = "../core" }
 wrec-macos = { path = "../macos" }
+serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"

@@ -128,12 +128,28 @@ settings as the app, with flags acting as per-run overrides:
 cargo run -p wrec -- targets --json
 cargo run -p wrec -- record start --target display:1 --duration 30s
 cargo run -p wrec -- record start --app Safari --duration 5m --json
+cargo run -p wrec -- jobs --json
+cargo run -p wrec -- job pause <job-id>
+cargo run -p wrec -- job resume <job-id>
+cargo run -p wrec -- job stop <job-id>
+cargo run -p wrec -- daemon stop
 ```
 
 `list` remains an alias for `targets`, and `record` remains an alias for
-`record start`. Foreground recordings can still be controlled from stdin with
-`pause`, `resume`, and `stop`; recordings started with `--duration` keep running
-even if stdin is closed.
+`record start`. The CLI now talks to a local coordinator daemon over a Unix
+socket so multiple clients can submit work while Wrec keeps one active recording
+at a time. Additional requests queue by default; pass `--no-queue` to fail when
+another recording is active, or `--detach` to submit and return immediately.
+
+Daemon runtime files are intentionally agent-accessible:
+
+```text
+~/.wrec/wrec.sock
+~/.wrec/daemon.log
+~/.wrec/job-events.jsonl
+```
+
+Set `WREC_HOME` to override that directory for tests or isolated agents.
 
 If GPUI shader compilation fails, select full Xcode:
 
