@@ -32,7 +32,7 @@ body {
 
 .docs-page h1,
 .docs-page h2 {
-  font-weight: 400;
+  font-weight: 600;
 }
 
 .docs-page h1 {
@@ -42,25 +42,26 @@ body {
 }
 
 .docs-page h2 {
-  margin: 28px 0 10px;
+  margin: 34px 0 12px;
   font-size: 1.05rem;
   line-height: 1.2;
 }
 
 .docs-page p {
-  margin: 0 0 12px;
-  line-height: 1.55;
+  margin: 0 0 16px;
+  line-height: 1.65;
 }
 
 .docs-page table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   margin-top: 8px;
 }
 
 .docs-page th,
 .docs-page td {
-  padding: 8px 12px 8px 0;
+  padding: 10px 16px;
   border-bottom: 1px solid #ddd;
   text-align: left;
   vertical-align: top;
@@ -76,25 +77,77 @@ body {
   font-family: var(--font-geist-mono), monospace;
 }
 
+.docs-page :where(p, td, .command-line) code {
+  display: inline;
+  padding: 0.12em 0.5em;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  background: #f6f8fa;
+  color: #111;
+  font-size: 0.92em;
+  line-height: inherit;
+  overflow-wrap: anywhere;
+  vertical-align: baseline;
+}
+
+.command-list {
+  margin-top: 8px;
+  border-top: 1px solid #ddd;
+}
+
+.command-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid #ddd;
+}
+
+.command-line {
+  line-height: 1.65;
+}
+
+.command-item p {
+  margin: 4px 0 0;
+  color: #333;
+}
+
+.command-reference .command-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: baseline;
+}
+
+.command-reference .command-item p {
+  margin: 0;
+}
+
 .docs-page pre,
 .docs-page .code-pre {
   position: relative;
-  margin: 0 0 14px;
-  padding: 12px 44px 12px 12px;
-  overflow-x: hidden;
+  margin: 0 0 18px;
+  padding: 14px 46px 14px 14px;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  box-sizing: border-box;
   border: 1px solid #ddd;
   border-radius: 6px;
   background: #f6f8fa;
   font-size: 0.85rem;
   line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.docs-page pre {
   white-space: pre-wrap;
-  word-break: break-word;
 }
 
 .docs-page .code-pre code {
   display: block;
   white-space: pre-wrap;
-  word-break: break-word;
+  word-spacing: 0.12em;
+  overflow-wrap: anywhere;
 }
 
 .docs-actions {
@@ -174,12 +227,25 @@ body {
 
 .code-block {
   position: relative;
+  display: block;
+  max-width: 100%;
 }
 
 .code-block .copy-button {
   position: absolute;
-  top: 8px;
+  top: 50%;
   right: 8px;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition:
+    opacity 120ms ease,
+    color 120ms ease;
+}
+
+.code-block:hover .copy-button,
+.code-block:focus-within .copy-button,
+.code-block .copy-button[data-copied="true"] {
+  opacity: 1;
 }
 
 @theme {
