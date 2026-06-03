@@ -1,5 +1,6 @@
 /target
 /dist
+/benchmarks
 .DS_Store
 *.mov
 *.mp4

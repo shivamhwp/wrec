@@ -1,518 +1,390 @@
-use std::io::BufRead;
-use std::process::ExitCode;
-use std::sync::{mpsc, Arc, Mutex};
-use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
-use wrec_backend::{
-    build_settings_report, capture_kind_arg, load_config, resolve_target, selected_target_id,
-    BackendEvent, RecordingOverrides, WrecBackend,
+use std::{
+    process::ExitCode,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
 };
-use wrec_core::{
-    CaptureSourceKind, CaptureTarget, RecorderEngine, RecorderEvent, RecorderSettings,
-};
-use wrec_macos::MacosRecorder;
 
-use crate::args::{ListArgs, RecordArgs, TargetQuery};
+use serde_json::{json, Value};
+use wrec_daemon::{
+    emit_error, ensure_daemon, send_request, serve_forever, wait_for_job, AgentError, DaemonClient,
+    IpcResponse, JobSnapshot, JobStatus, RecordingOptions, StartRecordingParams, TargetSelector,
+};
+
+use crate::args::{DaemonCommand, JobCommand, JobsArgs, ListArgs, RecordArgs, TargetQuery};
 
 pub fn list(args: ListArgs) -> ExitCode {
-    let (tx, _rx) = mpsc::channel();
-    let engine = MacosRecorder::new(tx);
+    with_daemon(args.json, || {
+        let response = request_or_error("targets.list", json!({}))?;
+        let targets = response
+            .result
+            .and_then(|value| value.get("targets").cloned())
+            .unwrap_or(Value::Array(Vec::new()));
 
-    let targets = match engine.list_targets() {
-        Ok(targets) => targets,
-        Err(err) => {
-            eprintln!("error: {err}");
-            return ExitCode::FAILURE;
+        if args.json {
+            println!("{targets}");
+        } else if targets.as_array().is_some_and(Vec::is_empty) {
+            println!("no capture targets found");
+        } else if let Some(items) = targets.as_array() {
+            for item in items {
+                let kind = item
+                    .get("kind")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown");
+                let id = item.get("id").and_then(Value::as_u64).unwrap_or_default();
+                let name = item
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .unwrap_or("Unknown");
+                println!("{kind}\t{id}\t{name}");
+            }
         }
-    };
-
-    if args.json {
-        let items: Vec<serde_json::Value> = targets
-            .iter()
-            .map(|target| {
-                serde_json::json!({
-                    "id": target.id,
-                    "name": target.name,
-                    "kind": capture_kind_arg(target.kind),
-                })
-            })
-            .collect();
-        println!("{}", serde_json::Value::Array(items));
-    } else if targets.is_empty() {
-        println!("no capture targets found");
-    } else {
-        for target in &targets {
-            println!(
-                "{}\t{}\t{}",
-                capture_kind_arg(target.kind),
-                target.id,
-                target.name
-            );
-        }
-    }
-
-    ExitCode::SUCCESS
+        Ok(ExitCode::SUCCESS)
+    })
 }
 
 pub fn record(args: RecordArgs) -> ExitCode {
-    let json = args.json;
-    let duration = args.duration;
-    let config = load_config();
-    let overrides = recording_overrides(&args);
-    let (mut settings, preset_warning) = build_settings_report(&config.settings, &overrides);
-    let saved_target_id = if overrides.target_id.is_none() && args.target_query.is_none() {
-        selected_target_id(&config, settings.source)
-    } else {
-        None
-    };
-    let mut backend = WrecBackend::open();
-    let (tx, rx) = mpsc::channel();
-    let engine = Arc::new(Mutex::new(MacosRecorder::new(tx)));
+    let json_output = args.json;
+    with_daemon(json_output, || {
+        let response = request_or_error(
+            "record.start",
+            serde_json::to_value(record_params(&args)).map_err(protocol_error)?,
+        )?;
+        let job = decode_job(response.result)?;
+        emit_submission(&job, json_output);
 
-    if let Some(message) = preset_warning {
-        emit(
-            json,
-            &format!("warning: {message}"),
-            serde_json::json!({
-                "event": "warning",
-                "message": message,
-            }),
-        );
-    }
-
-    let targets = match engine.lock().unwrap().list_targets() {
-        Ok(targets) => targets,
-        Err(err) => {
-            eprintln!("error: {err}");
-            return ExitCode::FAILURE;
+        if args.detach {
+            return Ok(ExitCode::SUCCESS);
         }
-    };
-    let target = match resolve_record_target(
-        &targets,
-        settings.source,
-        overrides.target_id,
-        saved_target_id,
-        args.target_query.as_ref(),
-    ) {
-        Ok(target) => target,
-        Err(err) => {
-            eprintln!("error: {err}");
-            return ExitCode::FAILURE;
-        }
-    };
-    settings.source = target.kind;
 
-    if let Err(err) = engine.lock().unwrap().start(target, settings) {
-        while let Ok(event) = rx.try_recv() {
-            if let EventAction::Exit(code) = handle_backend_event(json, &mut backend, &event) {
-                return code;
+        if let Err(err) = install_record_interrupt_handler(job.id) {
+            eprintln!("warning: Ctrl+C will not stop job {}: {err}", job.id);
+        }
+
+        let completed = wait_for_job(job.id, json_output)?;
+        Ok(match completed.status {
+            JobStatus::Completed => ExitCode::SUCCESS,
+            JobStatus::Failed | JobStatus::Cancelled => ExitCode::FAILURE,
+            _ => ExitCode::SUCCESS,
+        })
+    })
+}
+
+fn install_record_interrupt_handler(job_id: u64) -> Result<(), ctrlc::Error> {
+    let interrupt_count = Arc::new(AtomicUsize::new(0));
+    ctrlc::set_handler(
+        move || match interrupt_count.fetch_add(1, Ordering::SeqCst) {
+            0 => {
+                let _ = DaemonClient::new().stop_job(job_id);
             }
-        }
-        eprintln!("error: {err}");
-        return ExitCode::FAILURE;
-    }
-
-    install_signal_handler(engine.clone());
-    if let Some(duration) = duration {
-        spawn_duration_controller(engine.clone(), duration);
-    }
-    spawn_stdin_controller(engine.clone(), duration.is_none());
-
-    let mut code = ExitCode::SUCCESS;
-    while let Ok(event) = rx.recv() {
-        match handle_backend_event(json, &mut backend, &event) {
-            EventAction::Continue => {}
-            EventAction::MarkFailure => code = ExitCode::FAILURE,
-            EventAction::Exit(exit_code) => {
-                code = exit_code;
-                break;
-            }
-        }
-    }
-
-    code
-}
-
-enum EventAction {
-    Continue,
-    MarkFailure,
-    Exit(ExitCode),
-}
-
-fn handle_backend_event(
-    json: bool,
-    backend: &mut WrecBackend,
-    event: &RecorderEvent,
-) -> EventAction {
-    match backend.handle_recorder_event(event) {
-        BackendEvent::Starting {
-            session_id,
-            target,
-            settings,
-            output_path,
-            ..
-        } => {
-            emit(
-                json,
-                &format!("starting: {} -> {}", target.name, output_path.display()),
-                serde_json::json!({
-                    "event": "starting",
-                    "session_id": session_id,
-                    "target": target_json(&target),
-                    "settings": settings_json(&settings),
-                    "output": output_path.display().to_string(),
-                }),
-            );
-            EventAction::Continue
-        }
-        BackendEvent::Log {
-            session_id,
-            message,
-            marked_started,
-        } => {
-            emit(
-                json,
-                &message,
-                serde_json::json!({
-                    "event": "log",
-                    "session_id": session_id,
-                    "message": message,
-                    "marked_started": marked_started,
-                }),
-            );
-            EventAction::Continue
-        }
-        BackendEvent::Metrics {
-            session_id,
-            metrics,
-        } => {
-            emit(
-                json,
-                &format!(
-                    "{}s  {}  {:.2} Mbps",
-                    metrics.elapsed_secs,
-                    human_bytes(metrics.output_bytes),
-                    metrics.estimated_bitrate_mbps,
-                ),
-                serde_json::json!({
-                    "event": "metrics",
-                    "session_id": session_id,
-                    "elapsed_secs": metrics.elapsed_secs,
-                    "output_bytes": metrics.output_bytes,
-                    "bitrate_mbps": metrics.estimated_bitrate_mbps,
-                }),
-            );
-            EventAction::Continue
-        }
-        BackendEvent::Failed {
-            recording_id,
-            message,
-        } => {
-            emit(
-                json,
-                &format!("error: {message}"),
-                serde_json::json!({
-                    "event": "failed",
-                    "recording_id": recording_id,
-                    "message": message,
-                }),
-            );
-            EventAction::MarkFailure
-        }
-        BackendEvent::Exited {
-            session_id,
-            output_path,
-            success,
-            status,
-        } => {
-            emit(
-                json,
-                &format!("exited: {status}"),
-                serde_json::json!({
-                    "event": "exited",
-                    "session_id": session_id,
-                    "success": success,
-                    "status": status,
-                    "output": output_path.as_ref().map(|path| path.display().to_string()),
-                }),
-            );
-            EventAction::Exit(if success {
-                ExitCode::SUCCESS
-            } else {
-                ExitCode::FAILURE
-            })
-        }
-    }
-}
-
-fn resolve_record_target(
-    targets: &[CaptureTarget],
-    kind: CaptureSourceKind,
-    explicit_id: Option<u64>,
-    saved_id: Option<u64>,
-    query: Option<&TargetQuery>,
-) -> Result<CaptureTarget, String> {
-    match query {
-        Some(query) => resolve_target_query(targets, query),
-        None => resolve_target(targets, kind, explicit_id, saved_id),
-    }
-}
-
-fn resolve_target_query(
-    targets: &[CaptureTarget],
-    query: &TargetQuery,
-) -> Result<CaptureTarget, String> {
-    match query {
-        TargetQuery::Name { kind, query } => {
-            let candidates = targets
-                .iter()
-                .filter(|target| kind.map_or(true, |kind| target.kind == kind))
-                .collect();
-            resolve_by_name(candidates, query, "target")
-        }
-        TargetQuery::App(query) => {
-            let candidates = targets
-                .iter()
-                .filter(|target| target.kind == CaptureSourceKind::Window)
-                .collect();
-            resolve_by_app(candidates, query)
-        }
-    }
-}
-
-fn resolve_by_name(
-    candidates: Vec<&CaptureTarget>,
-    query: &str,
-    label: &str,
-) -> Result<CaptureTarget, String> {
-    let query = normalized(query);
-    if query.is_empty() {
-        return Err(format!("{label} query cannot be empty"));
-    }
-
-    let exact = matches(&candidates, |target| normalized(&target.name) == query);
-    if !exact.is_empty() {
-        return unique_match(exact, label, &query);
-    }
-
-    let prefix = matches(&candidates, |target| {
-        normalized(&target.name).starts_with(&query)
-    });
-    if !prefix.is_empty() {
-        return unique_match(prefix, label, &query);
-    }
-
-    let contains = matches(&candidates, |target| {
-        normalized(&target.name).contains(&query)
-    });
-    if !contains.is_empty() {
-        return unique_match(contains, label, &query);
-    }
-
-    Err(format!(
-        "no {label} matches `{query}`. Run `wrec targets --json` and pass `--target kind:id` for an exact target."
-    ))
-}
-
-fn resolve_by_app(candidates: Vec<&CaptureTarget>, query: &str) -> Result<CaptureTarget, String> {
-    let query = normalized(query);
-    if query.is_empty() {
-        return Err("app query cannot be empty".to_string());
-    }
-
-    let exact = matches(&candidates, |target| normalized(app_name(target)) == query);
-    if !exact.is_empty() {
-        return unique_match(exact, "app", &query);
-    }
-
-    let prefix = matches(&candidates, |target| {
-        normalized(app_name(target)).starts_with(&query)
-    });
-    if !prefix.is_empty() {
-        return unique_match(prefix, "app", &query);
-    }
-
-    let contains = matches(&candidates, |target| {
-        normalized(app_name(target)).contains(&query)
-    });
-    if !contains.is_empty() {
-        return unique_match(contains, "app", &query);
-    }
-
-    Err(format!(
-        "no app matches `{query}`. Run `wrec targets --json` and pass `--target window:id` for an exact window."
-    ))
-}
-
-fn matches<'a>(
-    candidates: &[&'a CaptureTarget],
-    predicate: impl Fn(&CaptureTarget) -> bool,
-) -> Vec<&'a CaptureTarget> {
-    candidates
-        .iter()
-        .copied()
-        .filter(|target| predicate(target))
-        .collect()
-}
-
-fn unique_match(
-    matches: Vec<&CaptureTarget>,
-    label: &str,
-    query: &str,
-) -> Result<CaptureTarget, String> {
-    match matches.as_slice() {
-        [target] => Ok((*target).clone()),
-        _ => Err(format!(
-            "multiple {label}s match `{query}`: {}. Pass `--target kind:id` to choose one.",
-            matches
-                .iter()
-                .map(|target| describe_target(target))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )),
-    }
-}
-
-fn normalized(value: &str) -> String {
-    value.trim().to_lowercase()
-}
-
-fn app_name(target: &CaptureTarget) -> &str {
-    target
-        .name
-        .split_once(" \u{2014} ")
-        .map(|(app, _)| app)
-        .unwrap_or(&target.name)
-}
-
-fn describe_target(target: &CaptureTarget) -> String {
-    format!(
-        "{}:{} {}",
-        capture_kind_arg(target.kind),
-        target.id,
-        target.name
+            _ => std::process::exit(130),
+        },
     )
 }
 
-/// Stop the recording cleanly on Ctrl+C / SIGTERM / SIGHUP so the helper
-/// finalizes the `.mov` instead of leaving a truncated file. After the stop
-/// the helper exits, the recorder emits `Exited`, and the main loop returns.
-fn install_signal_handler(engine: Arc<Mutex<MacosRecorder>>) {
-    let result = ctrlc::set_handler(move || {
-        eprintln!("\nstopping (signal received), finalizing recording...");
-        let _ = engine.lock().unwrap().stop();
-    });
-    if let Err(err) = result {
-        eprintln!("warning: could not install signal handler: {err}");
+pub fn daemon(command: DaemonCommand) -> ExitCode {
+    match command {
+        DaemonCommand::Serve => match serve_forever() {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(message) => {
+                eprintln!("error: {message}");
+                ExitCode::FAILURE
+            }
+        },
+        DaemonCommand::Start { json } => {
+            if let Err(error) = ensure_daemon() {
+                emit_error(&error, json);
+                return ExitCode::FAILURE;
+            }
+            daemon_status(json)
+        }
+        DaemonCommand::Status { json } => daemon_status(json),
+        DaemonCommand::Stop { json } => daemon_stop(json),
     }
 }
 
-fn spawn_duration_controller(engine: Arc<Mutex<MacosRecorder>>, duration: Duration) {
-    thread::spawn(move || {
-        thread::sleep(duration);
-        eprintln!("duration elapsed, finalizing recording...");
-        let _ = engine.lock().unwrap().stop();
-    });
-}
-
-fn spawn_stdin_controller(engine: Arc<Mutex<MacosRecorder>>, stop_on_eof: bool) {
-    thread::spawn(move || {
-        let stdin = std::io::stdin();
-        for line in stdin.lock().lines() {
-            let Ok(line) = line else { break };
-            match line.trim().to_lowercase().as_str() {
-                "" => {}
-                "pause" => {
-                    let _ = engine.lock().unwrap().pause();
+pub fn jobs(args: JobsArgs) -> ExitCode {
+    with_daemon(args.json, || {
+        let response = request_or_error("jobs.list", json!({}))?;
+        let result = response.result.unwrap_or_else(|| json!({ "jobs": [] }));
+        if args.json {
+            println!("{result}");
+        } else {
+            let jobs = result
+                .get("jobs")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            if jobs.is_empty() {
+                println!("no jobs known to the current daemon");
+            } else {
+                for job in jobs {
+                    print_job_row(&job);
                 }
-                "resume" => {
-                    let _ = engine.lock().unwrap().resume();
-                }
-                "stop" | "q" | "quit" => {
-                    let _ = engine.lock().unwrap().stop();
-                    return;
-                }
-                other => eprintln!("unknown command `{other}` (use pause | resume | stop)"),
             }
         }
-        if stop_on_eof {
-            // stdin reached EOF (Ctrl+D or a closed pipe): stop and finalize.
-            let _ = engine.lock().unwrap().stop();
-        }
-    });
+        Ok(ExitCode::SUCCESS)
+    })
 }
 
-fn recording_overrides(args: &RecordArgs) -> RecordingOverrides {
-    RecordingOverrides {
-        source_kind: args.source_kind,
-        target_id: args.target_id,
-        fps: args.fps,
-        codec: args.codec,
-        quality: args.quality,
-        resolution: args.resolution,
-        output_dir: args.output_dir.clone(),
-        include_cursor: args.include_cursor,
-        include_system_audio: args.include_system_audio,
-        hide_wrec: args.hide_wrec,
+pub fn job(command: JobCommand) -> ExitCode {
+    match command {
+        JobCommand::Show { id, json } => job_request("job.show", id, json),
+        JobCommand::Logs { id, json } => job_request("job.logs", id, json),
+        JobCommand::Pause { id, json } => job_request("job.pause", id, json),
+        JobCommand::Resume { id, json } => job_request("job.resume", id, json),
+        JobCommand::Stop { id, json } => job_request("job.stop", id, json),
+        JobCommand::Cancel { id, json } => job_request("job.cancel", id, json),
     }
 }
 
-fn emit(json: bool, text: &str, value: serde_json::Value) {
-    if json {
-        let mut value = value;
-        if let Some(object) = value.as_object_mut() {
-            object.insert(
-                "timestamp_ms".to_string(),
-                serde_json::json!(timestamp_ms()),
+fn daemon_status(json_output: bool) -> ExitCode {
+    match send_request("daemon.status", json!({})) {
+        Ok(response) if response.ok => {
+            let result = response.result.unwrap_or_else(|| json!({}));
+            if json_output {
+                println!("{result}");
+            } else {
+                println!("wrec daemon running");
+                if let Some(socket) = result.get("socket").and_then(Value::as_str) {
+                    println!("socket: {socket}");
+                }
+                if let Some(home) = result.get("home").and_then(Value::as_str) {
+                    println!("home: {home}");
+                }
+                if let Some(active) = result.get("active_job_id").and_then(Value::as_u64) {
+                    println!("active job: {active}");
+                }
+            }
+            ExitCode::SUCCESS
+        }
+        Ok(response) => {
+            emit_error(
+                &response.error.unwrap_or_else(|| AgentError {
+                    code: "daemon_error".into(),
+                    message: "daemon status failed without details".into(),
+                    recoverable: true,
+                    next: "Inspect ~/.wrec/daemon.log and retry.".into(),
+                }),
+                json_output,
             );
+            ExitCode::FAILURE
         }
-        println!("{value}");
-    } else {
-        println!("{text}");
+        Err(error) => {
+            emit_error(&error, json_output);
+            ExitCode::FAILURE
+        }
     }
 }
 
-fn target_json(target: &CaptureTarget) -> serde_json::Value {
-    serde_json::json!({
-        "kind": capture_kind_arg(target.kind),
-        "id": target.id,
-        "name": target.name,
-    })
-}
-
-fn settings_json(settings: &RecorderSettings) -> serde_json::Value {
-    serde_json::json!({
-        "source": capture_kind_arg(settings.source),
-        "fps": settings.fps.as_u32(),
-        "codec": settings.codec.as_arg(),
-        "quality": settings.quality.as_arg(),
-        "resolution": settings.resolution.as_arg(),
-        "output_dir": settings.output_dir.display().to_string(),
-        "include_cursor": settings.include_cursor,
-        "include_system_audio": settings.include_system_audio,
-        "hide_wrec": settings.hide_wrec,
-    })
-}
-
-fn timestamp_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis() as u64)
-        .unwrap_or(0)
-}
-
-fn human_bytes(bytes: u64) -> String {
-    const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
-    let mut value = bytes as f64;
-    let mut unit = 0;
-    while value >= 1024.0 && unit < UNITS.len() - 1 {
-        value /= 1024.0;
-        unit += 1;
+fn daemon_stop(json_output: bool) -> ExitCode {
+    match send_request("daemon.stop", json!({})) {
+        Ok(response) if response.ok => {
+            let result = response.result.unwrap_or_else(|| json!({}));
+            if json_output {
+                println!("{result}");
+            } else {
+                println!("wrec daemon stopping");
+                if let Some(socket) = result.get("socket").and_then(Value::as_str) {
+                    println!("socket: {socket}");
+                }
+            }
+            ExitCode::SUCCESS
+        }
+        Ok(response) => {
+            emit_error(
+                &response.error.unwrap_or_else(|| AgentError {
+                    code: "daemon_error".into(),
+                    message: "daemon stop failed without details".into(),
+                    recoverable: true,
+                    next: "Inspect ~/.wrec/daemon.log and retry.".into(),
+                }),
+                json_output,
+            );
+            ExitCode::FAILURE
+        }
+        Err(error) => {
+            emit_error(&error, json_output);
+            ExitCode::FAILURE
+        }
     }
-    if unit == 0 {
-        format!("{bytes} B")
+}
+
+fn job_request(method: &str, id: u64, json_output: bool) -> ExitCode {
+    with_daemon(json_output, || {
+        let response = request_or_error(method, json!({ "job_id": id }))?;
+        let result = response.result.unwrap_or_else(|| json!({}));
+        if json_output {
+            println!("{result}");
+        } else if method == "job.logs" {
+            for event in result
+                .get("events")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default()
+            {
+                if let Some(message) = event.get("message").and_then(Value::as_str) {
+                    println!("{message}");
+                }
+            }
+        } else if let Some(job) = result.get("job") {
+            print_job_detail(job);
+        } else {
+            println!("{result}");
+        }
+        Ok(ExitCode::SUCCESS)
+    })
+}
+
+fn with_daemon(json_output: bool, run: impl FnOnce() -> Result<ExitCode, AgentError>) -> ExitCode {
+    if let Err(error) = ensure_daemon() {
+        emit_error(&error, json_output);
+        return ExitCode::FAILURE;
+    }
+
+    match run() {
+        Ok(code) => code,
+        Err(error) => {
+            emit_error(&error, json_output);
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn request_or_error(method: &str, params: Value) -> Result<IpcResponse, AgentError> {
+    let response = send_request(method, params)?;
+    if response.ok {
+        Ok(response)
     } else {
-        format!("{value:.1} {}", UNITS[unit])
+        Err(response.error.unwrap_or_else(|| AgentError {
+            code: "daemon_error".into(),
+            message: format!("{method} failed without details"),
+            recoverable: true,
+            next: "Inspect ~/.wrec/daemon.log and retry.".into(),
+        }))
+    }
+}
+
+fn record_params(args: &RecordArgs) -> StartRecordingParams {
+    StartRecordingParams {
+        selector: target_selector(args),
+        options: RecordingOptions {
+            source_kind: args.source_kind,
+            fps: args.fps,
+            codec: args.codec,
+            quality: args.quality,
+            resolution: args.resolution,
+            output_dir: args.output_dir.clone(),
+            include_cursor: args.include_cursor,
+            include_system_audio: args.include_system_audio,
+            hide_wrec: args.hide_wrec,
+        },
+        duration_ms: args.duration.map(|duration| duration.as_millis() as u64),
+        queue: args.queue,
+    }
+}
+
+fn target_selector(args: &RecordArgs) -> Option<TargetSelector> {
+    if let (Some(kind), Some(id)) = (args.source_kind, args.target_id) {
+        return Some(TargetSelector::Id { kind, id });
+    }
+
+    match args.target_query.as_ref()? {
+        TargetQuery::Name { kind, query } => Some(TargetSelector::Name {
+            kind: *kind,
+            query: query.clone(),
+        }),
+        TargetQuery::App(query) => Some(TargetSelector::App {
+            query: query.clone(),
+        }),
+    }
+}
+
+fn decode_job(result: Option<Value>) -> Result<JobSnapshot, AgentError> {
+    serde_json::from_value(
+        result
+            .and_then(|value| value.get("job").cloned())
+            .unwrap_or(Value::Null),
+    )
+    .map_err(protocol_error)
+}
+
+fn protocol_error(err: serde_json::Error) -> AgentError {
+    AgentError {
+        code: "protocol_error".into(),
+        message: err.to_string(),
+        recoverable: false,
+        next: "Inspect ~/.wrec/daemon.log and report this as a wrec IPC protocol bug.".into(),
+    }
+}
+
+fn emit_submission(job: &JobSnapshot, json_output: bool) {
+    if json_output {
+        println!(
+            "{}",
+            json!({
+                "event": "job_submitted",
+                "job": job,
+            })
+        );
+        return;
+    }
+
+    for warning in &job.warnings {
+        eprintln!("warning: {}", warning.message);
+        eprintln!("next: {}", warning.next);
+    }
+    match job.queued_position {
+        Some(position) => println!("job {} queued at position {}", job.id, position),
+        None => println!("job {} {}", job.id, status_label(&job.status)),
+    }
+}
+
+fn print_job_row(job: &Value) {
+    let id = job.get("id").and_then(Value::as_u64).unwrap_or_default();
+    let status = job
+        .get("status")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    let target = job
+        .get("target")
+        .and_then(|target| target.get("name"))
+        .and_then(Value::as_str)
+        .unwrap_or("unknown target");
+    let position = job
+        .get("queued_position")
+        .and_then(Value::as_u64)
+        .map(|position| format!(" position={position}"))
+        .unwrap_or_default();
+    println!("{id}\t{status}\t{target}{position}");
+}
+
+fn print_job_detail(job: &Value) {
+    print_job_row(job);
+    if let Some(output) = job.get("output_path").and_then(Value::as_str) {
+        println!("output: {output}");
+    }
+    if let Some(events) = job.get("events").and_then(Value::as_array) {
+        if let Some(last) = events
+            .last()
+            .and_then(|event| event.get("message"))
+            .and_then(Value::as_str)
+        {
+            println!("last event: {last}");
+        }
+    }
+}
+
+fn status_label(status: &JobStatus) -> &'static str {
+    match status {
+        JobStatus::Queued => "queued",
+        JobStatus::Starting => "starting",
+        JobStatus::Recording => "recording",
+        JobStatus::Paused => "paused",
+        JobStatus::Finishing => "finishing",
+        JobStatus::Completed => "completed",
+        JobStatus::Failed => "failed",
+        JobStatus::Cancelled => "cancelled",
     }
 }

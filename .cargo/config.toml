@@ -1,3 +1,4 @@
 [alias]
 dev = ["run", "-p", "wrec-app"]
 dive = ["run", "-p", "wrec-app"]
+testf = ["run", "-q", "-p", "xtask", "--", "testf"]

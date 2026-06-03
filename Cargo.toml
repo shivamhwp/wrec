@@ -5,8 +5,10 @@ members = [
   "crates/cli",
   "crates/config",
   "crates/core",
+  "crates/daemon",
   "crates/macos",
   "crates/store",
+  "crates/xtask",
 ]
 resolver = "2"
 

@@ -17,14 +17,17 @@ use gpui_component::{
 use std::{
     collections::VecDeque,
     path::{Path, PathBuf},
-    sync::{mpsc, Arc, Mutex},
+    sync::mpsc,
+    time::Duration,
 };
-use wrec_backend::{load_config, persist_config, BackendEvent, ClientEventLevel, WrecBackend};
-use wrec_config::{wrec_dir, AppConfig};
+use wrec_config::{save_config as persist_config, wrec_dir, AppConfig};
 use wrec_core::{
-    CaptureSourceKind, CaptureTarget, Codec, FrameRate, Quality, RecorderEngine, RecorderEvent,
-    RecorderMetrics, RecorderSettings, RecordingSession, Resolution,
-    ScreenRecordingPermissionStatus,
+    CaptureSourceKind, CaptureTarget, Codec, FrameRate, Quality, RecorderMetrics, RecorderSettings,
+    Resolution, ScreenRecordingPermissionStatus,
+};
+use wrec_daemon::{
+    AgentError, DaemonClient, JobSnapshot, JobStatus, RecordingOptions, StartRecordingParams,
+    TargetSelector,
 };
 use wrec_macos::MacosRecorder;
 
@@ -77,25 +80,25 @@ enum AppEvent {
     },
     PermissionRequested(std::result::Result<ScreenRecordingPermissionStatus, String>),
     TargetsLoaded(std::result::Result<Vec<CaptureTarget>, String>),
-    Started(std::result::Result<RecordingSession, String>),
-    Paused(std::result::Result<(), String>),
-    Resumed(std::result::Result<(), String>),
-    Stopped(std::result::Result<(), String>),
+    Started(std::result::Result<JobSnapshot, String>),
+    JobPolled(std::result::Result<JobSnapshot, String>),
+    Paused(std::result::Result<JobSnapshot, String>),
+    Resumed(std::result::Result<JobSnapshot, String>),
+    Stopped(std::result::Result<JobSnapshot, String>),
 }
 
 enum UiEvent {
-    Recorder(RecorderEvent),
     App(AppEvent),
 }
 
 pub(crate) struct WrecApp {
-    engine: Arc<Mutex<MacosRecorder>>,
-    backend: WrecBackend,
+    daemon: DaemonClient,
     app_events: UnboundedSender<UiEvent>,
     pub(crate) settings: RecorderSettings,
     targets: Vec<CaptureTarget>,
     selected_target_key: Option<String>,
-    active_session_id: Option<u64>,
+    active_job_id: Option<u64>,
+    active_job_event_count: usize,
     active_output_path: Option<PathBuf>,
     pub(crate) recorder_state: RecorderState,
     pub(crate) permission_status: ScreenRecordingPermissionStatus,
@@ -118,27 +121,15 @@ pub(crate) struct WrecApp {
 
 impl WrecApp {
     pub(crate) fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let config = load_config();
+        let config = AppConfig::load();
         let settings = config.settings.with_preset_limits();
-        let backend = WrecBackend::open();
 
-        let (events, receiver) = mpsc::channel();
         let (ui_events, mut ui_receiver) = futures::channel::mpsc::unbounded();
         let app_events = ui_events.clone();
-        std::thread::spawn(move || {
-            for event in receiver {
-                if ui_events.unbounded_send(UiEvent::Recorder(event)).is_err() {
-                    break;
-                }
-            }
-        });
         let event_task = cx.spawn_in(window, async move |this, cx| {
             while let Some(event) = ui_receiver.next().await {
                 if this
                     .update_in(cx, |this, window, cx| match event {
-                        UiEvent::Recorder(event) => {
-                            this.handle_recorder_event(event, window, cx);
-                        }
                         UiEvent::App(event) => {
                             this.handle_app_event(event, window, cx);
                         }
@@ -230,13 +221,13 @@ impl WrecApp {
         });
 
         let mut app = Self {
-            engine: Arc::new(Mutex::new(MacosRecorder::new(events))),
-            backend,
+            daemon: DaemonClient::new(),
             app_events,
             settings,
             targets: Vec::new(),
             selected_target_key: config.selected_target_key,
-            active_session_id: None,
+            active_job_id: None,
+            active_job_event_count: 0,
             active_output_path: None,
             recorder_state: RecorderState::Idle,
             permission_status: ScreenRecordingPermissionStatus::Unknown,
@@ -535,12 +526,10 @@ impl WrecApp {
         self.permission_busy = true;
         self.status = "Checking Screen Recording permission".to_string();
         self.push_log("checking Screen Recording permission");
-        let engine = self.engine.clone();
         let app_events = self.app_events.clone();
         std::thread::spawn(move || {
-            let result = engine
-                .lock()
-                .unwrap()
+            let (tx, _rx) = mpsc::channel();
+            let result = MacosRecorder::new(tx)
                 .screen_recording_permission_status()
                 .map_err(|err| err.to_string());
             let _ = app_events.unbounded_send(UiEvent::App(AppEvent::PermissionChecked {
@@ -559,12 +548,10 @@ impl WrecApp {
         self.permission_busy = true;
         self.status = "Requesting Screen Recording permission".to_string();
         self.push_log("requesting Screen Recording permission");
-        let engine = self.engine.clone();
         let app_events = self.app_events.clone();
         std::thread::spawn(move || {
-            let result = engine
-                .lock()
-                .unwrap()
+            let (tx, _rx) = mpsc::channel();
+            let result = MacosRecorder::new(tx)
                 .request_screen_recording_permission()
                 .map_err(|err| err.to_string());
             let _ = app_events.unbounded_send(UiEvent::App(AppEvent::PermissionRequested(result)));
@@ -585,14 +572,13 @@ impl WrecApp {
         self.recorder_state = RecorderState::LoadingTargets;
         self.status = "Loading capture targets".to_string();
         self.push_log("loading capture targets");
-        let engine = self.engine.clone();
+        let daemon = self.daemon.clone();
         let app_events = self.app_events.clone();
         std::thread::spawn(move || {
-            let result = engine
-                .lock()
-                .unwrap()
-                .list_targets()
-                .map_err(|err| err.to_string());
+            let result = daemon
+                .ensure()
+                .and_then(|_| daemon.list_targets())
+                .map_err(agent_error_message);
             let _ = app_events.unbounded_send(UiEvent::App(AppEvent::TargetsLoaded(result)));
         });
         cx.notify();
@@ -688,13 +674,17 @@ impl WrecApp {
                 self.push_log("recorder is busy");
                 return;
             }
+            let Some(job_id) = self.active_job_id else {
+                self.show_error("No active daemon job to stop", window, cx);
+                return;
+            };
             self.recorder_state = RecorderState::Stopping;
             self.status = "Stopping".to_string();
             self.push_log("stopping recording");
-            let engine = self.engine.clone();
+            let daemon = self.daemon.clone();
             let app_events = self.app_events.clone();
             std::thread::spawn(move || {
-                let result = engine.lock().unwrap().stop().map_err(|err| err.to_string());
+                let result = daemon.stop_job(job_id).map_err(agent_error_message);
                 let _ = app_events.unbounded_send(UiEvent::App(AppEvent::Stopped(result)));
             });
             cx.notify();
@@ -722,15 +712,17 @@ impl WrecApp {
         if self.settings.hide_wrec {
             self.push_log("hiding Wrec from recording");
         }
-        let engine = self.engine.clone();
+        self.active_job_id = None;
+        self.active_job_event_count = 0;
+        self.active_output_path = None;
+        let daemon = self.daemon.clone();
         let app_events = self.app_events.clone();
         let settings = self.settings.clone();
         std::thread::spawn(move || {
-            let result = engine
-                .lock()
-                .unwrap()
-                .start(target, settings)
-                .map_err(|err| err.to_string());
+            let result = daemon
+                .ensure()
+                .and_then(|_| daemon.start_recording(recording_params(target, settings)))
+                .map_err(agent_error_message);
             let _ = app_events.unbounded_send(UiEvent::App(AppEvent::Started(result)));
         });
         cx.notify();
@@ -739,33 +731,33 @@ impl WrecApp {
     pub(crate) fn toggle_pause(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match self.recorder_state {
             RecorderState::Recording => {
+                let Some(job_id) = self.active_job_id else {
+                    self.show_error("No active daemon job to pause", window, cx);
+                    return;
+                };
                 self.recorder_state = RecorderState::Pausing;
                 self.status = "Pausing".to_string();
                 self.push_log("pausing recording");
-                let engine = self.engine.clone();
+                let daemon = self.daemon.clone();
                 let app_events = self.app_events.clone();
                 std::thread::spawn(move || {
-                    let result = engine
-                        .lock()
-                        .unwrap()
-                        .pause()
-                        .map_err(|err| err.to_string());
+                    let result = daemon.pause_job(job_id).map_err(agent_error_message);
                     let _ = app_events.unbounded_send(UiEvent::App(AppEvent::Paused(result)));
                 });
                 cx.notify();
             }
             RecorderState::Paused => {
+                let Some(job_id) = self.active_job_id else {
+                    self.show_error("No active daemon job to resume", window, cx);
+                    return;
+                };
                 self.recorder_state = RecorderState::Resuming;
                 self.status = "Resuming".to_string();
                 self.push_log("resuming recording");
-                let engine = self.engine.clone();
+                let daemon = self.daemon.clone();
                 let app_events = self.app_events.clone();
                 std::thread::spawn(move || {
-                    let result = engine
-                        .lock()
-                        .unwrap()
-                        .resume()
-                        .map_err(|err| err.to_string());
+                    let result = daemon.resume_job(job_id).map_err(agent_error_message);
                     let _ = app_events.unbounded_send(UiEvent::App(AppEvent::Resumed(result)));
                 });
                 cx.notify();
@@ -869,22 +861,21 @@ impl WrecApp {
                 }
                 self.show_error(message, window, cx);
             }
-            AppEvent::Started(Ok(session)) => {
+            AppEvent::Started(Ok(job)) => {
                 if !matches!(self.recorder_state, RecorderState::Starting) {
-                    self.push_log(format!(
-                        "ignored late start: {}",
-                        session.output_path.display()
-                    ));
+                    self.push_log(format!("ignored late start for job {}", job.id));
                     cx.notify();
                     return;
                 }
-                self.active_session_id = Some(session.id);
-                self.active_output_path = Some(session.output_path.clone());
-                self.last_recording_dir = session.output_path.parent().map(Path::to_path_buf);
-                self.status = format!("Recording to {}", session.output_path.display());
-                self.recorder_state = RecorderState::Recording;
-                self.push_log(self.status.clone());
-                push_app_notification(window, Notification::new().message("Recording started"), cx);
+                self.active_job_id = Some(job.id);
+                self.active_job_event_count = 0;
+                self.apply_job_snapshot(job, window, cx);
+                self.start_job_poll();
+                push_app_notification(
+                    window,
+                    Notification::new().message("Recording submitted"),
+                    cx,
+                );
             }
             AppEvent::Started(Err(message)) => {
                 if !matches!(self.recorder_state, RecorderState::Starting) {
@@ -892,8 +883,8 @@ impl WrecApp {
                     cx.notify();
                     return;
                 }
-                let recording_id = self.active_session_id;
-                self.active_session_id = None;
+                self.active_job_id = None;
+                self.active_job_event_count = 0;
                 self.active_output_path = None;
                 self.recorder_state = RecorderState::Failed;
                 if is_permission_message(&message) {
@@ -901,17 +892,27 @@ impl WrecApp {
                 }
                 cx.activate(true);
                 window.activate_window();
-                self.show_error_for(recording_id, message, window, cx);
+                self.show_error(message, window, cx);
             }
-            AppEvent::Paused(Ok(())) => {
+            AppEvent::JobPolled(Ok(job)) => {
+                if self.should_accept_job(job.id) {
+                    self.apply_job_snapshot(job, window, cx);
+                }
+            }
+            AppEvent::JobPolled(Err(message)) => {
+                if self.active_job_id.is_some() {
+                    self.recorder_state = RecorderState::Failed;
+                    self.active_job_id = None;
+                    self.active_output_path = None;
+                    self.show_error(message, window, cx);
+                }
+            }
+            AppEvent::Paused(Ok(job)) => {
                 if !matches!(self.recorder_state, RecorderState::Pausing) {
                     cx.notify();
                     return;
                 }
-                self.recorder_state = RecorderState::Paused;
-                self.status = "Paused".to_string();
-                self.push_log("Paused");
-                cx.notify();
+                self.apply_job_snapshot(job, window, cx);
             }
             AppEvent::Paused(Err(message)) => {
                 if matches!(self.recorder_state, RecorderState::Pausing) {
@@ -919,15 +920,12 @@ impl WrecApp {
                 }
                 self.show_error(message, window, cx);
             }
-            AppEvent::Resumed(Ok(())) => {
+            AppEvent::Resumed(Ok(job)) => {
                 if !matches!(self.recorder_state, RecorderState::Resuming) {
                     cx.notify();
                     return;
                 }
-                self.recorder_state = RecorderState::Recording;
-                self.status = "Recording".to_string();
-                self.push_log("Resumed");
-                cx.notify();
+                self.apply_job_snapshot(job, window, cx);
             }
             AppEvent::Resumed(Err(message)) => {
                 if matches!(self.recorder_state, RecorderState::Resuming) {
@@ -935,179 +933,166 @@ impl WrecApp {
                 }
                 self.show_error(message, window, cx);
             }
-            AppEvent::Stopped(Ok(())) => {
-                let recording_id = self.active_session_id;
-                self.active_session_id = None;
-                self.active_output_path = None;
-                self.recorder_state = RecorderState::Idle;
-                self.status = "Stopped".to_string();
-                self.push_log_for(recording_id, ClientEventLevel::Info, "Stopped");
-                cx.activate(true);
-                window.activate_window();
-                if let Some(path) = self.last_recording_dir.clone() {
-                    match open_path(&path) {
-                        Ok(()) => self.push_log(format!("opened: {}", path.display())),
-                        Err(err) => {
-                            self.push_log(format!("open failed: {err}"));
-                            push_app_notification(
-                                window,
-                                Notification::new()
-                                    .message(format!("Could not open output folder: {err}")),
-                                cx,
-                            );
-                        }
-                    }
-                }
-                push_app_notification(window, Notification::new().message("Recording stopped"), cx);
+            AppEvent::Stopped(Ok(job)) => {
+                self.apply_job_snapshot(job, window, cx);
             }
             AppEvent::Stopped(Err(message)) => {
-                let recording_id = self.active_session_id;
-                self.active_session_id = None;
+                self.active_job_id = None;
+                self.active_job_event_count = 0;
                 self.active_output_path = None;
                 self.recorder_state = RecorderState::Failed;
                 cx.activate(true);
                 window.activate_window();
-                self.show_error_for(recording_id, message, window, cx);
+                self.show_error(message, window, cx);
             }
         }
     }
 
-    fn handle_recorder_event(
+    fn apply_job_snapshot(
         &mut self,
-        event: RecorderEvent,
+        job: JobSnapshot,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if !self.should_accept_recorder_event(recorder_event_session_id(&event)) {
+        if !self.should_accept_job(job.id) {
             return;
         }
 
-        // Manual stops finish through AppEvent::Stopped; the backend still persists terminal events.
         let was_stopping = matches!(self.recorder_state, RecorderState::Stopping);
-        match self.backend.handle_recorder_event(&event) {
-            BackendEvent::Starting {
-                session_id,
-                target,
-                output_path,
-                ..
-            } => {
-                self.active_session_id = Some(session_id);
-                self.active_output_path = Some(output_path.clone());
-                self.last_recording_dir = output_path.parent().map(Path::to_path_buf);
-                self.push_log_entry(format!(
-                    "starting capture: {} ({:?})",
-                    target.name, target.kind
-                ));
-            }
-            BackendEvent::Log {
-                session_id,
-                message,
-                marked_started,
-            } => {
-                if marked_started {
-                    self.status = "Recording".to_string();
-                }
-                let _ = session_id;
-                self.push_log_entry(message);
-            }
-            BackendEvent::Metrics { metrics, .. } => {
-                self.metrics = Some(metrics);
-                cx.notify();
-            }
-            BackendEvent::Failed {
-                recording_id,
-                message,
-            } => {
-                if was_stopping {
-                    return;
-                }
+        self.active_job_id.get_or_insert(job.id);
+        if let Some(path) = job.output_path.clone() {
+            self.active_output_path = Some(path.clone());
+            self.last_recording_dir = path.parent().map(Path::to_path_buf);
+        }
+        self.push_new_job_events(&job);
+        if let Some(metrics) = job
+            .events
+            .iter()
+            .rev()
+            .find_map(|event| event.metrics.clone())
+        {
+            self.metrics = Some(metrics);
+        }
 
-                self.active_session_id = None;
+        match job.status {
+            JobStatus::Queued | JobStatus::Starting => {
+                self.recorder_state = RecorderState::Starting;
+                self.status = job
+                    .target
+                    .as_ref()
+                    .map(|target| format!("Starting {}", target.name))
+                    .unwrap_or_else(|| "Starting".to_string());
+            }
+            JobStatus::Recording => {
+                self.recorder_state = RecorderState::Recording;
+                self.status = job
+                    .output_path
+                    .as_ref()
+                    .map(|path| format!("Recording to {}", path.display()))
+                    .unwrap_or_else(|| "Recording".to_string());
+            }
+            JobStatus::Paused => {
+                self.recorder_state = RecorderState::Paused;
+                self.status = "Paused".to_string();
+            }
+            JobStatus::Finishing => {
+                self.recorder_state = RecorderState::Stopping;
+                self.status = "Stopping".to_string();
+            }
+            JobStatus::Completed => {
+                self.active_job_id = None;
+                self.active_job_event_count = 0;
+                self.active_output_path = None;
+                self.recorder_state = RecorderState::Idle;
+                self.status = job
+                    .output_path
+                    .as_ref()
+                    .map(|path| format!("Saved to {}", path.display()))
+                    .unwrap_or_else(|| "Recording completed".to_string());
+                cx.activate(true);
+                window.activate_window();
+                if was_stopping {
+                    self.open_last_recording_folder(window, cx);
+                    push_app_notification(
+                        window,
+                        Notification::new().message("Recording stopped"),
+                        cx,
+                    );
+                }
+            }
+            JobStatus::Failed | JobStatus::Cancelled => {
+                let message = latest_error_message(&job).unwrap_or_else(|| {
+                    if matches!(job.status, JobStatus::Cancelled) {
+                        "Recording cancelled".to_string()
+                    } else {
+                        "Recording failed".to_string()
+                    }
+                });
+                self.active_job_id = None;
+                self.active_job_event_count = 0;
                 self.active_output_path = None;
                 self.recorder_state = RecorderState::Failed;
+                self.status = message.clone();
                 if is_permission_message(&message) {
                     self.permission_status = ScreenRecordingPermissionStatus::Missing;
                 }
                 cx.activate(true);
                 window.activate_window();
-                self.show_backend_error_for(recording_id, message, window, cx);
-            }
-            BackendEvent::Exited {
-                session_id,
-                success,
-                status,
-                ..
-            } => {
-                if was_stopping {
-                    return;
-                }
-
-                self.active_session_id = None;
-                self.active_output_path = None;
-                self.recorder_state = if success {
-                    RecorderState::Idle
-                } else {
-                    RecorderState::Failed
-                };
-                cx.activate(true);
-                window.activate_window();
-                if success {
-                    self.push_log_entry(format!("helper exited: {status}"));
-                } else {
-                    self.show_backend_error_for(
-                        Some(session_id),
-                        format!("helper exited: {status}"),
-                        window,
-                        cx,
-                    );
-                }
+                self.show_error(message, window, cx);
             }
         }
+        cx.notify();
     }
 
-    fn should_accept_recorder_event(&self, session_id: Option<u64>) -> bool {
-        let active_session_id = self.active_session_id.or(self.backend.active_session_id());
-        match (session_id, active_session_id) {
-            (None, _) => true,
-            (Some(event_session), Some(active_session)) => event_session == active_session,
-            (Some(_), None) => matches!(self.recorder_state, RecorderState::Starting),
+    fn push_new_job_events(&mut self, job: &JobSnapshot) {
+        for event in job.events.iter().skip(self.active_job_event_count) {
+            self.push_log_entry(event.message.clone());
+        }
+        self.active_job_event_count = job.events.len();
+    }
+
+    fn should_accept_job(&self, job_id: u64) -> bool {
+        self.active_job_id
+            .map(|active_job_id| active_job_id == job_id)
+            .unwrap_or(false)
+    }
+
+    fn start_job_poll(&self) {
+        let Some(job_id) = self.active_job_id else {
+            return;
+        };
+        let daemon = self.daemon.clone();
+        let app_events = self.app_events.clone();
+        std::thread::spawn(move || loop {
+            std::thread::sleep(Duration::from_millis(500));
+            let result = daemon.show_job(job_id).map_err(agent_error_message);
+            let stop = result.as_ref().map_or(true, |job| is_terminal_job(job));
+            let _ = app_events.unbounded_send(UiEvent::App(AppEvent::JobPolled(result)));
+            if stop {
+                break;
+            }
+        });
+    }
+
+    fn open_last_recording_folder(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(path) = self.last_recording_dir.clone() else {
+            return;
+        };
+        match open_path(&path) {
+            Ok(()) => self.push_log(format!("opened: {}", path.display())),
+            Err(err) => {
+                self.push_log(format!("open failed: {err}"));
+                push_app_notification(
+                    window,
+                    Notification::new().message(format!("Could not open output folder: {err}")),
+                    cx,
+                );
+            }
         }
     }
 
     fn show_error(
         &mut self,
-        message: impl Into<String>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.show_error_for(self.active_session_id, message, window, cx);
-    }
-
-    fn show_error_for(
-        &mut self,
-        recording_id: Option<u64>,
-        message: impl Into<String>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let message = message.into();
-        self.status = message.clone();
-        self.push_log_for(
-            recording_id,
-            ClientEventLevel::Error,
-            format!("error: {message}"),
-        );
-        tracing::error!("{message}");
-        push_app_notification(
-            window,
-            Notification::new().message(message).autohide(false),
-            cx,
-        );
-    }
-
-    fn show_backend_error_for(
-        &mut self,
-        _recording_id: Option<u64>,
         message: impl Into<String>,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -1124,18 +1109,7 @@ impl WrecApp {
     }
 
     pub(crate) fn push_log(&mut self, message: impl Into<String>) {
-        self.push_log_for(self.active_session_id, ClientEventLevel::Info, message);
-    }
-
-    fn push_log_for(
-        &mut self,
-        recording_id: Option<u64>,
-        level: ClientEventLevel,
-        message: impl Into<String>,
-    ) {
-        let message = message.into();
-        self.push_log_entry(message.clone());
-        self.backend.append_app_event(recording_id, level, message);
+        self.push_log_entry(message);
     }
 
     fn push_log_entry(&mut self, message: impl Into<String>) {
@@ -1159,6 +1133,47 @@ impl WrecApp {
             tracing::warn!("failed to save config: {err}");
         }
     }
+}
+
+fn recording_params(target: CaptureTarget, settings: RecorderSettings) -> StartRecordingParams {
+    StartRecordingParams {
+        selector: Some(TargetSelector::Id {
+            kind: target.kind,
+            id: target.id,
+        }),
+        options: RecordingOptions {
+            source_kind: Some(settings.source),
+            fps: Some(settings.fps),
+            codec: Some(settings.codec),
+            quality: Some(settings.quality),
+            resolution: Some(settings.resolution),
+            output_dir: Some(settings.output_dir),
+            include_cursor: Some(settings.include_cursor),
+            include_system_audio: Some(settings.include_system_audio),
+            hide_wrec: Some(settings.hide_wrec),
+        },
+        duration_ms: None,
+        queue: false,
+    }
+}
+
+fn agent_error_message(error: AgentError) -> String {
+    format!("{} Next: {}", error.message, error.next)
+}
+
+fn is_terminal_job(job: &JobSnapshot) -> bool {
+    matches!(
+        job.status,
+        JobStatus::Completed | JobStatus::Failed | JobStatus::Cancelled
+    )
+}
+
+fn latest_error_message(job: &JobSnapshot) -> Option<String> {
+    job.events
+        .iter()
+        .rev()
+        .find(|event| matches!(event.level, wrec_daemon::EventLevel::Error))
+        .map(|event| event.message.clone())
 }
 
 fn source_label(source: CaptureSourceKind) -> &'static str {
@@ -1204,13 +1219,20 @@ fn is_permission_message(message: &str) -> bool {
     message.contains("Screen Recording") || message.contains("screen recording permission")
 }
 
-fn recorder_event_session_id(event: &RecorderEvent) -> Option<u64> {
-    match event {
-        RecorderEvent::Starting { session_id, .. }
-        | RecorderEvent::Metrics { session_id, .. }
-        | RecorderEvent::Exited { session_id, .. } => Some(*session_id),
-        RecorderEvent::Log { session_id, .. } | RecorderEvent::Failed { session_id, .. } => {
-            *session_id
-        }
+#[cfg(test)]
+mod tests {
+    use super::recording_params;
+    use wrec_core::{CaptureSourceKind, CaptureTarget, RecorderSettings};
+
+    #[test]
+    fn app_recordings_do_not_queue_without_queue_ui() {
+        let target = CaptureTarget {
+            id: 7,
+            name: "Main Display".into(),
+            kind: CaptureSourceKind::Display,
+        };
+        let params = recording_params(target, RecorderSettings::default());
+
+        assert!(!params.queue);
     }
 }

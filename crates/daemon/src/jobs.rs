@@ -1,0 +1,156 @@
+use crate::{
+    paths::{append_job_event, now_ms},
+    protocol::{AgentWarning, EventLevel, JobEvent, JobSnapshot, JobStatus, TargetSelector},
+};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
+use wrec_core::{CaptureTarget, RecorderMetrics, RecorderSettings};
+
+pub(crate) struct JobRecord<E> {
+    pub(crate) id: u64,
+    pub(crate) status: JobStatus,
+    pub(crate) selector: Option<TargetSelector>,
+    pub(crate) target: CaptureTarget,
+    pub(crate) settings: RecorderSettings,
+    pub(crate) output_path: Option<PathBuf>,
+    pub(crate) duration_ms: Option<u64>,
+    pub(crate) warnings: Vec<AgentWarning>,
+    pub(crate) events: Vec<JobEvent>,
+    pub(crate) control: Option<Arc<Mutex<E>>>,
+    pub(crate) created_at_ms: u64,
+    pub(crate) updated_at_ms: u64,
+    pub(crate) started_at_ms: Option<u64>,
+    pub(crate) finished_at_ms: Option<u64>,
+}
+
+impl<E> JobRecord<E> {
+    pub(crate) fn new(
+        id: u64,
+        selector: Option<TargetSelector>,
+        target: CaptureTarget,
+        settings: RecorderSettings,
+        duration_ms: Option<u64>,
+        warnings: Vec<AgentWarning>,
+    ) -> Self {
+        let now = now_ms();
+        Self {
+            id,
+            status: JobStatus::Queued,
+            selector,
+            target,
+            settings,
+            output_path: None,
+            duration_ms,
+            warnings,
+            events: Vec::new(),
+            control: None,
+            created_at_ms: now,
+            updated_at_ms: now,
+            started_at_ms: None,
+            finished_at_ms: None,
+        }
+    }
+
+    pub(crate) fn snapshot(&self, queued_position: Option<usize>) -> JobSnapshot {
+        JobSnapshot {
+            id: self.id,
+            status: self.status.clone(),
+            selector: self.selector.clone(),
+            target: Some(self.target.clone()),
+            settings: Some(self.settings.clone()),
+            output_path: self.output_path.clone(),
+            queued_position,
+            warnings: self.warnings.clone(),
+            events: self.events.clone(),
+            created_at_ms: self.created_at_ms,
+            updated_at_ms: self.updated_at_ms,
+            started_at_ms: self.started_at_ms,
+            finished_at_ms: self.finished_at_ms,
+        }
+    }
+
+    pub(crate) fn mark_starting(&mut self) {
+        if self.started_at_ms.is_none() {
+            self.started_at_ms = Some(now_ms());
+        }
+        self.status = JobStatus::Starting;
+        self.push_event(EventLevel::Info, "job starting");
+    }
+
+    pub(crate) fn mark_recording(&mut self) {
+        if !self.is_terminal() {
+            self.status = JobStatus::Recording;
+            self.push_event(EventLevel::Info, "recording active");
+        }
+    }
+
+    pub(crate) fn mark_finishing(&mut self) {
+        if !self.is_terminal() {
+            self.status = JobStatus::Finishing;
+            self.push_event(EventLevel::Info, "stop requested");
+        }
+    }
+
+    pub(crate) fn mark_cancelled(&mut self) {
+        if !self.is_terminal() {
+            self.status = JobStatus::Cancelled;
+            self.finished_at_ms = Some(now_ms());
+            self.control = None;
+            self.push_event(EventLevel::Warning, "queued job cancelled");
+        }
+    }
+
+    pub(crate) fn mark_failed(&mut self, message: impl Into<String>) {
+        if !self.is_terminal() {
+            self.status = JobStatus::Failed;
+            self.finished_at_ms = Some(now_ms());
+            self.control = None;
+            self.push_event(EventLevel::Error, message);
+        }
+    }
+
+    pub(crate) fn mark_completed(&mut self, status: impl Into<String>) {
+        if !self.is_terminal() {
+            self.status = JobStatus::Completed;
+            self.finished_at_ms = Some(now_ms());
+            self.control = None;
+            self.push_event(EventLevel::Info, status);
+        }
+    }
+
+    pub(crate) fn is_terminal(&self) -> bool {
+        matches!(
+            self.status,
+            JobStatus::Completed | JobStatus::Failed | JobStatus::Cancelled
+        )
+    }
+
+    pub(crate) fn push_event(&mut self, level: EventLevel, message: impl Into<String>) {
+        let event = JobEvent {
+            timestamp_ms: now_ms(),
+            level,
+            message: message.into(),
+            metrics: None,
+        };
+        append_job_event(self.id, &event);
+        self.events.push(event);
+        self.updated_at_ms = now_ms();
+    }
+
+    pub(crate) fn push_metrics(&mut self, metrics: RecorderMetrics) {
+        let event = JobEvent {
+            timestamp_ms: now_ms(),
+            level: EventLevel::Info,
+            message: format!(
+                "{}s  {} bytes  {:.2} Mbps",
+                metrics.elapsed_secs, metrics.output_bytes, metrics.estimated_bitrate_mbps
+            ),
+            metrics: Some(metrics),
+        };
+        append_job_event(self.id, &event);
+        self.events.push(event);
+        self.updated_at_ms = now_ms();
+    }
+}

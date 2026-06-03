@@ -7269,6 +7269,7 @@ dependencies = [
  "serde_json",
  "wrec-backend",
  "wrec-core",
+ "wrec-daemon",
  "wrec-macos",
 ]
 
@@ -7284,9 +7285,9 @@ dependencies = [
  "phosphor-svgs",
  "tracing",
  "tracing-subscriber",
- "wrec-backend",
  "wrec-config",
  "wrec-core",
+ "wrec-daemon",
  "wrec-macos",
 ]
 
@@ -7317,6 +7318,18 @@ dependencies = [
  "anyhow",
  "serde",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "wrec-daemon"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tracing-subscriber",
+ "wrec-backend",
+ "wrec-core",
+ "wrec-macos",
 ]
 
 [[package]]
@@ -7406,6 +7419,10 @@ name = "xmlwriter"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
+
+[[package]]
+name = "xtask"
+version = "0.1.0"
 
 [[package]]
 name = "y4m"

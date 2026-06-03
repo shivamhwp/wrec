@@ -11,10 +11,10 @@ use gpui_component::{
     notification::Notification,
     select::{Select, SelectItem, SelectState},
     switch::Switch,
-    tab::{Tab, TabBar},
-    ActiveTheme as _, Colorize as _, Disableable as _, Icon as UiIcon, Root, Sizable as _, Theme,
-    ThemeMode, WindowExt as _,
+    ActiveTheme as _, Colorize as _, Disableable as _, Icon as UiIcon, Root, Theme, ThemeMode,
+    WindowExt as _,
 };
+use std::rc::Rc;
 use wrec_core::{
     CaptureSourceKind, CaptureTarget, FrameRate, Quality, RecorderMetrics, Resolution,
     ScreenRecordingPermissionStatus,
@@ -25,15 +25,17 @@ pub(crate) type LimitedSelect = SelectState<Vec<LimitedOption>>;
 pub(crate) type TargetSelect = SelectState<Vec<TargetOption>>;
 
 pub(crate) const CONTROL_HEIGHT: f32 = 32.;
-pub(crate) const WINDOW_WIDTH: f32 = 430.;
+pub(crate) const WINDOW_WIDTH: f32 = 560.;
 pub(crate) const WINDOW_HEIGHT: f32 = 540.;
-pub(crate) const WINDOW_MIN_WIDTH: f32 = 390.;
+pub(crate) const WINDOW_MIN_WIDTH: f32 = 540.;
 pub(crate) const WINDOW_MIN_HEIGHT: f32 = 500.;
 pub(crate) const SOURCE_OPTIONS: [&str; 2] = ["Display", "Window"];
 pub(crate) const CODEC_OPTIONS: [&str; 2] = ["HEVC", "H.264"];
 pub(crate) const QUALITY_OPTIONS: [&str; 3] = ["Balanced", "Efficient", "High"];
 
-const TAB_HEIGHT: f32 = 32.;
+const SIDEBAR_WIDTH: f32 = 154.;
+const SIDEBAR_LEFT_INSET: f32 = 16.;
+const HEADER_HEIGHT: f32 = 48.;
 const FIELD_LABEL_WIDTH: f32 = 96.;
 const NOTIFICATION_WIDTH: f32 = 320.;
 
@@ -149,24 +151,17 @@ pub(crate) enum AppTab {
 }
 
 impl AppTab {
-    pub(crate) fn index(self, show_nerd_logs: bool) -> usize {
-        match (self, show_nerd_logs) {
-            (Self::General, _) => 0,
-            (Self::Settings, _) => 1,
-            (Self::About, _) => 2,
-            (Self::Nerd, true) => 3,
-            (Self::Nerd, false) => 2,
+    fn id(self) -> &'static str {
+        match self {
+            Self::General => "general",
+            Self::Settings => "settings",
+            Self::About => "about",
+            Self::Nerd => "nerd",
         }
     }
 
-    pub(crate) fn from_index(index: usize, show_nerd_logs: bool) -> Self {
-        match (index, show_nerd_logs) {
-            (0, _) => Self::General,
-            (1, _) => Self::Settings,
-            (2, _) => Self::About,
-            (3, true) => Self::Nerd,
-            _ => Self::General,
-        }
+    fn is_active(self, active_tab: Self) -> bool {
+        self == active_tab
     }
 }
 
@@ -265,48 +260,53 @@ pub(crate) fn fps_disabled(quality: Quality, fps: FrameRate) -> bool {
 }
 
 impl WrecApp {
-    pub(crate) fn render_tabs(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let refresh_disabled = !self.permission_status.is_granted()
-            || self.permission_busy
-            || self.recorder_state.is_busy()
-            || self.recorder_state.is_recording();
+    pub(crate) fn render_sidebar(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let items = [
+            Some(sidebar_nav_item(
+                "General",
+                AppTab::General,
+                AppTab::General.is_active(self.active_tab),
+                cx,
+            )),
+            Some(sidebar_nav_item(
+                "Settings",
+                AppTab::Settings,
+                AppTab::Settings.is_active(self.active_tab),
+                cx,
+            )),
+            Some(sidebar_nav_item(
+                "About",
+                AppTab::About,
+                AppTab::About.is_active(self.active_tab),
+                cx,
+            )),
+            self.show_nerd_logs.then(|| {
+                sidebar_nav_item(
+                    "Nerd",
+                    AppTab::Nerd,
+                    AppTab::Nerd.is_active(self.active_tab),
+                    cx,
+                )
+            }),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
 
-        div().h(px(TAB_HEIGHT)).child(
-            TabBar::new("wrec-tabs")
-                .large()
-                .w_full()
-                .selected_index(self.active_tab.index(self.show_nerd_logs))
-                .last_empty_space(
-                    div()
-                        .flex_1()
-                        .h(px(TAB_HEIGHT))
-                        .window_control_area(WindowControlArea::Drag),
-                )
-                .suffix(
-                    div().flex().items_center().h(px(TAB_HEIGHT)).pr_2().child(
-                        UiButton::new("refresh-targets")
-                            .ghost()
-                            .compact()
-                            .size(px(28.))
-                            .icon(UiIcon::new(PhosphorIcon::Refresh))
-                            .tooltip("Refresh capture targets")
-                            .disabled(refresh_disabled)
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                this.refresh_targets(cx);
-                            })),
-                    ),
-                )
-                .on_click(cx.listener(|this, index: &usize, _, cx| {
-                    this.active_tab = AppTab::from_index(*index, this.show_nerd_logs);
-                    cx.notify();
-                }))
-                .child(Tab::new().child(tab_text("General")))
-                .child(Tab::new().child(tab_text("Settings")))
-                .child(Tab::new().child(tab_text("About")))
-                .when(self.show_nerd_logs, |this| {
-                    this.child(Tab::new().child(tab_text("Nerd")))
-                }),
-        )
+        div()
+            .id("wrec-sidebar")
+            .flex()
+            .flex_col()
+            .w(px(SIDEBAR_WIDTH))
+            .h_full()
+            .flex_shrink_0()
+            .overflow_hidden()
+            .bg(cx.theme().sidebar)
+            .text_color(cx.theme().sidebar_foreground)
+            .border_r_1()
+            .border_color(cx.theme().sidebar_border)
+            .child(sidebar_header(cx.theme().mode.is_dark(), cx))
+            .child(WrecSidebarNav { items }.render("wrec-sidebar-nav", cx))
     }
 
     pub(crate) fn render_general_tab(
@@ -384,6 +384,7 @@ impl WrecApp {
         );
         let cursor_row = label_switch_row(
             "Cursor",
+            muted_foreground,
             Switch::new("cursor-switch")
                 .checked(self.settings.include_cursor)
                 .tooltip("Capture cursor")
@@ -394,6 +395,7 @@ impl WrecApp {
         );
         let audio_row = label_switch_row(
             "System Audio",
+            muted_foreground,
             Switch::new("system-audio-switch")
                 .checked(self.settings.include_system_audio)
                 .tooltip("Capture system audio")
@@ -413,7 +415,7 @@ impl WrecApp {
                 div()
                     .flex()
                     .flex_col()
-                    .gap_3()
+                    .gap_2()
                     .child(source_row)
                     .child(target_row)
                     .child(
@@ -467,13 +469,17 @@ impl WrecApp {
         &self,
         controls_disabled: bool,
         muted_foreground: Hsla,
-        is_dark: bool,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let refresh_disabled = !self.permission_status.is_granted()
+            || self.permission_busy
+            || self.recorder_state.is_busy()
+            || self.recorder_state.is_recording();
+
         div()
             .flex()
             .flex_col()
-            .gap_3()
+            .gap_2()
             .child(
                 div()
                     .flex()
@@ -487,11 +493,7 @@ impl WrecApp {
                             .items_center()
                             .gap_2()
                             .min_w(px(0.))
-                            .child(
-                                div()
-                                    .font_weight(FontWeight::MEDIUM)
-                                    .child("Screen Recording"),
-                            )
+                            .child(row_label("Screen Recording"))
                             .child(
                                 UiButton::new("settings-retry-screen-recording")
                                     .compact()
@@ -511,23 +513,27 @@ impl WrecApp {
                         cx,
                     )),
             )
-            .child(switch_row(
-                "Theme",
-                if is_dark { "Dark" } else { "Light" },
-                muted_foreground,
-                Switch::new("theme-mode")
-                    .checked(is_dark)
-                    .tooltip("Switch theme")
-                    .on_click(cx.listener(|_, checked, window, cx| {
-                        let mode = if *checked {
-                            ThemeMode::Dark
-                        } else {
-                            ThemeMode::Light
-                        };
-                        change_theme(mode, Some(window), cx);
-                        cx.notify();
-                    })),
-            ))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .gap_3()
+                    .min_h(px(CONTROL_HEIGHT))
+                    .child(row_label("Targets"))
+                    .child(
+                        UiButton::new("settings-refresh-targets")
+                            .link()
+                            .compact()
+                            .size(px(28.))
+                            .icon(UiIcon::new(PhosphorIcon::Refresh))
+                            .tooltip("Refresh capture targets")
+                            .disabled(refresh_disabled)
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.refresh_targets(cx);
+                            })),
+                    ),
+            )
             .child(switch_row(
                 "Hide wrec",
                 if self.settings.hide_wrec { "On" } else { "Off" },
@@ -603,24 +609,22 @@ impl WrecApp {
         muted_foreground: Hsla,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let metrics_label = metrics_label.unwrap_or_else(zero_metrics_label);
+
         div()
             .flex()
             .flex_col()
-            .gap_3()
+            .gap_2()
             .flex_1()
             .min_h(px(0.))
-            .child(nerd_section_title(
-                "Metrics",
-                muted_foreground,
-                metrics_label,
-            ))
             .child(
                 div()
                     .flex()
                     .items_center()
                     .justify_between()
                     .gap_3()
-                    .child(div().font_weight(FontWeight::MEDIUM).child("Logs"))
+                    .min_h(px(CONTROL_HEIGHT))
+                    .child(row_label("Logs"))
                     .child(
                         UiButton::new("open-recordings-data-dir")
                             .outline()
@@ -634,6 +638,28 @@ impl WrecApp {
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.open_recordings_data_dir(window, cx);
                             })),
+                    ),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .justify_center()
+                    .flex_1()
+                    .min_h(px(0.))
+                    .overflow_hidden()
+                    .px_3()
+                    .child(
+                        div()
+                            .max_w_full()
+                            .truncate()
+                            .text_center()
+                            .text_size(px(24.))
+                            .line_height(relative(1.))
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .font_family(cx.theme().mono_font_family.clone())
+                            .child(metrics_label),
                     ),
             )
     }
@@ -686,7 +712,6 @@ impl Render for WrecApp {
         let muted_foreground = cx.theme().muted_foreground;
         let background = cx.theme().background;
         let border = cx.theme().border;
-        let is_dark = cx.theme().mode.is_dark();
         let notification_layer = Root::render_notification_layer(window, cx);
         let active_session = self.recorder_state.is_active_session();
         let (record_icon, record_label, record_tip, record_is_idle) = if active_session {
@@ -739,12 +764,19 @@ impl Render for WrecApp {
             .child(
                 div()
                     .flex()
-                    .flex_col()
                     .size_full()
-                    .child(self.render_tabs(cx))
+                    .child(self.render_sidebar(cx))
                     .child(
-                        div().flex().flex_col().flex_1().pt_4().pb_4().px_4().child(
-                            div().id("tab-content").flex().flex_col().flex_1().map(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .flex_1()
+                            .min_w(px(0.))
+                            .pt_2()
+                            .pb_4()
+                            .pl_4()
+                            .pr_3()
+                            .child(div().id("tab-content").flex().flex_col().flex_1().map(
                                 |this| match self.active_tab {
                                     AppTab::General => this.child(self.render_general_tab(
                                         record_icon,
@@ -764,7 +796,6 @@ impl Render for WrecApp {
                                     AppTab::Settings => this.child(self.render_settings_tab(
                                         controls_disabled,
                                         muted_foreground,
-                                        is_dark,
                                         cx,
                                     )),
                                     AppTab::Nerd if self.show_nerd_logs => this.child(
@@ -773,36 +804,147 @@ impl Render for WrecApp {
                                     AppTab::Nerd => this.child(self.render_settings_tab(
                                         controls_disabled,
                                         muted_foreground,
-                                        is_dark,
                                         cx,
                                     )),
                                     AppTab::About => {
                                         this.child(self.render_about_tab(muted_foreground, cx))
                                     }
                                 },
-                            ),
-                        ),
+                            )),
                     ),
             )
             .children(notification_layer)
     }
 }
 
-fn nerd_section_title(title: &'static str, muted_foreground: Hsla, detail: Option<String>) -> Div {
+type SidebarClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
+
+fn sidebar_header(is_dark: bool, cx: &mut Context<WrecApp>) -> Div {
     div()
         .flex()
         .items_center()
         .justify_between()
-        .gap_3()
-        .child(div().font_weight(FontWeight::MEDIUM).child(title))
-        .when_some(detail, |this, detail| {
-            this.child(
+        .gap_2()
+        .h(px(HEADER_HEIGHT))
+        .pl(px(SIDEBAR_LEFT_INSET))
+        .pr_3()
+        .child(div().size(px(22.)).bg(rgb(0xc62828)))
+        .child(
+            div()
+                .flex_1()
+                .h_full()
+                .window_control_area(WindowControlArea::Drag),
+        )
+        .child(theme_toggle(is_dark, cx))
+}
+
+#[derive(Clone)]
+struct WrecSidebarNav {
+    items: Vec<WrecSidebarNavItem>,
+}
+
+#[derive(Clone)]
+struct WrecSidebarNavItem {
+    label: &'static str,
+    tab: AppTab,
+    active: bool,
+    on_click: SidebarClickHandler,
+}
+
+impl WrecSidebarNav {
+    fn render(self, id: impl Into<ElementId>, cx: &mut Context<WrecApp>) -> impl IntoElement {
+        div()
+            .id(id.into())
+            .flex()
+            .flex_col()
+            .w_full()
+            .h_full()
+            .text_color(cx.theme().sidebar_foreground)
+            .child(
                 div()
-                    .text_sm()
-                    .text_color(muted_foreground)
-                    .truncate()
-                    .child(detail),
+                    .flex()
+                    .flex_col()
+                    .gap_2()
+                    .children(self.items.into_iter().map(|item| sidebar_nav_row(item, cx))),
             )
+    }
+}
+
+fn sidebar_nav_item(
+    label: &'static str,
+    tab: AppTab,
+    active: bool,
+    cx: &mut Context<WrecApp>,
+) -> WrecSidebarNavItem {
+    let on_click = Rc::new(cx.listener(move |this, _, _, cx| {
+        if this.active_tab != tab {
+            this.active_tab = tab;
+            cx.notify();
+        }
+    }));
+
+    WrecSidebarNavItem {
+        label,
+        tab,
+        active,
+        on_click,
+    }
+}
+
+fn sidebar_nav_row(item: WrecSidebarNavItem, cx: &mut Context<WrecApp>) -> impl IntoElement {
+    let active_bg = if cx.theme().mode.is_dark() {
+        Hsla::from(rgb(0x343434))
+    } else {
+        Hsla::from(rgb(0xe4e4e4))
+    };
+    let hover_bg = if cx.theme().mode.is_dark() {
+        Hsla::from(rgb(0x2d2d2d))
+    } else {
+        Hsla::from(rgb(0xeeeeee))
+    };
+    let color = if item.active {
+        cx.theme().sidebar_accent_foreground
+    } else {
+        cx.theme().sidebar_foreground
+    };
+    let on_click = item.on_click.clone();
+
+    div()
+        .id(format!("sidebar-nav-{}", item.tab.id()))
+        .flex()
+        .items_center()
+        .gap_2()
+        .w_full()
+        .h(px(CONTROL_HEIGHT))
+        .text_sm()
+        .font_weight(if item.active {
+            FontWeight::SEMIBOLD
+        } else {
+            FontWeight::MEDIUM
+        })
+        .text_color(color)
+        .cursor_pointer()
+        .when(item.active, |this| {
+            this.bg(active_bg)
+                .text_color(cx.theme().sidebar_accent_foreground)
+        })
+        .when(!item.active, |this| {
+            this.hover(|this| {
+                this.bg(hover_bg)
+                    .text_color(cx.theme().sidebar_accent_foreground)
+            })
+        })
+        .child(
+            div()
+                .flex_1()
+                .min_w(px(0.))
+                .pl(px(SIDEBAR_LEFT_INSET))
+                .pr_3()
+                .truncate()
+                .child(item.label),
+        )
+        .on_click(move |event, window, cx| {
+            on_click(event, window, cx);
         })
 }
 
@@ -892,15 +1034,6 @@ fn pause_button(
         }))
 }
 
-fn tab_text(label: &'static str) -> Div {
-    div()
-        .flex()
-        .items_center()
-        .justify_center()
-        .font_weight(FontWeight::MEDIUM)
-        .child(label)
-}
-
 fn field_label(label: &'static str, color: Hsla) -> Div {
     div().w(px(FIELD_LABEL_WIDTH)).flex_none().child(
         Label::new(label)
@@ -908,6 +1041,10 @@ fn field_label(label: &'static str, color: Hsla) -> Div {
             .font_weight(FontWeight::MEDIUM)
             .text_color(color),
     )
+}
+
+fn row_label(label: &'static str) -> Div {
+    div().text_sm().font_weight(FontWeight::MEDIUM).child(label)
 }
 
 fn labeled_select_row(label: &'static str, color: Hsla, select: impl IntoElement) -> Div {
@@ -926,6 +1063,30 @@ fn labeled_select_row(label: &'static str, color: Hsla, select: impl IntoElement
         )
 }
 
+fn theme_toggle(is_dark: bool, cx: &mut Context<WrecApp>) -> impl IntoElement {
+    div()
+        .id("theme-mode")
+        .flex()
+        .items_center()
+        .justify_center()
+        .size(px(CONTROL_HEIGHT))
+        .cursor_pointer()
+        .child(UiIcon::new(if is_dark {
+            PhosphorIcon::Moon
+        } else {
+            PhosphorIcon::Sun
+        }))
+        .on_click(cx.listener(move |_, _, window, cx| {
+            let mode = if is_dark {
+                ThemeMode::Light
+            } else {
+                ThemeMode::Dark
+            };
+            change_theme(mode, Some(window), cx);
+            cx.notify();
+        }))
+}
+
 fn switch_row(label: &'static str, value: &'static str, value_color: Hsla, switch: Switch) -> Div {
     div()
         .flex()
@@ -940,13 +1101,13 @@ fn switch_row(label: &'static str, value: &'static str, value_color: Hsla, switc
                 .items_baseline()
                 .gap_2()
                 .min_w(px(0.))
-                .child(div().font_weight(FontWeight::MEDIUM).child(label))
-                .child(div().text_color(value_color).child(value)),
+                .child(row_label(label))
+                .child(div().text_sm().text_color(value_color).child(value)),
         )
         .child(switch)
 }
 
-fn label_switch_row(label: &'static str, switch: Switch) -> Div {
+fn label_switch_row(label: &'static str, color: Hsla, switch: Switch) -> Div {
     div()
         .flex()
         .items_center()
@@ -954,7 +1115,7 @@ fn label_switch_row(label: &'static str, switch: Switch) -> Div {
         .w_full()
         .h(px(CONTROL_HEIGHT))
         .gap_3()
-        .child(div().font_weight(FontWeight::MEDIUM).child(label))
+        .child(field_label(label, color))
         .child(switch)
 }
 
@@ -968,7 +1129,7 @@ fn plain_info_row(label: &'static str, value: impl Into<SharedString>, value_col
         .w_full()
         .min_h(px(CONTROL_HEIGHT))
         .gap_3()
-        .child(div().font_weight(FontWeight::MEDIUM).child(label))
+        .child(row_label(label))
         .child(
             div()
                 .min_w(px(0.))

@@ -15,6 +15,14 @@ use ui::{
 };
 
 fn main() {
+    if std::env::args().skip(1).eq(["daemon", "serve"]) {
+        if let Err(message) = wrec_daemon::serve_forever() {
+            eprintln!("error: {message}");
+            std::process::exit(1);
+        }
+        return;
+    }
+
     init_tracing();
 
     application().with_assets(WrecAssets).run(|cx: &mut App| {
