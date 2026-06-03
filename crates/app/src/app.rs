@@ -1153,7 +1153,7 @@ fn recording_params(target: CaptureTarget, settings: RecorderSettings) -> StartR
             hide_wrec: Some(settings.hide_wrec),
         },
         duration_ms: None,
-        queue: true,
+        queue: false,
     }
 }
 
@@ -1217,4 +1217,22 @@ fn fps_from_label(label: &str) -> FrameRate {
 
 fn is_permission_message(message: &str) -> bool {
     message.contains("Screen Recording") || message.contains("screen recording permission")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::recording_params;
+    use wrec_core::{CaptureSourceKind, CaptureTarget, RecorderSettings};
+
+    #[test]
+    fn app_recordings_do_not_queue_without_queue_ui() {
+        let target = CaptureTarget {
+            id: 7,
+            name: "Main Display".into(),
+            kind: CaptureSourceKind::Display,
+        };
+        let params = recording_params(target, RecorderSettings::default());
+
+        assert!(!params.queue);
+    }
 }

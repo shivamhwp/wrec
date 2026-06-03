@@ -100,7 +100,7 @@ impl<R: RecordingRuntime> Coordinator<R> {
     }
 
     pub(crate) fn targets_list(state: SharedCoordinator<R>) -> Result<Value, AgentError> {
-        let targets = list_targets_with_cache(&state, false)?;
+        let targets = list_targets_with_cache(&state, true)?;
         Ok(json!({ "targets": targets }))
     }
 
@@ -749,6 +749,7 @@ mod tests {
     struct FakeRuntime {
         targets: Arc<Vec<CaptureTarget>>,
         next_session_id: Arc<AtomicU64>,
+        list_calls: Arc<AtomicU64>,
     }
 
     struct FakeEngine {
@@ -766,7 +767,12 @@ mod tests {
                     kind: CaptureSourceKind::Display,
                 }]),
                 next_session_id: Arc::new(AtomicU64::new(100)),
+                list_calls: Arc::new(AtomicU64::new(0)),
             }
+        }
+
+        fn list_calls(&self) -> u64 {
+            self.list_calls.load(Ordering::Relaxed)
         }
     }
 
@@ -774,6 +780,7 @@ mod tests {
         type Engine = FakeEngine;
 
         fn list_targets(&self) -> std::result::Result<Vec<CaptureTarget>, AgentError> {
+            self.list_calls.fetch_add(1, Ordering::Relaxed);
             Ok((*self.targets).clone())
         }
 
@@ -921,6 +928,27 @@ mod tests {
 
         Coordinator::job_resume(state.clone(), job_id).unwrap();
         assert_eq!(job_status(&state, job_id), JobStatus::Recording);
+        Coordinator::job_stop(state.clone(), job_id).unwrap();
+        wait_for_status(&state, job_id, JobStatus::Completed);
+    }
+
+    #[test]
+    fn targets_list_uses_cache_while_recording() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        isolate_env();
+        let runtime = FakeRuntime::new();
+        let state = Arc::new(Mutex::new(Coordinator::new(runtime.clone())));
+
+        Coordinator::targets_list(state.clone()).unwrap();
+        assert_eq!(runtime.list_calls(), 1);
+
+        let job_id = start_job(state.clone()).id;
+        wait_for_status(&state, job_id, JobStatus::Recording);
+        let calls_after_start = runtime.list_calls();
+
+        Coordinator::targets_list(state.clone()).unwrap();
+        assert_eq!(runtime.list_calls(), calls_after_start);
+
         Coordinator::job_stop(state.clone(), job_id).unwrap();
         wait_for_status(&state, job_id, JobStatus::Completed);
     }

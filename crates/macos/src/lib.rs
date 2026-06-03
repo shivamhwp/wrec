@@ -111,7 +111,28 @@ impl RecorderEngine for MacosRecorder {
 
 impl Drop for MacosRecorder {
     fn drop(&mut self) {
-        let _ = platform::stop_recording();
+        if self.owns_active_session() {
+            let _ = platform::stop_recording();
+        }
+    }
+}
+
+impl MacosRecorder {
+    fn owns_active_session(&self) -> bool {
+        self.active.is_some()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_recorder_does_not_own_an_active_session() {
+        let (tx, _rx) = std::sync::mpsc::channel();
+        let recorder = MacosRecorder::new(tx);
+
+        assert!(!recorder.owns_active_session());
     }
 }
 
