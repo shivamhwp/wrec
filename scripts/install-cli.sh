@@ -12,9 +12,22 @@ DAEMON="$LIB_DIR/daemon"
 CAPTURE_ENGINE="$LIB_DIR/capture-engine"
 MARKER="# managed by wrec"
 
+can_write_prefix() {
+  path="$PREFIX"
+  while [ ! -e "$path" ]; do
+    parent="$(dirname "$path")"
+    [ "$parent" = "$path" ] && return 1
+    path="$parent"
+  done
+
+  [ -w "$path" ]
+}
+
 run_root() {
   if [ "$(id -u)" -eq 0 ]; then
     "$@"
+  elif can_write_prefix && "$@"; then
+    return 0
   else
     sudo "$@"
   fi
@@ -82,7 +95,18 @@ archive="${WREC_CLI_ARCHIVE:-$tmp_dir/wrec-cli.tar.gz}"
 if [ -z "${WREC_CLI_ARCHIVE:-}" ]; then
   url="$(download_url)"
   echo "Downloading $url"
-  curl -fL "$url" -o "$archive"
+  if ! curl -fL "$url" -o "$archive"; then
+    target="$(target_name)"
+    cat >&2 <<EOF
+Could not download the wrec CLI package.
+URL: $url
+
+This usually means there is no GitHub Release asset named wrec-cli-$target.tar.gz.
+Publish a v* release, set WREC_VERSION to an existing tag, or install from a local archive:
+  curl -fsSL https://wrec-beta.vercel.app/install | WREC_CLI_ARCHIVE=/path/to/wrec-cli-$target.tar.gz sh
+EOF
+    exit 1
+  fi
 fi
 
 tar -xzf "$archive" -C "$tmp_dir"

@@ -278,7 +278,7 @@ The standalone CLI runtime is packaged separately:
 Install it with:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/shivamhwp/wrec/main/scripts/install-cli.sh | sh
+curl -fsSL https://wrec-beta.vercel.app/install | sh
 ```
 
 Local packaging uses ad-hoc signing by default. Developer ID signing and

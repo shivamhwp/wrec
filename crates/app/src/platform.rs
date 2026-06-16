@@ -4,8 +4,7 @@ use std::{
     process::Command,
 };
 
-const CLI_INSTALLER_REPO: &str = "https://raw.githubusercontent.com/shivamhwp/wrec";
-const DEV_INSTALLER_REF: &str = "main";
+const CLI_INSTALLER_URL: &str = "https://wrec-beta.vercel.app/install";
 const MANAGED_CLI_MARKER: &str = "# managed by wrec";
 const INSTALLED_BIN: &str = "/usr/local/bin/wrec";
 const INSTALLED_CLI: &str = "/usr/local/lib/wrec/wrec";
@@ -76,15 +75,15 @@ pub(crate) fn cli_install_status() -> CliInstallStatus {
 }
 
 pub(crate) fn cli_install_command() -> Option<String> {
-    let reference = current_app_bundle_path()
+    let version = current_app_bundle_path()
         .as_deref()
         .filter(|app| !is_dev_app(app))
-        .map(|_| format!("v{}", env!("CARGO_PKG_VERSION")))
-        .unwrap_or_else(|| DEV_INSTALLER_REF.to_string());
+        .map(|_| env!("CARGO_PKG_VERSION"));
 
-    Some(format!(
-        "curl -fsSL {CLI_INSTALLER_REPO}/{reference}/scripts/install-cli.sh | sh"
-    ))
+    Some(match version {
+        Some(version) => format!("curl -fsSL {CLI_INSTALLER_URL} | WREC_VERSION={version} sh"),
+        None => format!("curl -fsSL {CLI_INSTALLER_URL} | sh"),
+    })
 }
 
 fn current_app_bundle_path() -> Option<PathBuf> {

@@ -174,10 +174,14 @@ body {
   overflow-wrap: normal;
 }
 
-.architecture-diagram .code-pre code {
+.docs-page .architecture-diagram .code-pre code {
   white-space: pre;
   word-spacing: normal;
   overflow-wrap: normal;
+  font-variant-ligatures: none;
+  font-feature-settings:
+    "liga" 0,
+    "calt" 0;
 }
 
 .docs-page pre {
