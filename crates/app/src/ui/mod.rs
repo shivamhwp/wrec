@@ -619,9 +619,6 @@ impl WrecApp {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let cli_command = crate::platform::cli_install_command();
-        let cli_command_label = cli_command
-            .clone()
-            .unwrap_or_else(|| "Unavailable outside packaged app".to_string());
         let cli_status_color = match self.cli_install_status {
             CliInstallStatus::Conflict => cx.theme().danger,
             _ => muted_foreground,
@@ -673,29 +670,17 @@ impl WrecApp {
                     .justify_between()
                     .gap_3()
                     .min_h(px(CONTROL_HEIGHT))
-                    .child(
-                        div()
-                            .flex()
-                            .flex_1()
-                            .items_baseline()
-                            .gap_2()
-                            .min_w(px(0.))
-                            .child(row_label("Command"))
-                            .child(
-                                div()
-                                    .min_w(px(0.))
-                                    .text_sm()
-                                    .text_color(muted_foreground)
-                                    .truncate()
-                                    .child(cli_command_label),
-                            ),
-                    )
+                    .child(row_label("Install command"))
                     .child(
                         UiButton::new("cli-copy-install")
                             .secondary()
                             .compact()
-                            .size(px(28.))
-                            .icon(UiIcon::new(PhosphorIcon::Clipboard))
+                            .h(px(CONTROL_HEIGHT))
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .icon(
+                                UiIcon::new(PhosphorIcon::Clipboard).text_color(muted_foreground),
+                            )
+                            .label("Copy")
                             .tooltip("Copy CLI install command")
                             .disabled(cli_command.is_none())
                             .on_click(cx.listener(|this, _, window, cx| {
@@ -1321,12 +1306,14 @@ fn apply_wrec_theme(cx: &mut App) {
     theme.popover = color(palette.popover);
     theme.popover_foreground = color(palette.popover_foreground);
     theme.primary = color(palette.primary);
-    theme.primary_hover = theme.primary.mix(theme.foreground, 0.12);
-    theme.primary_active = theme.primary.mix(theme.foreground, 0.2);
+    // `primary` equals `foreground` in this palette, so mix toward `background`
+    // (the contrasting end) to get a visible hover/press on the dark CTA.
+    theme.primary_hover = theme.primary.mix(theme.background, 0.16);
+    theme.primary_active = theme.primary.mix(theme.background, 0.28);
     theme.primary_foreground = color(palette.primary_foreground);
     theme.secondary = color(palette.secondary);
-    theme.secondary_hover = theme.secondary.mix(theme.foreground, 0.08);
-    theme.secondary_active = theme.secondary.mix(theme.foreground, 0.14);
+    theme.secondary_hover = theme.secondary.mix(theme.foreground, 0.1);
+    theme.secondary_active = theme.secondary.mix(theme.foreground, 0.16);
     theme.secondary_foreground = color(palette.secondary_foreground);
     theme.muted = color(palette.muted);
     theme.muted_foreground = color(palette.muted_foreground);
