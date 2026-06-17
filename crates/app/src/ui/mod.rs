@@ -636,6 +636,7 @@ impl WrecApp {
                     .flex()
                     .items_center()
                     .gap_2()
+                    .mt_3()
                     .child(
                         UiButton::new("choose-output-dir")
                             .secondary()
