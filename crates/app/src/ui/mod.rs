@@ -323,8 +323,14 @@ impl WrecApp {
             .text_color(cx.theme().sidebar_foreground)
             .border_r_1()
             .border_color(cx.theme().sidebar_border)
-            .child(sidebar_header(cx.theme().mode.is_dark(), cx))
-            .child(WrecSidebarNav { items }.render("wrec-sidebar-nav", cx))
+            .child(sidebar_drag_strip())
+            .child(
+                div()
+                    .flex_1()
+                    .min_h(px(0.))
+                    .child(WrecSidebarNav { items }.render("wrec-sidebar-nav", cx)),
+            )
+            .child(sidebar_footer(cx.theme().mode.is_dark(), cx))
     }
 
     pub(crate) fn render_general_tab(
@@ -405,6 +411,7 @@ impl WrecApp {
             muted_foreground,
             Switch::new("cursor-switch")
                 .checked(self.settings.include_cursor)
+                .color(switch_on_color(cx))
                 .tooltip("Capture cursor")
                 .disabled(controls_disabled)
                 .on_click(cx.listener(|this, checked, _, cx| {
@@ -416,6 +423,7 @@ impl WrecApp {
             muted_foreground,
             Switch::new("system-audio-switch")
                 .checked(self.settings.include_system_audio)
+                .color(switch_on_color(cx))
                 .tooltip("Capture system audio")
                 .disabled(controls_disabled)
                 .on_click(cx.listener(|this, checked, _, cx| {
@@ -560,6 +568,7 @@ impl WrecApp {
                 muted_foreground,
                 Switch::new("hide-window-switch")
                     .checked(self.settings.hide_wrec)
+                    .color(switch_on_color(cx))
                     .tooltip("Hide wrec from recording")
                     .disabled(controls_disabled)
                     .on_click(cx.listener(|this, checked, _, cx| {
@@ -572,6 +581,7 @@ impl WrecApp {
                 muted_foreground,
                 Switch::new("logs-switch")
                     .checked(self.show_nerd_logs)
+                    .color(switch_on_color(cx))
                     .tooltip("Show Nerd tab")
                     .on_click(cx.listener(|this, checked, _, cx| {
                         this.set_show_nerd_logs(*checked, cx);
@@ -923,22 +933,38 @@ impl Render for WrecApp {
 
 type SidebarClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
 
-fn sidebar_header(is_dark: bool, cx: &mut Context<WrecApp>) -> Div {
+/// Empty draggable strip at the top of the sidebar (the window has no titlebar,
+/// so this is the region used to move the window and clears the traffic lights).
+fn sidebar_drag_strip() -> Div {
+    div()
+        .h(px(HEADER_HEIGHT))
+        .w_full()
+        .flex_shrink_0()
+        .window_control_area(WindowControlArea::Drag)
+}
+
+/// Toned-down "on" color for switches — pure-white (primary) reads too loud on
+/// the pitch-black background, so use a soft gray in dark mode.
+fn switch_on_color(cx: &Context<WrecApp>) -> Hsla {
+    if cx.theme().mode.is_dark() {
+        Hsla::from(rgb(0xb0b0b8))
+    } else {
+        cx.theme().primary
+    }
+}
+
+/// Brand mark + theme switcher, pinned to the bottom of the sidebar.
+fn sidebar_footer(is_dark: bool, cx: &mut Context<WrecApp>) -> Div {
     div()
         .flex()
         .items_center()
         .justify_between()
         .gap_2()
         .h(px(HEADER_HEIGHT))
+        .flex_shrink_0()
         .pl(px(SIDEBAR_LEFT_INSET))
         .pr_2()
         .child(div().size(px(20.)).rounded_full().bg(rgb(0xe5484d)))
-        .child(
-            div()
-                .flex_1()
-                .h_full()
-                .window_control_area(WindowControlArea::Drag),
-        )
         .child(theme_toggle(is_dark, cx))
 }
 
