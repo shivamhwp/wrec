@@ -16,8 +16,8 @@ use gpui_component::{
     notification::Notification,
     select::{Select, SelectItem, SelectState},
     switch::Switch,
-    ActiveTheme as _, Colorize as _, Disableable as _, Icon as UiIcon, Root, Theme, ThemeMode,
-    WindowExt as _,
+    ActiveTheme as _, Colorize as _, Disableable as _, Icon as UiIcon, Root, Sizable as _, Theme,
+    ThemeMode, WindowExt as _,
 };
 use std::rc::Rc;
 
@@ -388,6 +388,7 @@ impl WrecApp {
             .child(
                 div().flex_1().min_w(px(0.)).h(px(CONTROL_HEIGHT)).child(
                     Select::new(&self.source_select)
+                        .large()
                         .h(px(CONTROL_HEIGHT))
                         .placeholder("Source")
                         .menu_max_h(rems(7.))
@@ -398,6 +399,7 @@ impl WrecApp {
             "Target",
             muted_foreground,
             Select::new(&self.target_select)
+                .large()
                 .h(px(CONTROL_HEIGHT))
                 .placeholder("Target")
                 .search_placeholder("Search targets")
@@ -408,6 +410,7 @@ impl WrecApp {
             "Format",
             muted_foreground,
             Select::new(&self.codec_select)
+                .large()
                 .h(px(CONTROL_HEIGHT))
                 .placeholder("Format")
                 .disabled(controls_disabled),
@@ -416,6 +419,7 @@ impl WrecApp {
             "Preset",
             muted_foreground,
             Select::new(&self.quality_select)
+                .large()
                 .h(px(CONTROL_HEIGHT))
                 .placeholder("Preset")
                 .disabled(controls_disabled),
@@ -424,6 +428,7 @@ impl WrecApp {
             "Resolution",
             muted_foreground,
             Select::new(&self.resolution_select)
+                .large()
                 .h(px(CONTROL_HEIGHT))
                 .placeholder("Resolution")
                 .disabled(controls_disabled),
@@ -432,6 +437,7 @@ impl WrecApp {
             "Frame Rate",
             muted_foreground,
             Select::new(&self.fps_select)
+                .large()
                 .h(px(CONTROL_HEIGHT))
                 .placeholder("Frame Rate")
                 .disabled(controls_disabled),
@@ -620,6 +626,7 @@ impl WrecApp {
             .child(
                 div().w_full().h(px(CONTROL_HEIGHT)).child(
                     Input::new(&self.output_input)
+                        .large()
                         .h(px(CONTROL_HEIGHT))
                         .disabled(controls_disabled),
                 ),
@@ -902,6 +909,8 @@ impl Render for WrecApp {
             .border_color(border)
             .bg(background)
             .text_color(foreground)
+            .text_size(px(15.))
+            .font_weight(FontWeight::MEDIUM)
             .flex()
             .flex_col()
             .child(self.render_title_bar(cx))
@@ -1064,7 +1073,7 @@ fn sidebar_nav_row(item: WrecSidebarNavItem, cx: &mut Context<WrecApp>) -> impl 
                 .h(px(CONTROL_HEIGHT))
                 .px_2p5()
                 .rounded_lg()
-                .text_sm()
+                .text_base()
                 .font_weight(if item.active {
                     FontWeight::SEMIBOLD
                 } else {
@@ -1187,7 +1196,7 @@ fn pause_button(
 fn field_label(label: &'static str, color: Hsla) -> Div {
     div().w(px(FIELD_LABEL_WIDTH)).flex_none().child(
         Label::new(label)
-            .text_sm()
+            .text_base()
             .font_weight(FontWeight::SEMIBOLD)
             .text_color(color),
     )
@@ -1195,14 +1204,14 @@ fn field_label(label: &'static str, color: Hsla) -> Div {
 
 fn section_label(label: &'static str, _color: Hsla) -> Div {
     div()
-        .text_base()
-        .font_weight(FontWeight::SEMIBOLD)
+        .text_lg()
+        .font_weight(FontWeight::BOLD)
         .child(label)
 }
 
 fn row_label(label: &'static str) -> Div {
     div()
-        .text_sm()
+        .text_base()
         .font_weight(FontWeight::SEMIBOLD)
         .child(label)
 }
