@@ -36,7 +36,7 @@ pub(crate) const QUALITY_OPTIONS: [&str; 3] = ["Balanced", "Efficient", "High"];
 
 const SIDEBAR_WIDTH: f32 = 154.;
 const SIDEBAR_LEFT_INSET: f32 = 16.;
-const HEADER_HEIGHT: f32 = 48.;
+const TITLE_BAR_HEIGHT: f32 = 40.;
 const FIELD_LABEL_WIDTH: f32 = 96.;
 const NOTIFICATION_WIDTH: f32 = 320.;
 
@@ -272,37 +272,75 @@ pub(crate) fn fps_disabled(quality: Quality, fps: FrameRate) -> bool {
 }
 
 impl WrecApp {
+    pub(crate) fn render_title_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let is_dark = cx.theme().mode.is_dark();
+        div()
+            .id("wrec-titlebar")
+            .flex()
+            .items_center()
+            .justify_between()
+            .h(px(TITLE_BAR_HEIGHT))
+            .flex_shrink_0()
+            .pl(px(SIDEBAR_LEFT_INSET))
+            .pr_2()
+            .border_b_1()
+            .border_color(cx.theme().border)
+            .child(
+                div()
+                    .flex()
+                    .flex_1()
+                    .items_center()
+                    .gap_2()
+                    .h_full()
+                    .window_control_area(WindowControlArea::Drag)
+                    .child(div().size(px(11.)).rounded_full().bg(rgb(0xe5484d)))
+                    .child(
+                        div()
+                            .text_sm()
+                            .font_weight(FontWeight::BOLD)
+                            .child("wrec"),
+                    ),
+            )
+            .child(theme_toggle(is_dark, cx))
+    }
+
     pub(crate) fn render_sidebar(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let active = self.active_tab;
         let items = [
             Some(sidebar_nav_item(
                 "General",
+                PhosphorIcon::Gauge,
                 AppTab::General,
-                AppTab::General.is_active(self.active_tab),
+                AppTab::General.is_active(active),
                 cx,
             )),
             Some(sidebar_nav_item(
                 "Settings",
+                PhosphorIcon::Gear,
                 AppTab::Settings,
-                AppTab::Settings.is_active(self.active_tab),
+                AppTab::Settings.is_active(active),
                 cx,
             )),
             Some(sidebar_nav_item(
                 "CLI",
+                PhosphorIcon::Terminal,
                 AppTab::Cli,
-                AppTab::Cli.is_active(self.active_tab),
+                AppTab::Cli.is_active(active),
                 cx,
             )),
             Some(sidebar_nav_item(
                 "About",
+                PhosphorIcon::Info,
                 AppTab::About,
-                AppTab::About.is_active(self.active_tab),
+                AppTab::About.is_active(active),
                 cx,
             )),
             self.show_nerd_logs.then(|| {
                 sidebar_nav_item(
                     "Nerd",
+                    PhosphorIcon::Pulse,
                     AppTab::Nerd,
-                    AppTab::Nerd.is_active(self.active_tab),
+                    AppTab::Nerd.is_active(active),
                     cx,
                 )
             }),
@@ -319,18 +357,12 @@ impl WrecApp {
             .h_full()
             .flex_shrink_0()
             .overflow_hidden()
+            .pt_3()
             .bg(cx.theme().sidebar)
             .text_color(cx.theme().sidebar_foreground)
             .border_r_1()
             .border_color(cx.theme().sidebar_border)
-            .child(sidebar_drag_strip())
-            .child(
-                div()
-                    .flex_1()
-                    .min_h(px(0.))
-                    .child(WrecSidebarNav { items }.render("wrec-sidebar-nav", cx)),
-            )
-            .child(sidebar_footer(cx.theme().mode.is_dark(), cx))
+            .child(WrecSidebarNav { items }.render("wrec-sidebar-nav", cx))
     }
 
     pub(crate) fn render_general_tab(
@@ -872,10 +904,14 @@ impl Render for WrecApp {
             .border_color(border)
             .bg(background)
             .text_color(foreground)
+            .flex()
+            .flex_col()
+            .child(self.render_title_bar(cx))
             .child(
                 div()
                     .flex()
-                    .size_full()
+                    .flex_1()
+                    .min_h(px(0.))
                     .child(self.render_sidebar(cx))
                     .child(
                         div()
@@ -883,7 +919,7 @@ impl Render for WrecApp {
                             .flex_col()
                             .flex_1()
                             .min_w(px(0.))
-                            .pt_2()
+                            .pt_4()
                             .pb_4()
                             .pl_4()
                             .pr_3()
@@ -933,16 +969,6 @@ impl Render for WrecApp {
 
 type SidebarClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
 
-/// Empty draggable strip at the top of the sidebar (the window has no titlebar,
-/// so this is the region used to move the window and clears the traffic lights).
-fn sidebar_drag_strip() -> Div {
-    div()
-        .h(px(HEADER_HEIGHT))
-        .w_full()
-        .flex_shrink_0()
-        .window_control_area(WindowControlArea::Drag)
-}
-
 /// Toned-down "on" color for switches — pure-white (primary) reads too loud on
 /// the pitch-black background, so use a soft gray in dark mode.
 fn switch_on_color(cx: &Context<WrecApp>) -> Hsla {
@@ -953,21 +979,6 @@ fn switch_on_color(cx: &Context<WrecApp>) -> Hsla {
     }
 }
 
-/// Brand mark + theme switcher, pinned to the bottom of the sidebar.
-fn sidebar_footer(is_dark: bool, cx: &mut Context<WrecApp>) -> Div {
-    div()
-        .flex()
-        .items_center()
-        .justify_between()
-        .gap_2()
-        .h(px(HEADER_HEIGHT))
-        .flex_shrink_0()
-        .pl(px(SIDEBAR_LEFT_INSET))
-        .pr_2()
-        .child(div().size(px(20.)).rounded_full().bg(rgb(0xe5484d)))
-        .child(theme_toggle(is_dark, cx))
-}
-
 #[derive(Clone)]
 struct WrecSidebarNav {
     items: Vec<WrecSidebarNavItem>,
@@ -976,6 +987,7 @@ struct WrecSidebarNav {
 #[derive(Clone)]
 struct WrecSidebarNavItem {
     label: &'static str,
+    icon: PhosphorIcon,
     tab: AppTab,
     active: bool,
     on_click: SidebarClickHandler,
@@ -1002,6 +1014,7 @@ impl WrecSidebarNav {
 
 fn sidebar_nav_item(
     label: &'static str,
+    icon: PhosphorIcon,
     tab: AppTab,
     active: bool,
     cx: &mut Context<WrecApp>,
@@ -1015,6 +1028,7 @@ fn sidebar_nav_item(
 
     WrecSidebarNavItem {
         label,
+        icon,
         tab,
         active,
         on_click,
@@ -1030,6 +1044,11 @@ fn sidebar_nav_row(item: WrecSidebarNavItem, cx: &mut Context<WrecApp>) -> impl 
     } else {
         cx.theme().sidebar_foreground
     };
+    let icon_color = if item.active {
+        cx.theme().sidebar_accent_foreground
+    } else {
+        cx.theme().muted_foreground
+    };
     let on_click = item.on_click.clone();
 
     div()
@@ -1042,9 +1061,10 @@ fn sidebar_nav_row(item: WrecSidebarNavItem, cx: &mut Context<WrecApp>) -> impl 
             div()
                 .flex()
                 .items_center()
+                .gap_2p5()
                 .w_full()
                 .h(px(CONTROL_HEIGHT))
-                .px_3()
+                .px_2p5()
                 .rounded_lg()
                 .text_sm()
                 .font_weight(if item.active {
@@ -1064,6 +1084,12 @@ fn sidebar_nav_row(item: WrecSidebarNavItem, cx: &mut Context<WrecApp>) -> impl 
                             .text_color(cx.theme().sidebar_accent_foreground)
                     })
                 })
+                .child(
+                    UiIcon::new(item.icon)
+                        .size(px(16.))
+                        .text_color(icon_color)
+                        .flex_shrink_0(),
+                )
                 .child(div().flex_1().min_w(px(0.)).truncate().child(item.label)),
         )
         .on_click(move |event, window, cx| {
@@ -1201,18 +1227,20 @@ fn labeled_select_row(label: &'static str, color: Hsla, select: impl IntoElement
 }
 
 fn theme_toggle(is_dark: bool, cx: &mut Context<WrecApp>) -> impl IntoElement {
-    div()
-        .id("theme-mode")
-        .flex()
-        .items_center()
-        .justify_center()
-        .size(px(CONTROL_HEIGHT))
-        .cursor_pointer()
-        .child(UiIcon::new(if is_dark {
+    UiButton::new("theme-mode")
+        .ghost()
+        .compact()
+        .size(px(30.))
+        .icon(UiIcon::new(if is_dark {
             PhosphorIcon::Moon
         } else {
             PhosphorIcon::Sun
         }))
+        .tooltip(if is_dark {
+            "Switch to light mode"
+        } else {
+            "Switch to dark mode"
+        })
         .on_click(cx.listener(move |_, _, window, cx| {
             let mode = if is_dark {
                 ThemeMode::Light
