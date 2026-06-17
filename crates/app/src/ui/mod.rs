@@ -60,7 +60,6 @@ struct ThemePalette {
     destructive_foreground: u32,
     border: u32,
     input: u32,
-    ring: u32,
     chart_1: u32,
     chart_2: u32,
     chart_3: u32,
@@ -94,7 +93,6 @@ const LIGHT_PALETTE: ThemePalette = ThemePalette {
     destructive_foreground: 0xffffff,
     border: 0xe4e4e7,
     input: 0xe4e4e7,
-    ring: 0x18181b,
     chart_1: 0x18181b,
     chart_2: 0xededf0,
     chart_3: 0xf4f4f5,
@@ -128,7 +126,6 @@ const DARK_PALETTE: ThemePalette = ThemePalette {
     destructive_foreground: 0xffffff,
     border: 0x27272a,
     input: 0x27272a,
-    ring: 0xfafafa,
     chart_1: 0xfafafa,
     chart_2: 0x27272a,
     chart_3: 0x27272a,
@@ -425,20 +422,22 @@ impl WrecApp {
                     .flex()
                     .flex_col()
                     .gap_2()
+                    .child(section_label("Capture", muted_foreground))
                     .child(source_row)
-                    .child(target_row)
-                    .child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap_2()
-                            .child(format_row)
-                            .child(resolution_row)
-                            .child(quality_row)
-                            .child(frame_rate_row)
-                            .child(cursor_row)
-                            .child(audio_row),
-                    ),
+                    .child(target_row),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_2()
+                    .child(section_label("Output", muted_foreground))
+                    .child(format_row)
+                    .child(resolution_row)
+                    .child(quality_row)
+                    .child(frame_rate_row)
+                    .child(cursor_row)
+                    .child(audio_row),
             )
             .child(if show_pause_button {
                 div()
@@ -583,6 +582,7 @@ impl WrecApp {
                             .secondary()
                             .flex_1()
                             .h(px(CONTROL_HEIGHT))
+                            .font_weight(FontWeight::SEMIBOLD)
                             .icon(
                                 UiIcon::new(PhosphorIcon::FolderOpen).text_color(muted_foreground),
                             )
@@ -599,6 +599,7 @@ impl WrecApp {
                             .secondary()
                             .flex_1()
                             .h(px(CONTROL_HEIGHT))
+                            .font_weight(FontWeight::SEMIBOLD)
                             .icon(
                                 UiIcon::new(PhosphorIcon::FolderOpen).text_color(muted_foreground),
                             )
@@ -731,6 +732,7 @@ impl WrecApp {
                             .secondary()
                             .compact()
                             .h(px(CONTROL_HEIGHT))
+                            .font_weight(FontWeight::SEMIBOLD)
                             .icon(
                                 UiIcon::new(PhosphorIcon::FolderOpen).text_color(muted_foreground),
                             )
@@ -784,6 +786,7 @@ impl WrecApp {
                     .secondary()
                     .w_full()
                     .h(px(CONTROL_HEIGHT))
+                    .font_weight(FontWeight::SEMIBOLD)
                     .icon(UiIcon::new(PhosphorIcon::Github).text_color(muted_foreground))
                     .label("GitHub")
                     .tooltip("Open GitHub repository")
@@ -1066,6 +1069,7 @@ fn permission_state_button(
         .compact()
         .secondary()
         .h(px(CONTROL_HEIGHT))
+        .font_weight(FontWeight::SEMIBOLD)
         .label(label)
         .tooltip(tooltip)
         .disabled(busy || status.is_granted())
@@ -1091,6 +1095,7 @@ fn record_button(
     let theme = cx.theme();
     let button = UiButton::new("record-button")
         .h(px(CONTROL_HEIGHT))
+        .font_weight(FontWeight::SEMIBOLD)
         .icon(UiIcon::new(icon).text_color(if is_idle {
             theme.button_primary_foreground
         } else {
@@ -1121,6 +1126,7 @@ fn pause_button(
     UiButton::new("pause-button")
         .secondary()
         .h(px(CONTROL_HEIGHT))
+        .font_weight(FontWeight::SEMIBOLD)
         .icon(UiIcon::new(icon).text_color(cx.theme().muted_foreground))
         .label(label)
         .tooltip(tooltip)
@@ -1138,6 +1144,14 @@ fn field_label(label: &'static str, color: Hsla) -> Div {
             .font_weight(FontWeight::SEMIBOLD)
             .text_color(color),
     )
+}
+
+fn section_label(label: &'static str, color: Hsla) -> Div {
+    div()
+        .text_xs()
+        .font_weight(FontWeight::SEMIBOLD)
+        .text_color(color)
+        .child(label)
 }
 
 fn row_label(label: &'static str) -> Div {
@@ -1324,8 +1338,9 @@ fn apply_wrec_theme(cx: &mut App) {
     theme.danger_foreground = color(palette.destructive_foreground);
     theme.border = color(palette.border);
     theme.input = color(palette.input);
-    theme.ring = theme.input;
-    theme.caret = color(palette.ring);
+    // Reuse the brand record-dot red as the single interaction accent.
+    theme.ring = theme.danger;
+    theme.caret = theme.danger;
     theme.chart_1 = color(palette.chart_1);
     theme.chart_2 = color(palette.chart_2);
     theme.chart_3 = color(palette.chart_3);
@@ -1371,7 +1386,7 @@ fn apply_wrec_theme(cx: &mut App) {
     theme.slider_bar = theme.primary;
     theme.slider_thumb = theme.primary_foreground;
     theme.progress_bar = theme.primary;
-    theme.selection = color(palette.ring).opacity(0.24);
+    theme.selection = theme.danger.opacity(0.2);
     theme.link = theme.primary;
     theme.link_hover = theme.primary_hover;
     theme.link_active = theme.primary_active;
