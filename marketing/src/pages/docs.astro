@@ -269,6 +269,34 @@ const architectureNotes = [
     </script>
     <script is:inline>
       (() => {
+        const themeKey = "wrec-theme";
+        const isTheme = (value) => value === "light" || value === "dark";
+        const readTheme = () => {
+          try {
+            const stored = localStorage.getItem(themeKey);
+            return isTheme(stored) ? stored : "light";
+          } catch {
+            return "light";
+          }
+        };
+        const writeTheme = (theme) => {
+          try {
+            localStorage.setItem(themeKey, theme);
+          } catch {}
+        };
+        const applyTheme = (theme) => {
+          document.documentElement.dataset.theme = theme;
+        };
+        const currentTheme = () =>
+          document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+        const labelThemeButton = (button) => {
+          const next = currentTheme() === "dark" ? "light" : "dark";
+          button.textContent = next;
+          button.setAttribute("aria-label", `Use ${next} theme`);
+        };
+
+        applyTheme(readTheme());
+
         const copy = async (button, text) => {
           await navigator.clipboard.writeText(text.trim());
           button.dataset.copied = "true";
@@ -280,6 +308,16 @@ const architectureNotes = [
         };
 
         window.addEventListener("DOMContentLoaded", () => {
+          document.querySelectorAll("[data-theme-toggle]").forEach((button) => {
+            labelThemeButton(button);
+            button.addEventListener("click", () => {
+              const next = currentTheme() === "dark" ? "light" : "dark";
+              applyTheme(next);
+              writeTheme(next);
+              labelThemeButton(button);
+            });
+          });
+
           document.querySelectorAll("[data-doc-tab]").forEach((tab) => {
             tab.addEventListener("click", () => {
               const selected = tab.dataset.docTab;
@@ -329,41 +367,51 @@ const architectureNotes = [
             aria-hidden="true">.</span
           >
         </a>
-        <button
-          type="button"
-          class="copy-button copy-page-button"
-          data-copy-page
-          data-label="Copy page"
-          aria-label="Copy page"
-          title="Copy page"
-        >
-          <svg
-            class="copy-default"
-            viewBox="0 0 256 256"
-            aria-hidden="true"
-            fill="none"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="18"
+        <div class="docs-action-group">
+          <button
+            type="button"
+            class="theme-toggle docs-theme-toggle"
+            data-theme-toggle
+            aria-label="Use dark theme"
           >
-            <path d="M168 168h48V40H88v48"></path>
-            <rect x="40" y="88" width="128" height="128" rx="8"></rect>
-          </svg>
-          <svg
-            class="copy-success"
-            viewBox="0 0 256 256"
-            aria-hidden="true"
-            fill="none"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="20"
+            dark
+          </button>
+          <button
+            type="button"
+            class="copy-button copy-page-button"
+            data-copy-page
+            data-label="Copy page"
+            aria-label="Copy page"
+            title="Copy page"
           >
-            <path d="M40 144l56 56L216 72"></path>
-          </svg>
-          <span>copy page</span>
-        </button>
+            <svg
+              class="copy-default"
+              viewBox="0 0 256 256"
+              aria-hidden="true"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="18"
+            >
+              <path d="M168 168h48V40H88v48"></path>
+              <rect x="40" y="88" width="128" height="128" rx="8"></rect>
+            </svg>
+            <svg
+              class="copy-success"
+              viewBox="0 0 256 256"
+              aria-hidden="true"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="20"
+            >
+              <path d="M40 144l56 56L216 72"></path>
+            </svg>
+            <span>copy page</span>
+          </button>
+        </div>
       </nav>
 
       <article data-docs-content>

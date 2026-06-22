@@ -1,5 +1,7 @@
 use control::AgentError;
-use domain::{CaptureTarget, RecorderEngine, RecorderEvent, ScreenRecordingPermissionStatus};
+use domain::{
+    CaptureTarget, RecorderEngine, RecorderError, RecorderEvent, ScreenRecordingPermissionStatus,
+};
 use macos::MacosRecorder;
 use std::sync::mpsc;
 
@@ -55,11 +57,25 @@ impl RecordingRuntime for MacosRuntime {
     }
 }
 
-fn permission_error(error: domain::RecorderError) -> AgentError {
-    AgentError {
-        code: "screen_recording_permission_failed".into(),
-        message: error.to_string(),
-        recoverable: true,
-        next: "Grant Screen Recording permission, then retry.".into(),
+fn permission_error(error: RecorderError) -> AgentError {
+    match error {
+        RecorderError::MissingScreenRecordingPermission => AgentError {
+            code: "screen_recording_permission_missing".into(),
+            message: "screen recording permission is not granted".into(),
+            recoverable: true,
+            next: "Grant Screen Recording permission, then retry.".into(),
+        },
+        RecorderError::Backend(message) if message.contains("capture-engine") => AgentError {
+            code: "capture_engine_missing".into(),
+            message: format!("backend error: {message}"),
+            recoverable: true,
+            next: "Build the daemon through Cargo or install the full wrec runtime so daemon and capture-engine are present together.".into(),
+        },
+        error => AgentError {
+            code: "screen_recording_permission_failed".into(),
+            message: error.to_string(),
+            recoverable: true,
+            next: "Fix the backend error above, then retry the permission check.".into(),
+        },
     }
 }

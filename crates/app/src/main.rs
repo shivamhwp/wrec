@@ -30,9 +30,13 @@ fn main() {
                 cx,
             )),
             window_min_size: Some(size(px(WINDOW_MIN_WIDTH), px(WINDOW_MIN_HEIGHT))),
-            titlebar: None,
+            is_resizable: false,
+            titlebar: Some(TitlebarOptions {
+                title: None,
+                appears_transparent: true,
+                traffic_light_position: Some(point(px(14.), px(14.))),
+            }),
             window_background: WindowBackgroundAppearance::Transparent,
-            window_decorations: Some(WindowDecorations::Client),
             ..Default::default()
         };
 

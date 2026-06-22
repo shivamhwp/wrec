@@ -2,6 +2,26 @@
 
 :root {
   color-scheme: light;
+  --page-bg: #fff;
+  --page-fg: #050505;
+  --page-muted: #333;
+  --page-subtle: #555;
+  --page-line: #ddd;
+  --page-soft-bg: #f6f8fa;
+  --page-link: #0645ad;
+  --page-button-border: #bbb;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page-bg: #050505;
+  --page-fg: #f7f7f7;
+  --page-muted: #c7c7c7;
+  --page-subtle: #a3a3a3;
+  --page-line: #2b2b2b;
+  --page-soft-bg: #111;
+  --page-link: #8ab4ff;
+  --page-button-border: #4a4a4a;
 }
 
 html,
@@ -9,10 +29,33 @@ body {
   overscroll-behavior: none;
 }
 
+.home-page {
+  background: var(--page-bg);
+  color: var(--page-fg);
+}
+
+.home-page a {
+  color: inherit;
+}
+
+.theme-toggle {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.theme-toggle:hover,
+.theme-toggle:focus-visible {
+  color: #c62828;
+}
+
 .docs-page {
   margin: 0;
-  background: white;
-  color: #000;
+  background: var(--page-bg);
+  color: var(--page-fg);
   font-family: var(--font-geist), sans-serif;
   font-size: 14px;
   overflow-x: hidden;
@@ -26,7 +69,7 @@ body {
 }
 
 .docs-page a {
-  color: #0645ad;
+  color: var(--page-link);
   text-decoration: underline;
 }
 
@@ -62,7 +105,7 @@ body {
 .docs-page th,
 .docs-page td {
   padding: 10px 16px;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--page-line);
   text-align: left;
   vertical-align: top;
 }
@@ -80,12 +123,12 @@ body {
 .docs-page :where(p, td, .command-line) code {
   display: inline;
   padding: 0.12em 0.5em;
-  border: 1px solid #ddd;
+  border: 1px solid var(--page-line);
   border-radius: 4px;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
-  background: #f6f8fa;
-  color: #111;
+  background: var(--page-soft-bg);
+  color: var(--page-fg);
   font-size: 0.92em;
   line-height: inherit;
   overflow-wrap: anywhere;
@@ -94,12 +137,12 @@ body {
 
 .command-list {
   margin-top: 8px;
-  border-top: 1px solid #ddd;
+  border-top: 1px solid var(--page-line);
 }
 
 .command-item {
   padding: 12px 16px;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--page-line);
 }
 
 .command-line {
@@ -108,7 +151,7 @@ body {
 
 .command-item p {
   margin: 4px 0 0;
-  color: #333;
+  color: var(--page-muted);
 }
 
 .command-reference .command-item {
@@ -126,7 +169,7 @@ body {
   display: flex;
   gap: 8px;
   margin: 28px 0 8px;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--page-line);
 }
 
 .docs-tab {
@@ -135,18 +178,18 @@ body {
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
-  color: #555;
+  color: var(--page-subtle);
   font: inherit;
   line-height: 1.2;
 }
 
 .docs-tab:hover,
 .docs-tab[data-active="true"] {
-  color: #000;
+  color: var(--page-fg);
 }
 
 .docs-tab[data-active="true"] {
-  border-bottom-color: #000;
+  border-bottom-color: var(--page-fg);
 }
 
 .docs-page pre,
@@ -158,9 +201,9 @@ body {
   max-width: 100%;
   overflow-x: auto;
   box-sizing: border-box;
-  border: 1px solid #ddd;
+  border: 1px solid var(--page-line);
   border-radius: 6px;
-  background: #f6f8fa;
+  background: var(--page-soft-bg);
   font-size: 0.85rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -202,6 +245,12 @@ body {
   gap: 16px;
 }
 
+.docs-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .docs-page .docs-brand {
   display: inline-flex;
   align-items: baseline;
@@ -210,17 +259,22 @@ body {
   font-size: 1.75rem;
   font-weight: 700;
   line-height: 1;
-  color: #000;
+  color: var(--page-fg);
   text-decoration: none;
 }
 
 .docs-page .docs-brand:hover {
-  color: #000;
+  color: var(--page-fg);
   text-decoration: none;
 }
 
 .docs-page .docs-brand-dot {
   color: #c62828;
+}
+
+.docs-theme-toggle {
+  font: inherit;
+  font-size: 0.85rem;
 }
 
 .copy-button {
@@ -230,14 +284,14 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border: 1px solid #bbb;
+  border: 1px solid var(--page-button-border);
   border-radius: 6px;
-  background: white;
-  color: #555;
+  background: var(--page-bg);
+  color: var(--page-subtle);
 }
 
 .copy-button:hover {
-  color: #111;
+  color: var(--page-fg);
 }
 
 .copy-button svg {
@@ -255,7 +309,7 @@ body {
 }
 
 .copy-button[data-copied="true"] {
-  color: #111;
+  color: var(--page-fg);
 }
 
 .copy-button .copy-success {

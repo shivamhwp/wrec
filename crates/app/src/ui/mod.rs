@@ -37,6 +37,7 @@ pub(crate) const QUALITY_OPTIONS: [&str; 3] = ["Balanced", "Efficient", "High"];
 
 const SIDEBAR_WIDTH: f32 = 154.;
 const TITLE_BAR_HEIGHT: f32 = 40.;
+const NATIVE_WINDOW_CONTROLS_WIDTH: f32 = 72.;
 const FIELD_LABEL_WIDTH: f32 = 96.;
 const NOTIFICATION_WIDTH: f32 = 320.;
 
@@ -287,12 +288,9 @@ impl WrecApp {
             .border_color(cx.theme().border)
             .child(
                 div()
-                    .flex()
-                    .items_center()
-                    .gap_2()
-                    .child(window_control(WinControl::Close))
-                    .child(window_control(WinControl::Min))
-                    .child(window_control(WinControl::Zoom)),
+                    .w(px(NATIVE_WINDOW_CONTROLS_WIDTH))
+                    .h_full()
+                    .flex_shrink_0(),
             )
             .child(
                 div()
@@ -691,9 +689,7 @@ impl WrecApp {
                             .compact()
                             .h(px(CONTROL_HEIGHT))
                             .font_weight(FontWeight::SEMIBOLD)
-                            .icon(
-                                UiIcon::new(PhosphorIcon::Clipboard).text_color(muted_foreground),
-                            )
+                            .icon(UiIcon::new(PhosphorIcon::Clipboard).text_color(muted_foreground))
                             .label("Copy")
                             .tooltip("Copy CLI install command")
                             .disabled(cli_command.is_none())
@@ -1178,34 +1174,6 @@ fn labeled_select_row(label: &'static str, color: Hsla, select: impl IntoElement
                 .h(px(CONTROL_HEIGHT))
                 .child(select),
         )
-}
-
-#[derive(Clone, Copy)]
-enum WinControl {
-    Close,
-    Min,
-    Zoom,
-}
-
-/// macOS-style traffic-light window control button.
-fn window_control(kind: WinControl) -> impl IntoElement {
-    let (id, color): (&'static str, u32) = match kind {
-        WinControl::Close => ("win-close", 0xff5f57),
-        WinControl::Min => ("win-min", 0xfebc2e),
-        WinControl::Zoom => ("win-zoom", 0x28c840),
-    };
-    div()
-        .id(id)
-        .size(px(12.))
-        .rounded_full()
-        .bg(rgb(color))
-        .cursor_pointer()
-        .hover(|this| this.opacity(0.82))
-        .on_click(move |_, window, _cx| match kind {
-            WinControl::Close => window.remove_window(),
-            WinControl::Min => window.minimize_window(),
-            WinControl::Zoom => window.zoom_window(),
-        })
 }
 
 fn theme_toggle(is_dark: bool, cx: &mut Context<WrecApp>) -> impl IntoElement {

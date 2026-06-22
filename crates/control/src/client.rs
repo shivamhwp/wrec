@@ -29,6 +29,7 @@ const IPC_WRITE_TIMEOUT: Duration = Duration::from_secs(10);
 struct DaemonLaunch {
     program: PathBuf,
     args: Vec<OsString>,
+    envs: Vec<(OsString, OsString)>,
     startup_timeout: Duration,
 }
 
@@ -37,13 +38,22 @@ impl DaemonLaunch {
         Self {
             program: path,
             args: Vec::new(),
+            envs: Vec::new(),
             startup_timeout: STARTUP_TIMEOUT,
         }
+    }
+
+    fn with_env(mut self, key: impl Into<OsString>, value: impl Into<OsString>) -> Self {
+        self.envs.push((key.into(), value.into()));
+        self
     }
 
     fn command(&self) -> Command {
         let mut command = Command::new(&self.program);
         command.args(&self.args);
+        for (key, value) in &self.envs {
+            command.env(key, value);
+        }
         command
     }
 }
@@ -430,22 +440,30 @@ fn daemon_launch() -> Result<DaemonLaunch, AgentError> {
         next: "Set WREC_DAEMON_BIN to a daemon executable and retry.".into(),
     })?;
 
-    if let Some(path) = daemon_candidates(&current)
-        .into_iter()
-        .find(|path| path.is_file())
+    let candidates = daemon_candidates(&current);
+    let installed_daemon = PathBuf::from("/usr/local/lib/wrec/daemon");
+
+    if let Some(launch) = candidates
+        .iter()
+        .filter(|path| **path != installed_daemon)
+        .find_map(|path| daemon_executable_launch(path.clone()))
     {
-        return Ok(DaemonLaunch::executable(path));
+        return Ok(launch);
     }
 
     if let Some(launch) = dev_cargo_daemon_launch() {
         return Ok(launch);
     }
 
+    if let Some(launch) = daemon_executable_launch(installed_daemon) {
+        return Ok(launch);
+    }
+
     Err(AgentError {
         code: "daemon_start_failed".into(),
-        message: "Could not locate the wrec daemon executable.".into(),
+        message: "Could not locate a complete wrec daemon runtime.".into(),
         recoverable: true,
-        next: "Build the daemon with `cargo build -p daemon --bin daemon`, install the wrec runtime, or set WREC_DAEMON_BIN to the daemon executable.".into(),
+        next: "Build the daemon through Cargo, install the full wrec runtime, or set WREC_DAEMON_BIN and WREC_CAPTURE_ENGINE_PATH to matching executables.".into(),
     })
 }
 
@@ -465,6 +483,40 @@ fn daemon_candidates(current: &Path) -> Vec<PathBuf> {
     .into_iter()
     .flatten()
     .collect()
+}
+
+fn daemon_executable_launch(path: PathBuf) -> Option<DaemonLaunch> {
+    if !path.is_file() {
+        return None;
+    }
+
+    if cargo_profile_dir(&path).is_some() {
+        return Some(DaemonLaunch::executable(path));
+    }
+
+    sibling_capture_engine_for_daemon(&path).map(|capture_engine| {
+        DaemonLaunch::executable(path).with_env("WREC_CAPTURE_ENGINE_PATH", capture_engine)
+    })
+}
+
+fn sibling_capture_engine_for_daemon(daemon: &Path) -> Option<PathBuf> {
+    daemon
+        .parent()
+        .map(|dir| dir.join("capture-engine"))
+        .filter(|path| path.is_file())
+}
+
+fn cargo_profile_dir(executable: &Path) -> Option<&Path> {
+    let dir = executable.parent()?;
+    if dir.file_name().is_some_and(|name| name == "deps") {
+        return dir.parent();
+    }
+
+    matches!(
+        dir.file_name().and_then(|name| name.to_str()),
+        Some("debug" | "release")
+    )
+    .then_some(dir)
 }
 
 fn dev_cargo_daemon_launch() -> Option<DaemonLaunch> {
@@ -491,6 +543,7 @@ fn dev_cargo_daemon_launch() -> Option<DaemonLaunch> {
                 "daemon".into(),
                 "--".into(),
             ],
+            envs: Vec::new(),
             startup_timeout: CARGO_STARTUP_TIMEOUT,
         })
     }
@@ -502,7 +555,7 @@ fn dev_cargo_daemon_launch() -> Option<DaemonLaunch> {
 
 #[cfg(test)]
 mod tests {
-    use super::daemon_candidates;
+    use super::{daemon_candidates, daemon_executable_launch};
     use std::path::PathBuf;
 
     #[test]
@@ -524,5 +577,46 @@ mod tests {
             candidates[1],
             PathBuf::from("/tmp/wrec/target/debug/daemon")
         );
+    }
+
+    #[test]
+    fn cargo_daemon_launch_does_not_override_embedded_capture_engine() {
+        let dir =
+            std::env::temp_dir().join(format!("wrec-control-cargo-daemon-{}", std::process::id()));
+        let debug = dir.join("target").join("debug");
+        let daemon = debug.join("daemon");
+        std::fs::create_dir_all(&debug).unwrap();
+        std::fs::write(&daemon, "").unwrap();
+
+        let launch = daemon_executable_launch(daemon.clone()).unwrap();
+
+        assert_eq!(launch.program, daemon);
+        assert!(launch.envs.is_empty());
+
+        let _ = std::fs::remove_file(launch.program);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn packaged_daemon_launch_requires_sibling_capture_engine() {
+        let dir = std::env::temp_dir().join(format!(
+            "wrec-control-packaged-daemon-{}",
+            std::process::id()
+        ));
+        let daemon = dir.join("daemon");
+        let capture_engine = dir.join("capture-engine");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(&daemon, "").unwrap();
+
+        assert!(daemon_executable_launch(daemon.clone()).is_none());
+
+        std::fs::write(&capture_engine, "").unwrap();
+        let launch = daemon_executable_launch(daemon.clone()).unwrap();
+
+        assert_eq!(launch.program, daemon);
+        assert_eq!(launch.envs.len(), 1);
+        assert_eq!(launch.envs[0].1.as_os_str(), capture_engine.as_os_str());
+
+        let _ = std::fs::remove_dir_all(dir);
     }
 }
