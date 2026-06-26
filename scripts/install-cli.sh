@@ -57,13 +57,17 @@ target_name() {
   esac
 }
 
-download_url() {
+asset_name() {
   target="$(target_name)"
   asset="wrec-cli-$target"
   if [ -n "$ARTIFACT_QUALIFIER" ]; then
     asset="$asset-$ARTIFACT_QUALIFIER"
   fi
-  asset="$asset.tar.gz"
+  echo "$asset.tar.gz"
+}
+
+download_url() {
+  asset="$(asset_name)"
 
   if [ "$VERSION" = "latest" ]; then
     echo "https://github.com/$REPO/releases/latest/download/$asset"
@@ -101,13 +105,13 @@ if [ -z "${WREC_CLI_ARCHIVE:-}" ]; then
   url="$(download_url)"
   echo "Downloading $url"
   if ! curl -fL "$url" -o "$archive"; then
-    target="$(target_name)"
+    asset="$(asset_name)"
     cat >&2 <<EOF
 Could not download the wrec CLI package.
 URL: $url
 
-This usually means there is no GitHub Release asset named $asset.
-Publish a v* release, set WREC_VERSION to an existing tag, or install from a local archive:
+This usually means there is no public GitHub Release asset named $asset.
+Publish a v* release from a public repo, set WREC_VERSION to an existing tag, or install from a local archive:
   curl -fsSL https://wrec-beta.vercel.app/install | WREC_CLI_ARCHIVE=/path/to/$asset sh
 EOF
     exit 1

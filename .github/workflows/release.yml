@@ -151,4 +151,5 @@ jobs:
             --target "${{ steps.release.outputs.commit }}" \
             --title "$GITHUB_REF_NAME" \
             --notes "Unsigned macOS dev build for $GITHUB_REF_NAME. macOS will show an unsigned-app warning." \
+            --prerelease \
             --verify-tag
