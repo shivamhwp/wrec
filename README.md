@@ -1,40 +1,33 @@
-# wrec
-
 <p align="center">
   <img src="images/wrec.png" alt="wrec" width="112" />
 </p>
 
-Wrec is a Mac screen recorder built around one goal: record efficiently without
-chewing through CPU or memory.
+<h1 align="center">wrec</h1>
 
-It records displays or windows with a native ScreenCaptureKit pipeline, writes
+<p align="center">
+  A Mac screen recorder built around one goal:<br />
+  record efficiently — without chewing through CPU or memory.
+</p>
+
+<p align="center">
+  <a href="https://github.com/shivamhwp/wrec/releases">Download</a>
+  &nbsp;·&nbsp;
+  <a href="#install">Install</a>
+  &nbsp;·&nbsp;
+  <a href="#cli">CLI</a>
+  &nbsp;·&nbsp;
+  <a href="#architecture">Architecture</a>
+</p>
+
+---
+
+Wrec records displays or windows with a native ScreenCaptureKit pipeline, writes
 hardware-encoded `.mov` files, and gives you both a small GPUI app and a
 JSON-friendly CLI for scripts and agents.
 
-> Heads up: Wrec is still early public software. The current GitHub release
-> artifacts are unsigned dev builds, so macOS will show an unsigned-app warning.
-
-## Why Wrec
-
-Most screen recorders grow around editing, cloud upload, collaboration, or
-streaming. Wrec is intentionally more narrow: capture the right thing, encode it
-efficiently, expose reliable controls, and avoid moving raw frames through places
-that do not need them.
-
-The basic split is simple: Rust coordinates recording state, UI, CLI, IPC, and
-storage. Apple's native stack handles frame capture, audio capture, hardware
-encode, and media finalization.
-
-```text
-Rust app / CLI / agents
-  -> local coordinator daemon
-  -> Swift capture engine
-  -> ScreenCaptureKit
-  -> AVAssetWriter / VideoToolbox
-  -> .mov
-```
-
-Rust never receives, copies, or holds onto raw pixels or audio samples.
+> [!NOTE]
+> Wrec is still early public software. The current GitHub release artifacts are
+> unsigned dev builds, so macOS will show an unsigned-app warning.
 
 ## Features
 
@@ -43,7 +36,6 @@ Rust never receives, copies, or holds onto raw pixels or audio samples.
 - Display and window capture.
 - HEVC by default, with H.264 available.
 - 30 FPS and 60 FPS recording.
-- Efficient, balanced, and high presets.
 - Resolution controls for 720p, 1080p, 2K, 4K, and native capture.
 - Cursor capture, system audio capture, and Wrec-window hiding toggles.
 - Pause, resume, stop, queued jobs, and recording status.
@@ -140,14 +132,6 @@ wrec record start \
 Extra recording requests queue behind the active job by default. Pass
 `--no-queue` to fail when another recording is active, or `--detach` to submit
 the job and return immediately.
-
-## Presets
-
-| Preset | Resolution cap | FPS cap | Use it for |
-| --- | --- | --- | --- |
-| Efficient | 720p | 30 FPS | Long captures and low overhead |
-| Balanced | 1080p | 30 FPS | Default everyday recording |
-| High | Native, 2K, or 4K | 60 FPS | Detail-heavy captures |
 
 ## Runtime Paths
 
@@ -289,18 +273,6 @@ copying anything out of the app bundle.
 
 Pushing a `v*` tag whose commit is on `main` runs the release workflow and
 uploads the `.dmg` and CLI archive to GitHub Releases.
-
-## Current Limitations
-
-- Microphone capture is not implemented.
-- Output is currently `.mov`.
-- Compression is AVAssetWriter-managed so disk writing, audio muxing, and media
-  finalization stay inside AVFoundation.
-- Pause/resume currently retimes samples after a pause. A future efficiency pass
-  should verify AVAssetWriter session boundaries so this copy can be removed.
-- The Swift capture engine is still out of process. Packaged builds bundle and
-  codesign it inside the app; an in-process native library is the cleaner
-  long-term shape.
 
 ## Contributing
 
