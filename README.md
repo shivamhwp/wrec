@@ -5,16 +5,19 @@
 <h1 align="center">wrec</h1>
 
 <p align="center">
-  A Mac screen recorder built around one goal:<br />
-  record efficiently — without chewing through CPU or memory.
+  the most efficient screen recorder for mac.
 </p>
 
 <p align="center">
   <a href="https://github.com/shivamhwp/wrec/releases" target="_blank" rel="noopener noreferrer">Download</a>
   &nbsp;·&nbsp;
-  <a href="#install">Install</a>
-  &nbsp;·&nbsp;
   <a href="https://wrec-beta.vercel.app/docs" target="_blank" rel="noopener noreferrer">Docs</a>
+  &nbsp;·&nbsp;
+  <a href="https://wrec-beta.vercel.app/docs" target="_blank" rel="noopener noreferrer">For your agents</a>
+  &nbsp;·&nbsp;
+  <a href="CONTRIBUTING.md">Contributing</a>
+  &nbsp;·&nbsp;
+  <a href="https://wrec-beta.vercel.app/docs" target="_blank" rel="noopener noreferrer">CLI</a>
 </p>
 
 ---
@@ -39,13 +42,6 @@ JSON-friendly CLI for scripts and agents.
 - Pause, resume, stop, queued jobs, and recording status.
 - JSON output for target discovery, job control, errors, metrics, and logs.
 - Local recording history and metrics stored separately from media files.
-
-## Documentation
-
-The full CLI reference, the agent automation contract, and the runtime
-architecture live in the docs:
-
-<a href="https://wrec-beta.vercel.app/docs" target="_blank" rel="noopener noreferrer"><strong>wrec-beta.vercel.app/docs</strong></a>
 
 ## Install
 
