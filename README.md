@@ -2,7 +2,13 @@
   <img src="images/wrec.png" alt="wrec" width="112" />
 </p>
 
-<h1 align="center">wrec</h1>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/wrec-title-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="images/wrec-title-light.svg">
+    <img src="images/wrec-title-light.svg" alt="wrec" width="92" />
+  </picture>
+</p>
 
 <p align="center">
   the most efficient screen recorder for mac.
@@ -19,8 +25,6 @@
   &nbsp;·&nbsp;
   <a href="https://wrec-beta.vercel.app/docs" target="_blank" rel="noopener noreferrer">CLI</a>
 </p>
-
----
 
 Wrec records displays or windows with a native ScreenCaptureKit pipeline, writes
 hardware-encoded `.mov` files, and gives you both a small GPUI app and a
