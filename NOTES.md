@@ -5,7 +5,7 @@
 Cargo compiles the Swift capture engine from
 `crates/macos/native/capture_engine.swift` into the build output. The daemon
 starts that compiled capture engine at runtime. Packaged app builds copy
-`daemon` and `capture-engine` into `Wrec.app/Contents/MacOS`; standalone CLI
+`daemon` and `capture-engine` into `Wrec*.app/Contents/MacOS`; standalone CLI
 packages copy `wrec`, `daemon`, and `capture-engine` into the CLI runtime.
 
 Why this route for v0:
@@ -88,9 +88,10 @@ debug Cargo profile. Release packaging is explicit:
 ./scripts/package-macos.sh release
 ```
 
-Release packaging creates `dist/release/Wrec.app` with the release Cargo
-profile and a `.dmg`. Set `CODESIGN_IDENTITY` for Developer ID signing and
-`NOTARIZE=1` with App Store Connect credentials to submit and staple the `.dmg`.
+Release packaging creates a dev-labelled `dist/release/Wrec Dev.app` with the
+release Cargo profile and a `-dev.dmg`. Set `CODESIGN_IDENTITY` for Developer ID
+signing and `NOTARIZE=1` with App Store Connect credentials to submit and staple
+the `.dmg`.
 
 The standalone CLI runtime is packaged separately:
 

@@ -5,15 +5,15 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Wrec</string>
+	<string>Wrec Dev</string>
 	<key>CFBundleExecutable</key>
 	<string>wrec-app</string>
 	<key>CFBundleIdentifier</key>
-	<string>app.wrec.wrec</string>
+	<string>app.wrec.wrec.dev</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Wrec</string>
+	<string>Wrec Dev</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

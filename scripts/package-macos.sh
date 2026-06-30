@@ -98,7 +98,8 @@ Release packaging is explicit:
 ./scripts/package-macos.sh release
 \`\`\`
 
-Release builds use the release Cargo profile and the public bundle id.
+Release-profile dev artifacts use the release Cargo profile and the dev bundle
+id unless APP_NAME or BUNDLE_ID is overridden.
 
 ## Current build
 
@@ -114,9 +115,9 @@ Release builds use the release Cargo profile and the public bundle id.
 
 ## Dev app paths
 
-- App data: \`~/Library/Application Support/$APP_NAME\`
+- App data: \`~/Library/Application Support/Wrec\`
 - Default recordings: \`~/Movies/$APP_NAME\`
-- Logs: \`~/Library/Application Support/$APP_NAME/wrec.log\`
+- Logs: \`~/Library/Application Support/Wrec/wrec.log\`
 EOF
 }
 
@@ -125,7 +126,8 @@ usage() {
 Usage: $0 [dev|nightly|release]
 
 Defaults to dev. Dev builds use the debug Cargo profile, ad-hoc signing, and
-create "Wrec Dev.app". Release builds use --release and create "Wrec.app".
+create "Wrec Dev.app". Release packaging uses --release and still creates a
+dev-labelled app by default.
 EOF
 }
 
@@ -145,8 +147,8 @@ case "$CHANNEL" in
     DEFAULT_ICON_SOURCE="$ROOT/images/wrec-dev.png"
     ;;
   release)
-    DEFAULT_APP_NAME="Wrec"
-    DEFAULT_BUNDLE_ID="app.wrec.wrec"
+    DEFAULT_APP_NAME="Wrec Dev"
+    DEFAULT_BUNDLE_ID="app.wrec.wrec.dev"
     DEFAULT_PROFILE="release"
     DEFAULT_CREATE_DMG="1"
     DEFAULT_ICON_SOURCE="$ROOT/images/wrec-dev.png"

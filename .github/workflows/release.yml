@@ -108,7 +108,7 @@ jobs:
           ARTIFACT_QUALIFIER: dev
         run: ./scripts/package-cli-macos.sh release
 
-      - name: Verify release artifacts
+      - name: Verify dev artifacts
         run: |
           set -euo pipefail
 
@@ -123,7 +123,7 @@ jobs:
 
           test -f "$dmg"
           test -f "$cli_archive"
-          codesign --verify --deep --strict --verbose=2 dist/release/Wrec.app
+          codesign --verify --deep --strict --verbose=2 "dist/release/Wrec Dev.app"
           tar -tzf "$cli_archive" | grep -qx 'wrec-cli/wrec'
           tar -tzf "$cli_archive" | grep -qx 'wrec-cli/daemon'
           tar -tzf "$cli_archive" | grep -qx 'wrec-cli/capture-engine'
@@ -131,10 +131,10 @@ jobs:
           mount_dir="$(mktemp -d)"
           trap 'hdiutil detach "$mount_dir" >/dev/null 2>&1 || true; rmdir "$mount_dir" >/dev/null 2>&1 || true' EXIT
           hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mount_dir"
-          test -d "$mount_dir/Wrec.app"
+          test -d "$mount_dir/Wrec Dev.app"
           test -L "$mount_dir/Applications"
           test "$(readlink "$mount_dir/Applications")" = "/Applications"
-          codesign --verify --deep --strict --verbose=2 "$mount_dir/Wrec.app"
+          codesign --verify --deep --strict --verbose=2 "$mount_dir/Wrec Dev.app"
           hdiutil detach "$mount_dir"
           rmdir "$mount_dir"
 

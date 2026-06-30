@@ -78,7 +78,7 @@ Create a local dev app:
 This creates `dist/dev/Wrec Dev.app`, uses the dev Cargo profile, signs the app
 ad-hoc, and writes `dist/dev/README.md` with the local build details.
 
-Create release artifacts:
+Create optimized dev artifacts:
 
 ```bash
 ./scripts/package-macos.sh release
@@ -90,4 +90,4 @@ package contains `wrec`, `daemon`, and `capture-engine`, so it can run without
 copying anything out of the app bundle.
 
 Pushing a `v*` tag whose commit is on `main` runs the release workflow and
-uploads the `.dmg` and CLI archive to GitHub Releases.
+uploads the dev `.dmg` and dev CLI archive to GitHub Releases.
