@@ -6,7 +6,9 @@ output as high severity.
 
 ## Reporting
 
-Do not open a public issue for vulnerabilities. Email me@shivam.ing with:
+Do not open a public issue for vulnerabilities. Report privately via
+[GitHub security advisories](https://github.com/shivamhwp/wrec/security/advisories/new)
+and include:
 
 - what the issue is and where (app, CLI, daemon, capture engine, installer)
 - steps to reproduce

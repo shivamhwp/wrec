@@ -79,7 +79,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "app"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "config",
@@ -480,7 +480,7 @@ dependencies = [
 
 [[package]]
 name = "backend"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "config",
  "core",
@@ -822,7 +822,7 @@ dependencies = [
 
 [[package]]
 name = "cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "control",
  "core",
@@ -956,7 +956,7 @@ dependencies = [
 
 [[package]]
 name = "config"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "core",
  "serde",
@@ -976,7 +976,7 @@ dependencies = [
 
 [[package]]
 name = "control"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "core",
  "serde",
@@ -994,7 +994,7 @@ dependencies = [
 
 [[package]]
 name = "core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "serde",
@@ -1257,7 +1257,7 @@ dependencies = [
 
 [[package]]
 name = "daemon"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "backend",
  "control",
@@ -3322,7 +3322,7 @@ dependencies = [
 
 [[package]]
 name = "macos"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "core",
@@ -5547,7 +5547,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "store"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "rusqlite",
  "thiserror 1.0.69",
@@ -7429,7 +7429,7 @@ checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
 
 [[package]]
 name = "xtask"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "y4m"

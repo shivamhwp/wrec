@@ -16,7 +16,10 @@ VERSION="${1:-$(sed -n 's/^version = "\(.*\)"/\1/p' "$ROOT/Cargo.toml" | head -n
 VERSION="${VERSION#v}"
 [[ -n "$VERSION" ]] || die "could not determine version"
 
-BASE="https://github.com/shivamhwp/wrec/releases/download/v$VERSION"
+# WREC_RELEASE_BASE lets you point at not-yet-published assets (e.g. a local
+# file:// dir or a private-repo download) — the rewritten formula/cask URLs
+# always use the public release path.
+BASE="${WREC_RELEASE_BASE:-https://github.com/shivamhwp/wrec/releases/download/v$VERSION}"
 CASK="$ROOT/packaging/homebrew/Casks/wrec.rb"
 FORMULA="$ROOT/packaging/homebrew/Formula/wrec-cli.rb"
 
