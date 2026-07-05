@@ -147,5 +147,5 @@ jobs:
             dist/cli/*.tar.gz \
             --target "${{ steps.release.outputs.commit }}" \
             --title "$GITHUB_REF_NAME" \
-            --notes "macOS build for $GITHUB_REF_NAME. Builds are not notarized: install the CLI with \`curl -fsSL https://wrec-beta.vercel.app/install | sh\` or Homebrew to avoid the Gatekeeper warning. For the app DMG, use System Settings > Privacy & Security > Open Anyway on first launch." \
+            --notes "macOS build for $GITHUB_REF_NAME. Builds are not notarized: install the CLI with \`curl -fsSL https://wrec-beta.vercel.app/install | sh\` or Homebrew to avoid the Gatekeeper warning. For the app, macOS blocks the first launch — clear the quarantine recursively with \`xattr -dr com.apple.quarantine /Applications/Wrec.app\` (the bundled helpers are quarantined separately) or approve it in System Settings > Privacy & Security." \
             --verify-tag

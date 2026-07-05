@@ -32,8 +32,12 @@ JSON-friendly CLI for scripts and agents.
 
 > [!NOTE]
 > Wrec is still early public software. Release builds are not notarized, so
-> macOS warns when opening the app from the DMG — use System Settings →
-> Privacy & Security → "Open Anyway" once. The CLI installer below is not
+> macOS blocks the first launch of the app. Clear the quarantine recursively
+> (the nested helpers are quarantined separately) and reopen:
+> ```bash
+> xattr -dr com.apple.quarantine /Applications/Wrec.app
+> ```
+> The CLI (installer below or `brew install shivamhwp/tap/wrec-cli`) is not
 > affected by the warning.
 
 ## Features
