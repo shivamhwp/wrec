@@ -36,8 +36,9 @@ sed -i '' \
   -e "s/^  version \".*\"/  version \"$VERSION\"/" \
   -e "s/^  sha256 \"[0-9a-f]*\"/  sha256 \"$DMG_SHA\"/" \
   "$CASK"
+# The formula has no version stanza; brew scans it from the URL.
 sed -i '' \
-  -e "s/^  version \".*\"/  version \"$VERSION\"/" \
+  -e "s|releases/download/v[0-9][^/]*/|releases/download/v$VERSION/|" \
   -e "s/^  sha256 \"[0-9a-f]*\"/  sha256 \"$CLI_SHA\"/" \
   "$FORMULA"
 

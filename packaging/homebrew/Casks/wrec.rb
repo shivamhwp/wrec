@@ -8,8 +8,8 @@ cask "wrec" do
   desc "The most efficient screen recorder for mac"
   homepage "https://wrec-beta.vercel.app"
 
-  depends_on macos: ">= :sequoia"
   depends_on arch: :arm64
+  depends_on macos: :sequoia
 
   app "Wrec.app"
 
