@@ -79,3 +79,34 @@ fn permission_error(error: RecorderError) -> AgentError {
         },
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_permission_maps_to_permission_missing_code() {
+        let error = permission_error(RecorderError::MissingScreenRecordingPermission);
+
+        assert_eq!(error.code, "screen_recording_permission_missing");
+        assert!(error.recoverable);
+    }
+
+    #[test]
+    fn capture_engine_backend_errors_map_to_capture_engine_missing() {
+        let error = permission_error(RecorderError::Backend(
+            "capture-engine binary not found".into(),
+        ));
+
+        assert_eq!(error.code, "capture_engine_missing");
+        assert!(error.message.contains("capture-engine binary not found"));
+    }
+
+    #[test]
+    fn other_errors_map_to_permission_failed() {
+        let error = permission_error(RecorderError::Backend("boom".into()));
+
+        assert_eq!(error.code, "screen_recording_permission_failed");
+        assert_eq!(error.message, "backend error: boom");
+    }
+}

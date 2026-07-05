@@ -152,3 +152,164 @@ impl<E> JobRecord<E> {
         self.updated_at_ms = now_ms();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::{env_lock, isolate_env};
+    use domain::CaptureSourceKind;
+
+    fn job() -> JobRecord<()> {
+        JobRecord::new(
+            7,
+            None,
+            CaptureTarget {
+                id: 1,
+                name: "Display".into(),
+                kind: CaptureSourceKind::Display,
+            },
+            RecorderSettings::default(),
+            None,
+            Vec::new(),
+        )
+    }
+
+    #[test]
+    fn new_job_starts_queued_without_timestamps_or_events() {
+        let _guard = env_lock();
+        isolate_env();
+        let job = job();
+
+        assert_eq!(job.status, JobStatus::Queued);
+        assert_eq!(job.started_at_ms, None);
+        assert_eq!(job.finished_at_ms, None);
+        assert!(job.events.is_empty());
+        assert!(!job.is_terminal());
+    }
+
+    #[test]
+    fn mark_starting_keeps_an_existing_start_time() {
+        let _guard = env_lock();
+        isolate_env();
+        let mut job = job();
+        job.started_at_ms = Some(123);
+
+        job.mark_starting();
+
+        assert_eq!(job.status, JobStatus::Starting);
+        assert_eq!(job.started_at_ms, Some(123));
+    }
+
+    #[test]
+    fn stop_flow_reaches_completed_and_drops_control() {
+        let _guard = env_lock();
+        isolate_env();
+        let mut job = job();
+        job.control = Some(Arc::new(Mutex::new(())));
+
+        job.mark_starting();
+        job.mark_recording();
+        assert_eq!(job.status, JobStatus::Recording);
+
+        job.mark_finishing();
+        assert_eq!(job.status, JobStatus::Finishing);
+
+        job.mark_completed("capture engine exited: 0");
+        assert_eq!(job.status, JobStatus::Completed);
+        assert!(job.is_terminal());
+        assert!(job.finished_at_ms.is_some());
+        assert!(job.control.is_none());
+    }
+
+    #[test]
+    fn terminal_job_ignores_further_transitions() {
+        let _guard = env_lock();
+        isolate_env();
+        let mut job = job();
+        job.mark_completed("done");
+        let events_before = job.events.len();
+
+        job.mark_recording();
+        job.mark_finishing();
+        job.mark_failed("boom");
+        job.mark_cancelled();
+
+        assert_eq!(job.status, JobStatus::Completed);
+        assert_eq!(job.events.len(), events_before);
+    }
+
+    #[test]
+    fn cancelled_job_records_a_warning_event() {
+        let _guard = env_lock();
+        isolate_env();
+        let mut job = job();
+
+        job.mark_cancelled();
+
+        assert_eq!(job.status, JobStatus::Cancelled);
+        assert!(job.is_terminal());
+        assert!(job.finished_at_ms.is_some());
+        assert!(matches!(
+            job.events.last().unwrap().level,
+            EventLevel::Warning
+        ));
+    }
+
+    #[test]
+    fn failed_job_records_the_failure_message_as_an_error_event() {
+        let _guard = env_lock();
+        isolate_env();
+        let mut job = job();
+
+        job.mark_failed("engine exploded");
+
+        assert_eq!(job.status, JobStatus::Failed);
+        let event = job.events.last().unwrap();
+        assert!(matches!(event.level, EventLevel::Error));
+        assert_eq!(event.message, "engine exploded");
+    }
+
+    #[test]
+    fn push_event_touches_updated_at() {
+        let _guard = env_lock();
+        isolate_env();
+        let mut job = job();
+        job.updated_at_ms = 0;
+
+        job.push_event(EventLevel::Info, "hello");
+
+        assert!(job.updated_at_ms > 0);
+        assert_eq!(job.events.last().unwrap().message, "hello");
+    }
+
+    #[test]
+    fn push_metrics_attaches_metrics_to_the_event() {
+        let _guard = env_lock();
+        isolate_env();
+        let mut job = job();
+
+        job.push_metrics(RecorderMetrics {
+            elapsed_secs: 3,
+            output_bytes: 1024,
+            estimated_bitrate_mbps: 1.5,
+        });
+
+        let event = job.events.last().unwrap();
+        assert_eq!(event.message, "3s  1024 bytes  1.50 Mbps");
+        assert_eq!(event.metrics.as_ref().unwrap().output_bytes, 1024);
+    }
+
+    #[test]
+    fn snapshot_carries_identity_and_queue_position() {
+        let _guard = env_lock();
+        isolate_env();
+        let job = job();
+
+        let snapshot = job.snapshot(Some(3));
+
+        assert_eq!(snapshot.id, 7);
+        assert_eq!(snapshot.status, JobStatus::Queued);
+        assert_eq!(snapshot.queued_position, Some(3));
+        assert_eq!(snapshot.target.unwrap().id, 1);
+    }
+}

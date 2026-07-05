@@ -176,6 +176,294 @@ mod tests {
     use super::*;
     use domain::Resolution;
 
+    fn display(id: u64, name: &str) -> CaptureTarget {
+        CaptureTarget {
+            id,
+            name: name.into(),
+            kind: CaptureSourceKind::Display,
+        }
+    }
+
+    fn window(id: u64, name: &str) -> CaptureTarget {
+        CaptureTarget {
+            id,
+            name: name.into(),
+            kind: CaptureSourceKind::Window,
+        }
+    }
+
+    fn resolve(
+        targets: &[CaptureTarget],
+        selector: Option<TargetSelector>,
+    ) -> Result<CaptureTarget, AgentError> {
+        resolve_record_target(targets, CaptureSourceKind::Display, selector.as_ref(), None)
+    }
+
+    #[test]
+    fn id_selector_resolves_matching_target() {
+        let targets = [display(1, "Built-in"), window(7, "Notes")];
+
+        let resolved = resolve(
+            &targets,
+            Some(TargetSelector::Id {
+                kind: CaptureSourceKind::Window,
+                id: 7,
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(resolved.id, 7);
+        assert_eq!(resolved.kind, CaptureSourceKind::Window);
+    }
+
+    #[test]
+    fn id_selector_with_unknown_id_fails_as_target_not_found() {
+        let targets = [display(1, "Built-in")];
+
+        let error = resolve(
+            &targets,
+            Some(TargetSelector::Id {
+                kind: CaptureSourceKind::Display,
+                id: 99,
+            }),
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "target_not_found");
+        assert!(error.recoverable);
+    }
+
+    #[test]
+    fn name_selector_prefers_exact_match_over_prefix_match() {
+        let targets = [window(1, "Notes"), window(2, "Notes Beta")];
+
+        let resolved = resolve(
+            &targets,
+            Some(TargetSelector::Name {
+                kind: None,
+                query: "notes".into(),
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(resolved.id, 1);
+    }
+
+    #[test]
+    fn name_selector_prefers_prefix_match_over_contains_match() {
+        let targets = [window(1, "My Notes"), window(2, "Notebook")];
+
+        let resolved = resolve(
+            &targets,
+            Some(TargetSelector::Name {
+                kind: None,
+                query: "note".into(),
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(resolved.id, 2);
+    }
+
+    #[test]
+    fn name_selector_falls_back_to_contains_match() {
+        let targets = [window(1, "My Notes"), window(2, "Terminal")];
+
+        let resolved = resolve(
+            &targets,
+            Some(TargetSelector::Name {
+                kind: None,
+                query: "note".into(),
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(resolved.id, 1);
+    }
+
+    #[test]
+    fn name_selector_normalizes_case_and_whitespace() {
+        let targets = [display(1, "Built-in Retina Display")];
+
+        let resolved = resolve(
+            &targets,
+            Some(TargetSelector::Name {
+                kind: None,
+                query: "  BUILT-IN RETINA DISPLAY  ".into(),
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(resolved.id, 1);
+    }
+
+    #[test]
+    fn name_selector_filters_candidates_by_kind() {
+        let targets = [display(1, "Main"), window(2, "Main")];
+
+        let resolved = resolve(
+            &targets,
+            Some(TargetSelector::Name {
+                kind: Some(CaptureSourceKind::Window),
+                query: "main".into(),
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(resolved.id, 2);
+    }
+
+    #[test]
+    fn ambiguous_name_match_lists_candidate_ids() {
+        let targets = [window(1, "Notes"), window(2, "notes")];
+
+        let error = resolve(
+            &targets,
+            Some(TargetSelector::Name {
+                kind: None,
+                query: "notes".into(),
+            }),
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "ambiguous_target");
+        assert!(error.message.contains("window:1"));
+        assert!(error.message.contains("window:2"));
+    }
+
+    #[test]
+    fn blank_name_query_fails() {
+        let targets = [display(1, "Built-in")];
+
+        let error = resolve(
+            &targets,
+            Some(TargetSelector::Name {
+                kind: None,
+                query: "   ".into(),
+            }),
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "empty_target_query");
+    }
+
+    #[test]
+    fn unmatched_name_query_fails_as_target_not_found() {
+        let targets = [display(1, "Built-in")];
+
+        let error = resolve(
+            &targets,
+            Some(TargetSelector::Name {
+                kind: None,
+                query: "zelda".into(),
+            }),
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "target_not_found");
+    }
+
+    #[test]
+    fn app_selector_matches_app_name_before_separator() {
+        let targets = [
+            window(1, "Safari \u{2014} Apple"),
+            window(2, "Notes \u{2014} Draft"),
+        ];
+
+        let resolved = resolve(
+            &targets,
+            Some(TargetSelector::App {
+                query: "safari".into(),
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(resolved.id, 1);
+    }
+
+    #[test]
+    fn app_selector_uses_full_name_when_title_has_no_separator() {
+        let targets = [window(1, "Terminal")];
+
+        let resolved = resolve(
+            &targets,
+            Some(TargetSelector::App {
+                query: "terminal".into(),
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(resolved.id, 1);
+    }
+
+    #[test]
+    fn app_selector_ignores_displays() {
+        let targets = [display(1, "Safari"), window(2, "Safari \u{2014} Apple")];
+
+        let resolved = resolve(
+            &targets,
+            Some(TargetSelector::App {
+                query: "safari".into(),
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(resolved.id, 2);
+    }
+
+    #[test]
+    fn blank_app_query_fails() {
+        let targets = [window(1, "Safari \u{2014} Apple")];
+
+        let error = resolve(&targets, Some(TargetSelector::App { query: "".into() })).unwrap_err();
+
+        assert_eq!(error.code, "empty_app_query");
+    }
+
+    #[test]
+    fn unmatched_app_query_fails_as_app_not_found() {
+        let targets = [window(1, "Safari \u{2014} Apple")];
+
+        let error = resolve(
+            &targets,
+            Some(TargetSelector::App {
+                query: "zelda".into(),
+            }),
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "app_not_found");
+    }
+
+    #[test]
+    fn no_selector_uses_saved_target_id() {
+        let targets = [display(1, "Built-in"), display(2, "External")];
+
+        let resolved =
+            resolve_record_target(&targets, CaptureSourceKind::Display, None, Some(2)).unwrap();
+
+        assert_eq!(resolved.id, 2);
+    }
+
+    #[test]
+    fn no_selector_falls_back_to_first_target_when_saved_id_is_stale() {
+        let targets = [display(1, "Built-in"), display(2, "External")];
+
+        let resolved =
+            resolve_record_target(&targets, CaptureSourceKind::Display, None, Some(99)).unwrap();
+
+        assert_eq!(resolved.id, 1);
+    }
+
+    #[test]
+    fn no_selector_without_targets_of_kind_fails() {
+        let targets = [window(1, "Notes")];
+
+        let error = resolve(&targets, None).unwrap_err();
+
+        assert_eq!(error.code, "target_not_found");
+    }
+
     #[test]
     fn settings_source_follows_resolved_target() {
         let target = CaptureTarget {

@@ -785,143 +785,13 @@ pub(crate) fn missing_job_error(id: u64) -> AgentError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::{env_lock, isolate_env, FakeRuntime};
     use control::{JobSnapshot, RecordingOptions, TargetSelector};
-    use domain::{
-        CaptureSourceKind, RecorderError, RecorderSettings, RecordingSession,
-        Result as RecorderResult, ScreenRecordingPermissionStatus,
-    };
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
-
-    #[derive(Clone)]
-    struct FakeRuntime {
-        targets: Arc<Vec<CaptureTarget>>,
-        next_session_id: Arc<AtomicU64>,
-        list_calls: Arc<AtomicU64>,
-    }
-
-    struct FakeEngine {
-        events: mpsc::Sender<RecorderEvent>,
-        next_session_id: Arc<AtomicU64>,
-        active: Option<RecordingSession>,
-    }
-
-    impl FakeRuntime {
-        fn new() -> Self {
-            Self {
-                targets: Arc::new(vec![CaptureTarget {
-                    id: 1,
-                    name: "Display".into(),
-                    kind: CaptureSourceKind::Display,
-                }]),
-                next_session_id: Arc::new(AtomicU64::new(100)),
-                list_calls: Arc::new(AtomicU64::new(0)),
-            }
-        }
-
-        fn list_calls(&self) -> u64 {
-            self.list_calls.load(Ordering::Relaxed)
-        }
-    }
-
-    impl RecordingRuntime for FakeRuntime {
-        type Engine = FakeEngine;
-
-        fn list_targets(&self) -> std::result::Result<Vec<CaptureTarget>, AgentError> {
-            self.list_calls.fetch_add(1, Ordering::Relaxed);
-            Ok((*self.targets).clone())
-        }
-
-        fn screen_recording_permission_status(
-            &self,
-        ) -> std::result::Result<ScreenRecordingPermissionStatus, AgentError> {
-            Ok(ScreenRecordingPermissionStatus::Granted)
-        }
-
-        fn request_screen_recording_permission(
-            &self,
-        ) -> std::result::Result<ScreenRecordingPermissionStatus, AgentError> {
-            Ok(ScreenRecordingPermissionStatus::Granted)
-        }
-
-        fn new_engine(&self, events: mpsc::Sender<RecorderEvent>) -> Self::Engine {
-            FakeEngine {
-                events,
-                next_session_id: self.next_session_id.clone(),
-                active: None,
-            }
-        }
-    }
-
-    impl RecorderEngine for FakeEngine {
-        fn list_targets(&self) -> RecorderResult<Vec<CaptureTarget>> {
-            Ok(vec![CaptureTarget {
-                id: 1,
-                name: "Display".into(),
-                kind: CaptureSourceKind::Display,
-            }])
-        }
-
-        fn start(
-            &mut self,
-            target: CaptureTarget,
-            settings: RecorderSettings,
-        ) -> RecorderResult<RecordingSession> {
-            let id = self.next_session_id.fetch_add(1, Ordering::Relaxed);
-            let output_path = settings.output_dir.join(format!("fake-{id}.mov"));
-            let session = RecordingSession { id, output_path };
-            self.active = Some(session.clone());
-            self.events
-                .send(RecorderEvent::Starting {
-                    session_id: id,
-                    target,
-                    settings,
-                    output_path: session.output_path.clone(),
-                })
-                .unwrap();
-            self.events
-                .send(RecorderEvent::Log {
-                    session_id: Some(id),
-                    message: "recording started".into(),
-                })
-                .unwrap();
-            Ok(session)
-        }
-
-        fn pause(&mut self) -> RecorderResult<()> {
-            Ok(())
-        }
-
-        fn resume(&mut self) -> RecorderResult<()> {
-            Ok(())
-        }
-
-        fn stop(&mut self) -> RecorderResult<()> {
-            let session = self
-                .active
-                .take()
-                .ok_or_else(|| RecorderError::Backend("no active fake session".into()))?;
-            self.events
-                .send(RecorderEvent::Log {
-                    session_id: Some(session.id),
-                    message: "stopping recording".into(),
-                })
-                .unwrap();
-            self.events
-                .send(RecorderEvent::Exited {
-                    session_id: session.id,
-                    success: true,
-                    status: "exit status: 0".into(),
-                })
-                .unwrap();
-            Ok(())
-        }
-    }
+    use domain::CaptureSourceKind;
 
     #[test]
     fn queued_job_launches_after_active_job_stops() {
-        let _guard = ENV_LOCK.lock().unwrap();
+        let _guard = env_lock();
         isolate_env();
         let state = Arc::new(Mutex::new(Coordinator::new(FakeRuntime::new())));
         let first = start_job(state.clone()).id;
@@ -948,7 +818,7 @@ mod tests {
 
     #[test]
     fn queued_job_can_be_cancelled() {
-        let _guard = ENV_LOCK.lock().unwrap();
+        let _guard = env_lock();
         isolate_env();
         let state = Arc::new(Mutex::new(Coordinator::new(FakeRuntime::new())));
         let first = start_job(state.clone()).id;
@@ -972,7 +842,7 @@ mod tests {
 
     #[test]
     fn active_job_pause_resume_and_stop_are_state_checked() {
-        let _guard = ENV_LOCK.lock().unwrap();
+        let _guard = env_lock();
         isolate_env();
         let state = Arc::new(Mutex::new(Coordinator::new(FakeRuntime::new())));
         let job_id = start_job(state.clone()).id;
@@ -995,7 +865,7 @@ mod tests {
 
     #[test]
     fn targets_list_uses_cache_while_recording() {
-        let _guard = ENV_LOCK.lock().unwrap();
+        let _guard = env_lock();
         isolate_env();
         let runtime = FakeRuntime::new();
         let state = Arc::new(Mutex::new(Coordinator::new(runtime.clone())));
@@ -1056,12 +926,5 @@ mod tests {
             .unwrap()
             .status
             .clone()
-    }
-
-    fn isolate_env() {
-        let dir =
-            std::env::temp_dir().join(format!("daemon-test-{}-{}", std::process::id(), now_ms()));
-        std::env::set_var("WREC_HOME", dir.join("home"));
-        std::env::set_var("WREC_DATA_DIR", dir.join("data"));
     }
 }

@@ -98,14 +98,19 @@ fn handle_client(stream: UnixStream, state: SharedCoordinator<MacosRuntime>) {
 }
 
 fn read_request(stream: &UnixStream) -> Result<IpcRequest, AgentError> {
-    stream
-        .set_read_timeout(Some(IPC_READ_TIMEOUT))
-        .map_err(|err| AgentError {
-            code: "request_timeout_config_failed".into(),
-            message: format!("Could not configure IPC read timeout: {err}"),
-            recoverable: true,
-            next: "Retry the command; if it repeats, restart the daemon.".into(),
-        })?;
+    if let Err(err) = stream.set_read_timeout(Some(IPC_READ_TIMEOUT)) {
+        // On macOS SO_RCVTIMEO fails with EINVAL once the peer has fully
+        // closed its socket. The buffered request is still readable and a
+        // closed peer cannot block the read, so only other errors are fatal.
+        if err.kind() != std::io::ErrorKind::InvalidInput {
+            return Err(AgentError {
+                code: "request_timeout_config_failed".into(),
+                message: format!("Could not configure IPC read timeout: {err}"),
+                recoverable: true,
+                next: "Retry the command; if it repeats, restart the daemon.".into(),
+            });
+        }
+    }
     let reader_stream = stream.try_clone().map_err(|err| AgentError {
         code: "request_stream_clone_failed".into(),
         message: format!("Could not clone IPC stream for request read: {err}"),
@@ -204,4 +209,291 @@ fn job_id_param(params: &Value, method: &str) -> Result<u64, AgentError> {
             recoverable: false,
             next: "Pass a numeric job id, for example `wrec job show 42`.".into(),
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::{env_lock, isolate_env, FakeRuntime};
+    use control::{RecordingOptions, TargetSelector};
+    use domain::CaptureSourceKind;
+    use serde_json::json;
+    use std::path::{Path, PathBuf};
+
+    fn coordinator() -> SharedCoordinator<FakeRuntime> {
+        Arc::new(Mutex::new(Coordinator::new(FakeRuntime::new())))
+    }
+
+    fn request(id: u64, method: &str, params: Value) -> IpcRequest {
+        IpcRequest {
+            id,
+            method: method.into(),
+            params,
+        }
+    }
+
+    fn record_start_params() -> Value {
+        serde_json::to_value(StartRecordingParams {
+            selector: Some(TargetSelector::Id {
+                kind: CaptureSourceKind::Display,
+                id: 1,
+            }),
+            options: RecordingOptions {
+                output_dir: Some(std::env::temp_dir()),
+                ..RecordingOptions::default()
+            },
+            duration_ms: None,
+            queue: true,
+        })
+        .unwrap()
+    }
+
+    fn job_status(state: &SharedCoordinator<FakeRuntime>, job_id: u64) -> String {
+        let response = handle_request(
+            request(1, "job.show", json!({ "job_id": job_id })),
+            state.clone(),
+        );
+        response.result.unwrap()["job"]["status"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    }
+
+    fn wait_for_job_status(state: &SharedCoordinator<FakeRuntime>, job_id: u64, status: &str) {
+        for _ in 0..50 {
+            if job_status(state, job_id) == status {
+                return;
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+        panic!(
+            "job {job_id} did not reach {status}; last status was {}",
+            job_status(state, job_id)
+        );
+    }
+
+    #[test]
+    fn unknown_method_error_echoes_request_id() {
+        let _guard = env_lock();
+        isolate_env();
+
+        let response = handle_request(request(7, "no.such.method", json!({})), coordinator());
+
+        assert_eq!(response.id, 7);
+        assert!(!response.ok);
+        assert!(response.result.is_none());
+        assert_eq!(response.error.unwrap().code, "unknown_method");
+    }
+
+    #[test]
+    fn job_methods_require_a_numeric_job_id() {
+        let _guard = env_lock();
+        isolate_env();
+
+        let response = handle_request(
+            request(1, "job.show", json!({ "job_id": "forty-two" })),
+            coordinator(),
+        );
+
+        assert!(!response.ok);
+        assert_eq!(response.error.unwrap().code, "missing_job_id");
+    }
+
+    #[test]
+    fn job_show_for_unknown_job_fails() {
+        let _guard = env_lock();
+        isolate_env();
+
+        let response = handle_request(
+            request(1, "job.show", json!({ "job_id": 999 })),
+            coordinator(),
+        );
+
+        assert!(!response.ok);
+        assert_eq!(response.error.unwrap().code, "job_not_found");
+    }
+
+    #[test]
+    fn record_start_rejects_malformed_params() {
+        let _guard = env_lock();
+        isolate_env();
+
+        let response = handle_request(
+            request(1, "record.start", json!({ "duration_ms": "long" })),
+            coordinator(),
+        );
+
+        assert!(!response.ok);
+        assert_eq!(response.error.unwrap().code, "invalid_record_request");
+    }
+
+    #[test]
+    fn record_start_job_runs_to_completion_over_ipc() {
+        let _guard = env_lock();
+        isolate_env();
+        let state = coordinator();
+
+        let started = handle_request(
+            request(1, "record.start", record_start_params()),
+            state.clone(),
+        );
+        assert!(started.ok);
+        let job_id = started.result.unwrap()["job"]["id"].as_u64().unwrap();
+        wait_for_job_status(&state, job_id, "recording");
+
+        let jobs = handle_request(request(2, "jobs.list", json!({})), state.clone());
+        assert_eq!(jobs.result.unwrap()["active_job_id"], json!(job_id));
+
+        let stopped = handle_request(
+            request(3, "job.stop", json!({ "job_id": job_id })),
+            state.clone(),
+        );
+        assert!(stopped.ok);
+        wait_for_job_status(&state, job_id, "completed");
+
+        let logs = handle_request(
+            request(4, "job.logs", json!({ "job_id": job_id })),
+            state.clone(),
+        );
+        assert!(!logs.result.unwrap()["events"]
+            .as_array()
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn daemon_stop_refuses_while_a_job_is_active() {
+        let _guard = env_lock();
+        isolate_env();
+        let state = coordinator();
+
+        let started = handle_request(
+            request(1, "record.start", record_start_params()),
+            state.clone(),
+        );
+        let job_id = started.result.unwrap()["job"]["id"].as_u64().unwrap();
+        wait_for_job_status(&state, job_id, "recording");
+
+        let refused = handle_request(request(2, "daemon.stop", json!({})), state.clone());
+        assert!(!refused.ok);
+        assert_eq!(refused.error.unwrap().code, "daemon_busy");
+
+        handle_request(
+            request(3, "job.stop", json!({ "job_id": job_id })),
+            state.clone(),
+        );
+        wait_for_job_status(&state, job_id, "completed");
+
+        let stopped = handle_request(request(4, "daemon.stop", json!({})), state.clone());
+        assert!(stopped.ok);
+        assert_eq!(stopped.result.unwrap()["stopping"], json!(true));
+
+        let rejected = handle_request(request(5, "record.start", record_start_params()), state);
+        assert_eq!(rejected.error.unwrap().code, "daemon_stopping");
+    }
+
+    #[test]
+    fn read_request_parses_a_json_line() {
+        let (mut writer, reader) = UnixStream::pair().unwrap();
+        writer
+            .write_all(b"{\"id\":9,\"method\":\"daemon.status\"}\n")
+            .unwrap();
+        writer.shutdown(std::net::Shutdown::Write).unwrap();
+
+        let request = read_request(&reader).unwrap();
+
+        assert_eq!(request.id, 9);
+        assert_eq!(request.method, "daemon.status");
+        assert_eq!(request.params, Value::Null);
+    }
+
+    #[test]
+    fn read_request_rejects_a_request_less_stream_as_empty() {
+        let (writer, reader) = UnixStream::pair().unwrap();
+        writer.shutdown(std::net::Shutdown::Write).unwrap();
+
+        assert_eq!(read_request(&reader).unwrap_err().code, "empty_request");
+    }
+
+    #[test]
+    fn read_request_rejects_invalid_json() {
+        let (mut writer, reader) = UnixStream::pair().unwrap();
+        writer.write_all(b"not json\n").unwrap();
+        writer.shutdown(std::net::Shutdown::Write).unwrap();
+
+        assert_eq!(
+            read_request(&reader).unwrap_err().code,
+            "request_decode_failed"
+        );
+    }
+
+    #[test]
+    fn write_response_emits_a_single_json_line() {
+        let (writer, reader) = UnixStream::pair().unwrap();
+
+        write_response(
+            writer,
+            &IpcResponse {
+                id: 4,
+                ok: true,
+                result: Some(json!({ "pong": true })),
+                error: None,
+            },
+        )
+        .unwrap();
+
+        let mut line = String::new();
+        BufReader::new(reader).read_line(&mut line).unwrap();
+        assert!(line.ends_with('\n'));
+        let parsed: IpcResponse = serde_json::from_str(&line).unwrap();
+        assert_eq!(parsed.id, 4);
+        assert!(parsed.ok);
+        assert_eq!(parsed.result.unwrap()["pong"], json!(true));
+    }
+
+    #[test]
+    fn serve_forever_answers_requests_over_the_unix_socket() {
+        let _guard = env_lock();
+        let home = isolate_env();
+        let server = thread::spawn(serve_forever);
+        let socket = wait_for_socket();
+
+        let status = roundtrip(&socket, &request(1, "daemon.status", json!({})));
+        assert!(status.ok);
+        assert_eq!(status.result.unwrap()["home"], json!(home));
+
+        let second_daemon = serve_forever();
+        assert!(second_daemon.unwrap_err().contains("already running"));
+
+        let stopped = roundtrip(&socket, &request(2, "daemon.stop", json!({})));
+        assert!(stopped.ok);
+
+        server.join().unwrap().unwrap();
+        assert!(!socket.exists());
+    }
+
+    fn wait_for_socket() -> PathBuf {
+        let socket = socket_path();
+        for _ in 0..250 {
+            if UnixStream::connect(&socket).is_ok() {
+                return socket;
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+        panic!(
+            "daemon socket never accepted connections at {}",
+            socket.display()
+        );
+    }
+
+    fn roundtrip(socket: &Path, request: &IpcRequest) -> IpcResponse {
+        let mut stream = UnixStream::connect(socket).unwrap();
+        stream
+            .write_all(serde_json::to_string(request).unwrap().as_bytes())
+            .unwrap();
+        stream.write_all(b"\n").unwrap();
+        let mut line = String::new();
+        BufReader::new(stream).read_line(&mut line).unwrap();
+        serde_json::from_str(&line).unwrap()
+    }
 }
