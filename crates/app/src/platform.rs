@@ -4,7 +4,7 @@ use std::{
     process::Command,
 };
 
-const CLI_INSTALLER_URL: &str = "https://wrec-beta.vercel.app/install";
+const CLI_INSTALLER_URL: &str = "https://wrec.app/install";
 const MANAGED_CLI_MARKER: &str = "# managed by wrec";
 const INSTALLED_BIN: &str = "/usr/local/bin/wrec";
 const INSTALLED_CLI: &str = "/usr/local/lib/wrec/wrec";

@@ -6,7 +6,7 @@ cask "wrec" do
       verified: "github.com/shivamhwp/wrec/"
   name "Wrec"
   desc "The most efficient screen recorder for mac"
-  homepage "https://wrec-beta.vercel.app"
+  homepage "https://wrec.app"
 
   depends_on arch: :arm64
   depends_on macos: :sequoia

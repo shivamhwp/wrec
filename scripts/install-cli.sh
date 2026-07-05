@@ -112,7 +112,7 @@ URL: $url
 
 This usually means there is no public GitHub Release asset named $asset.
 Publish a v* release from a public repo, set WREC_VERSION to an existing tag, or install from a local archive:
-  curl -fsSL https://wrec-beta.vercel.app/install | WREC_CLI_ARCHIVE=/path/to/$asset sh
+  curl -fsSL https://wrec.app/install | WREC_CLI_ARCHIVE=/path/to/$asset sh
 EOF
     exit 1
   fi
