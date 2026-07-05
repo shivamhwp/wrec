@@ -518,3 +518,634 @@ fn bool_to_i64(value: bool) -> i64 {
 fn u64_to_i64(value: u64) -> i64 {
     value.min(i64::MAX as u64) as i64
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT_DB_ID: AtomicU64 = AtomicU64::new(0);
+
+    struct TempDb {
+        dir: PathBuf,
+    }
+
+    impl TempDb {
+        fn new(name: &str) -> Self {
+            let dir = std::env::temp_dir().join(format!(
+                "wrec-store-test-{name}-{}-{}",
+                std::process::id(),
+                NEXT_DB_ID.fetch_add(1, Ordering::Relaxed),
+            ));
+            std::fs::create_dir_all(&dir).expect("create temp dir");
+            Self { dir }
+        }
+
+        fn path(&self) -> PathBuf {
+            self.dir.join("store.sqlite3")
+        }
+    }
+
+    impl Drop for TempDb {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+
+    fn read_connection(db: &TempDb) -> Connection {
+        let conn = Connection::open(db.path()).expect("open verification connection");
+        conn.pragma_update(None, "foreign_keys", "ON")
+            .expect("enable foreign keys");
+        conn
+    }
+
+    fn count(conn: &Connection, sql: &str) -> i64 {
+        conn.query_row(sql, [], |row| row.get(0))
+            .expect("count query")
+    }
+
+    fn sample_recording(id: u64) -> RecordingRecord {
+        RecordingRecord {
+            id,
+            started_at_ms: 1_000,
+            output_path: PathBuf::from("/tmp/wrec/recording.mp4"),
+            target_kind: "display".to_string(),
+            target_id: 3,
+            target_name: "Built-in Display".to_string(),
+            codec: "hevc".to_string(),
+            quality: "high".to_string(),
+            resolution: "1080p".to_string(),
+            fps: 60,
+            include_cursor: true,
+            include_system_audio: true,
+        }
+    }
+
+    fn sample_event(recording_id: Option<u64>) -> EventRecord {
+        EventRecord {
+            recording_id,
+            timestamp_ms: 2_000,
+            level: EventLevel::Info,
+            source: EventSource::Backend,
+            message: "recording started".to_string(),
+            fields_json: Some(r#"{"fps":60}"#.to_string()),
+        }
+    }
+
+    fn sample_metric(recording_id: u64) -> MetricRecord {
+        MetricRecord {
+            recording_id,
+            timestamp_ms: 3_000,
+            elapsed_secs: 5,
+            output_bytes: 1_048_576,
+            bitrate_mbps: 4.5,
+            frames: Some(300),
+            dropped_frames: Some(2),
+        }
+    }
+
+    #[test]
+    fn open_creates_schema_at_current_version() {
+        let db = TempDb::new("schema");
+        drop(Store::open(db.path()).expect("open store"));
+
+        let conn = read_connection(&db);
+        let version: i64 = conn
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .unwrap();
+        let tables = count(
+            &conn,
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' \
+             AND name IN ('recordings', 'events', 'metrics')",
+        );
+
+        assert_eq!(version, SCHEMA_VERSION);
+        assert_eq!(tables, 3);
+    }
+
+    #[test]
+    fn open_creates_missing_parent_directories() {
+        let db = TempDb::new("parents");
+        let nested = db.dir.join("a").join("b").join("store.sqlite3");
+
+        drop(Store::open(nested.clone()).expect("open store in nested path"));
+
+        assert!(nested.exists());
+    }
+
+    #[test]
+    fn reopening_existing_store_keeps_data_and_version() {
+        let db = TempDb::new("reopen");
+        {
+            let store = Store::open(db.path()).expect("first open");
+            store.upsert_recording(sample_recording(1));
+        }
+        drop(Store::open(db.path()).expect("second open"));
+
+        let conn = read_connection(&db);
+        let version: i64 = conn
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .unwrap();
+
+        assert_eq!(version, SCHEMA_VERSION);
+        assert_eq!(count(&conn, "SELECT COUNT(*) FROM recordings"), 1);
+    }
+
+    #[test]
+    fn migrate_adds_system_audio_column_to_v1_database() {
+        let db = TempDb::new("migrate-v1");
+        {
+            let conn = Connection::open(db.path()).expect("open raw connection");
+            conn.execute_batch(
+                "
+                CREATE TABLE recordings (
+                    id INTEGER PRIMARY KEY,
+                    started_at_ms INTEGER NOT NULL,
+                    stopped_at_ms INTEGER,
+                    status TEXT NOT NULL,
+                    output_path TEXT NOT NULL,
+                    target_kind TEXT NOT NULL,
+                    target_id INTEGER NOT NULL,
+                    target_name TEXT NOT NULL,
+                    codec TEXT NOT NULL,
+                    quality TEXT NOT NULL,
+                    resolution TEXT NOT NULL,
+                    fps INTEGER NOT NULL,
+                    include_cursor INTEGER NOT NULL,
+                    native_width INTEGER,
+                    native_height INTEGER,
+                    output_width INTEGER,
+                    output_height INTEGER,
+                    duration_ms INTEGER,
+                    file_size_bytes INTEGER,
+                    error_message TEXT
+                );
+                INSERT INTO recordings (
+                    id, started_at_ms, status, output_path, target_kind, target_id,
+                    target_name, codec, quality, resolution, fps, include_cursor
+                ) VALUES (
+                    7, 1000, 'completed', '/tmp/old.mp4', 'display', 1,
+                    'Main', 'hevc', 'high', 'native', 60, 1
+                );
+                PRAGMA user_version = 1;
+                ",
+            )
+            .expect("create v1 schema");
+        }
+
+        drop(Store::open(db.path()).expect("open migrates v1 store"));
+
+        let conn = read_connection(&db);
+        let version: i64 = conn
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .unwrap();
+        let audio: i64 = conn
+            .query_row(
+                "SELECT include_system_audio FROM recordings WHERE id = 7",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+
+        assert_eq!(version, SCHEMA_VERSION);
+        assert_eq!(audio, 1);
+    }
+
+    #[test]
+    fn upsert_recording_inserts_row_with_starting_status() {
+        let db = TempDb::new("insert");
+        {
+            let store = Store::open(db.path()).expect("open store");
+            store.upsert_recording(sample_recording(1));
+        }
+
+        let conn = read_connection(&db);
+        let row = conn
+            .query_row(
+                "SELECT status, output_path, target_name, fps, include_cursor, \
+                 include_system_audio FROM recordings WHERE id = 1",
+                [],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, i64>(3)?,
+                        row.get::<_, i64>(4)?,
+                        row.get::<_, i64>(5)?,
+                    ))
+                },
+            )
+            .unwrap();
+
+        assert_eq!(row.0, "starting");
+        assert_eq!(row.1, "/tmp/wrec/recording.mp4");
+        assert_eq!(row.2, "Built-in Display");
+        assert_eq!(row.3, 60);
+        assert_eq!(row.4, 1);
+        assert_eq!(row.5, 1);
+    }
+
+    #[test]
+    fn upsert_recording_replaces_existing_row_with_same_id() {
+        let db = TempDb::new("upsert");
+        {
+            let store = Store::open(db.path()).expect("open store");
+            store.upsert_recording(sample_recording(1));
+            store.mark_recording_completed(1, 5_000, Some(100));
+
+            let mut replacement = sample_recording(1);
+            replacement.codec = "h264".to_string();
+            replacement.fps = 30;
+            store.upsert_recording(replacement);
+        }
+
+        let conn = read_connection(&db);
+        let row = conn
+            .query_row(
+                "SELECT status, codec, fps FROM recordings WHERE id = 1",
+                [],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, i64>(2)?,
+                    ))
+                },
+            )
+            .unwrap();
+
+        assert_eq!(count(&conn, "SELECT COUNT(*) FROM recordings"), 1);
+        assert_eq!(row.0, "starting");
+        assert_eq!(row.1, "h264");
+        assert_eq!(row.2, 30);
+    }
+
+    #[test]
+    fn mark_recording_started_sets_status_and_clears_error() {
+        let db = TempDb::new("started");
+        {
+            let store = Store::open(db.path()).expect("open store");
+            store.upsert_recording(sample_recording(1));
+            store.mark_recording_failed(1, 2_000, "engine crashed".to_string());
+            store.mark_recording_started(1);
+        }
+
+        let conn = read_connection(&db);
+        let (status, error): (String, Option<String>) = conn
+            .query_row(
+                "SELECT status, error_message FROM recordings WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+
+        assert_eq!(status, "recording");
+        assert_eq!(error, None);
+    }
+
+    #[test]
+    fn mark_recording_completed_sets_duration_and_file_size() {
+        let db = TempDb::new("completed");
+        {
+            let store = Store::open(db.path()).expect("open store");
+            store.upsert_recording(sample_recording(1));
+            store.mark_recording_completed(1, 5_000, Some(2_048));
+        }
+
+        let conn = read_connection(&db);
+        let row = conn
+            .query_row(
+                "SELECT status, stopped_at_ms, duration_ms, file_size_bytes, error_message \
+                 FROM recordings WHERE id = 1",
+                [],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, i64>(2)?,
+                        row.get::<_, i64>(3)?,
+                        row.get::<_, Option<String>>(4)?,
+                    ))
+                },
+            )
+            .unwrap();
+
+        assert_eq!(row.0, "completed");
+        assert_eq!(row.1, 5_000);
+        assert_eq!(row.2, 4_000);
+        assert_eq!(row.3, 2_048);
+        assert_eq!(row.4, None);
+    }
+
+    #[test]
+    fn completing_without_file_size_keeps_previous_value() {
+        let db = TempDb::new("keep-size");
+        {
+            let store = Store::open(db.path()).expect("open store");
+            store.upsert_recording(sample_recording(1));
+            store.mark_recording_completed(1, 5_000, Some(2_048));
+            store.mark_recording_completed(1, 6_000, None);
+        }
+
+        let conn = read_connection(&db);
+        let size: i64 = conn
+            .query_row(
+                "SELECT file_size_bytes FROM recordings WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+
+        assert_eq!(size, 2_048);
+    }
+
+    #[test]
+    fn duration_clamps_to_zero_when_stop_precedes_start() {
+        let db = TempDb::new("clamp-duration");
+        {
+            let store = Store::open(db.path()).expect("open store");
+            store.upsert_recording(sample_recording(1));
+            store.mark_recording_completed(1, 500, None);
+        }
+
+        let conn = read_connection(&db);
+        let duration: i64 = conn
+            .query_row(
+                "SELECT duration_ms FROM recordings WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+
+        assert_eq!(duration, 0);
+    }
+
+    #[test]
+    fn mark_recording_failed_records_error_message() {
+        let db = TempDb::new("failed");
+        {
+            let store = Store::open(db.path()).expect("open store");
+            store.upsert_recording(sample_recording(1));
+            store.mark_recording_failed(1, 4_000, "engine crashed".to_string());
+        }
+
+        let conn = read_connection(&db);
+        let row = conn
+            .query_row(
+                "SELECT status, error_message, file_size_bytes FROM recordings WHERE id = 1",
+                [],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, Option<String>>(1)?,
+                        row.get::<_, Option<i64>>(2)?,
+                    ))
+                },
+            )
+            .unwrap();
+
+        assert_eq!(row.0, "failed");
+        assert_eq!(row.1.as_deref(), Some("engine crashed"));
+        assert_eq!(row.2, None);
+    }
+
+    #[test]
+    fn updates_for_unknown_recording_change_nothing() {
+        let db = TempDb::new("missing-row");
+        {
+            let store = Store::open(db.path()).expect("open store");
+            store.mark_recording_started(99);
+            store.mark_recording_completed(99, 5_000, Some(1));
+            store.update_dimensions(
+                99,
+                CaptureDimensions {
+                    native_width: 1,
+                    native_height: 1,
+                    output_width: 1,
+                    output_height: 1,
+                },
+            );
+        }
+
+        let conn = read_connection(&db);
+        assert_eq!(count(&conn, "SELECT COUNT(*) FROM recordings"), 0);
+    }
+
+    #[test]
+    fn update_dimensions_sets_capture_columns() {
+        let db = TempDb::new("dimensions");
+        {
+            let store = Store::open(db.path()).expect("open store");
+            store.upsert_recording(sample_recording(1));
+            store.update_dimensions(
+                1,
+                CaptureDimensions {
+                    native_width: 3024,
+                    native_height: 1964,
+                    output_width: 1512,
+                    output_height: 982,
+                },
+            );
+        }
+
+        let conn = read_connection(&db);
+        let row = conn
+            .query_row(
+                "SELECT native_width, native_height, output_width, output_height \
+                 FROM recordings WHERE id = 1",
+                [],
+                |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, i64>(2)?,
+                        row.get::<_, i64>(3)?,
+                    ))
+                },
+            )
+            .unwrap();
+
+        assert_eq!(row, (3024, 1964, 1512, 982));
+    }
+
+    #[test]
+    fn append_event_persists_all_fields() {
+        let db = TempDb::new("event");
+        {
+            let store = Store::open(db.path()).expect("open store");
+            store.upsert_recording(sample_recording(1));
+            store.append_event(sample_event(Some(1)));
+        }
+
+        let conn = read_connection(&db);
+        let row = conn
+            .query_row(
+                "SELECT recording_id, timestamp_ms, level, source, message, fields_json \
+                 FROM events",
+                [],
+                |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                        row.get::<_, String>(4)?,
+                        row.get::<_, Option<String>>(5)?,
+                    ))
+                },
+            )
+            .unwrap();
+
+        assert_eq!(row.0, 1);
+        assert_eq!(row.1, 2_000);
+        assert_eq!(row.2, "info");
+        assert_eq!(row.3, "backend");
+        assert_eq!(row.4, "recording started");
+        assert_eq!(row.5.as_deref(), Some(r#"{"fps":60}"#));
+    }
+
+    #[test]
+    fn append_event_without_recording_id_is_allowed() {
+        let db = TempDb::new("event-detached");
+        {
+            let store = Store::open(db.path()).expect("open store");
+            store.append_event(EventRecord {
+                recording_id: None,
+                fields_json: None,
+                ..sample_event(None)
+            });
+        }
+
+        let conn = read_connection(&db);
+        let (recording_id, fields_json): (Option<i64>, Option<String>) = conn
+            .query_row("SELECT recording_id, fields_json FROM events", [], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .unwrap();
+
+        assert_eq!(recording_id, None);
+        assert_eq!(fields_json, None);
+    }
+
+    #[test]
+    fn event_with_unknown_recording_id_is_dropped() {
+        let db = TempDb::new("event-orphan");
+        {
+            let store = Store::open(db.path()).expect("open store");
+            store.append_event(sample_event(Some(42)));
+            store.append_event(sample_event(None));
+        }
+
+        let conn = read_connection(&db);
+        assert_eq!(count(&conn, "SELECT COUNT(*) FROM events"), 1);
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT COUNT(*) FROM events WHERE recording_id IS NULL"
+            ),
+            1
+        );
+    }
+
+    #[test]
+    fn append_metric_persists_all_fields() {
+        let db = TempDb::new("metric");
+        {
+            let store = Store::open(db.path()).expect("open store");
+            store.upsert_recording(sample_recording(1));
+            store.append_metric(sample_metric(1));
+            store.append_metric(MetricRecord {
+                timestamp_ms: 4_000,
+                frames: None,
+                dropped_frames: None,
+                ..sample_metric(1)
+            });
+        }
+
+        let conn = read_connection(&db);
+        let row = conn
+            .query_row(
+                "SELECT recording_id, timestamp_ms, elapsed_secs, output_bytes, bitrate_mbps, \
+                 frames, dropped_frames FROM metrics ORDER BY timestamp_ms LIMIT 1",
+                [],
+                |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, i64>(2)?,
+                        row.get::<_, i64>(3)?,
+                        row.get::<_, f64>(4)?,
+                        row.get::<_, Option<i64>>(5)?,
+                        row.get::<_, Option<i64>>(6)?,
+                    ))
+                },
+            )
+            .unwrap();
+        let (frames, dropped): (Option<i64>, Option<i64>) = conn
+            .query_row(
+                "SELECT frames, dropped_frames FROM metrics WHERE timestamp_ms = 4000",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+
+        assert_eq!(row.0, 1);
+        assert_eq!(row.1, 3_000);
+        assert_eq!(row.2, 5);
+        assert_eq!(row.3, 1_048_576);
+        assert!((row.4 - 4.5).abs() < 1e-6);
+        assert_eq!(row.5, Some(300));
+        assert_eq!(row.6, Some(2));
+        assert_eq!(frames, None);
+        assert_eq!(dropped, None);
+    }
+
+    #[test]
+    fn deleting_recording_cascades_metrics_and_detaches_events() {
+        let db = TempDb::new("cascade");
+        {
+            let store = Store::open(db.path()).expect("open store");
+            store.upsert_recording(sample_recording(1));
+            store.append_event(sample_event(Some(1)));
+            store.append_metric(sample_metric(1));
+        }
+
+        let conn = read_connection(&db);
+        conn.execute("DELETE FROM recordings WHERE id = 1", [])
+            .expect("delete recording");
+
+        assert_eq!(count(&conn, "SELECT COUNT(*) FROM metrics"), 0);
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT COUNT(*) FROM events WHERE recording_id IS NULL"
+            ),
+            1
+        );
+    }
+
+    #[test]
+    fn u64_values_above_i64_max_are_clamped() {
+        assert_eq!(u64_to_i64(u64::MAX), i64::MAX);
+        assert_eq!(u64_to_i64(42), 42);
+
+        let db = TempDb::new("clamp-id");
+        {
+            let store = Store::open(db.path()).expect("open store");
+            store.upsert_recording(sample_recording(u64::MAX));
+        }
+
+        let conn = read_connection(&db);
+        let id: i64 = conn
+            .query_row("SELECT id FROM recordings", [], |row| row.get(0))
+            .unwrap();
+
+        assert_eq!(id, i64::MAX);
+    }
+
+    #[test]
+    fn now_ms_returns_positive_timestamp() {
+        assert!(now_ms() > 0);
+    }
+}
