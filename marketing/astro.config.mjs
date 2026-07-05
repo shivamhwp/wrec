@@ -9,13 +9,6 @@ export default defineConfig({
   },
   fonts: [
     {
-      provider: fontProviders.fontshare(),
-      name: "Clash Grotesk",
-      cssVariable: "--font-clash-grotesk",
-      weights: [400, 700],
-      styles: ["normal"],
-    },
-    {
       provider: fontProviders.local(),
       name: "Geist",
       cssVariable: "--font-geist",

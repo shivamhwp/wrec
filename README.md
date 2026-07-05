@@ -19,11 +19,11 @@
   &nbsp;·&nbsp;
   <a href="https://wrec-beta.vercel.app/docs" target="_blank" rel="noopener noreferrer">Docs</a>
   &nbsp;·&nbsp;
-  <a href="https://wrec-beta.vercel.app/docs" target="_blank" rel="noopener noreferrer">For your agents</a>
+  <a href="https://wrec-beta.vercel.app/docs/agents" target="_blank" rel="noopener noreferrer">For your agents</a>
   &nbsp;·&nbsp;
   <a href="CONTRIBUTING.md">Contributing</a>
   &nbsp;·&nbsp;
-  <a href="https://wrec-beta.vercel.app/docs" target="_blank" rel="noopener noreferrer">CLI</a>
+  <a href="https://wrec-beta.vercel.app/docs/agents" target="_blank" rel="noopener noreferrer">CLI</a>
 </p>
 
 Wrec records displays or windows with a native ScreenCaptureKit pipeline, writes

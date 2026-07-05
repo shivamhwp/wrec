@@ -9,98 +9,80 @@ import "../styles/global.css";
     <link rel="icon" type="image/svg+xml" href="/wrec.svg" />
     <meta name="viewport" content="width=device-width" />
     <meta name="generator" content={Astro.generator} />
-    <Font cssVariable="--font-clash-grotesk" preload />
+    <Font cssVariable="--font-geist" preload />
     <script>
       import { configure } from "onedollarstats";
 
       configure();
     </script>
-    <script is:inline>
-      (() => {
-        const themeKey = "wrec-theme";
-        const isTheme = (value) => value === "light" || value === "dark";
-        const readTheme = () => {
-          try {
-            const stored = localStorage.getItem(themeKey);
-            return isTheme(stored) ? stored : "light";
-          } catch {
-            return "light";
-          }
-        };
-        const writeTheme = (theme) => {
-          try {
-            localStorage.setItem(themeKey, theme);
-          } catch {}
-        };
-        const applyTheme = (theme) => {
-          document.documentElement.dataset.theme = theme;
-        };
-
-        applyTheme(readTheme());
-
-        window.addEventListener("DOMContentLoaded", () => {
-          const button = document.querySelector("[data-theme-toggle]");
-          if (!button) {
-            return;
-          }
-
-          const labelButton = () => {
-            const current =
-              document.documentElement.dataset.theme === "dark"
-                ? "dark"
-                : "light";
-            const next = current === "dark" ? "light" : "dark";
-            button.textContent = next;
-            button.setAttribute("aria-label", `Use ${next} theme`);
-          };
-
-          labelButton();
-          button.addEventListener("click", () => {
-            const current =
-              document.documentElement.dataset.theme === "dark"
-                ? "dark"
-                : "light";
-            const next = current === "dark" ? "light" : "dark";
-            applyTheme(next);
-            writeTheme(next);
-            labelButton();
-          });
-        });
-      })();
-    </script>
     <title>wrec</title>
   </head>
-  <body class="home-page m-0 overflow-hidden select-none">
-    <main class="grid h-dvh place-items-center" aria-label="wrec">
-      <div class="relative flex flex-col items-start">
-        <div
-          class="inline-flex items-baseline gap-0 font-[family-name:var(--font-clash-grotesk)] text-[4.75rem] leading-[0.9] font-black tracking-normal md:text-[9rem]"
-        >
-          <h1 class="m-0">wrec</h1>
-          <div
-            class="animate-recording-blink h-4 w-4 rounded-full text-[#c62828]"
-            aria-hidden="true"
+  <body class="m-0 overflow-hidden select-none">
+    <main class="home-red" aria-label="wrec">
+      <header class="home-bar">
+        <span>
+          made by&nbsp;<a
+            href="https://shivam.ing"
+            target="_blank"
+            rel="noopener noreferrer">shivam</a
           >
-            .
-          </div>
-        </div>
-        <div class="mt-1 ml-1 flex w-full items-center justify-between md:mt-2">
-          <a
-            href="/docs"
-            class="font-[family-name:var(--font-clash-grotesk)] text-2xl leading-none font-normal tracking-normal no-underline md:text-3xl"
-          >
-            docs
-          </a>
-          <button
-            type="button"
-            class="theme-toggle font-[family-name:var(--font-clash-grotesk)] text-2xl leading-none font-normal tracking-normal md:text-3xl"
-            data-theme-toggle
-            aria-label="Use dark theme"
-          >
-            dark
-          </button>
-        </div>
-      </div>
+        </span>
+        <a href="/docs">docs</a>
+      </header>
+      <svg
+        class="home-word"
+        viewBox="2 -55.2 247.9 56.4"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <text x="0" y="0" font-size="100">wrec</text>
+      </svg>
     </main>
   </body>
 </html>
+
+<style>
+  .home-red {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    background: #c62828;
+    font-family: var(--font-geist), sans-serif;
+  }
+
+  .home-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 28px 10px;
+    font-size: 0.875rem;
+    color: #fff;
+  }
+
+  .home-bar a {
+    color: #fff;
+    text-decoration: underline;
+    text-underline-offset: 6px;
+    text-decoration-thickness: 1px;
+    font-weight: 600;
+  }
+
+  .home-bar a:hover,
+  .home-bar a:focus-visible {
+    color: #0d0d0d;
+  }
+
+  .home-word {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    display: block;
+  }
+
+  .home-word text {
+    font-family: var(--font-geist), sans-serif;
+    font-weight: 900;
+    fill: #0d0d0d;
+  }
+</style>

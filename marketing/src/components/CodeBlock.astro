@@ -1,0 +1,47 @@
+---
+interface Props {
+  code: string;
+  label?: string;
+  class?: string;
+}
+
+const { code, label = "Copy", class: className } = Astro.props;
+---
+
+<div class:list={["code-block", className]} data-copy-block>
+  <button
+    type="button"
+    class="copy-button"
+    data-copy-button
+    data-label={label}
+    aria-label={label}
+    title={label}
+  >
+    <svg
+      class="copy-default"
+      viewBox="0 0 256 256"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="18"
+    >
+      <path d="M168 168h48V40H88v48"></path>
+      <rect x="40" y="88" width="128" height="128" rx="8"></rect>
+    </svg>
+    <svg
+      class="copy-success"
+      viewBox="0 0 256 256"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="20"
+    >
+      <path d="M40 144l56 56L216 72"></path>
+    </svg>
+  </button>
+  <div class="code-pre"><code>{code}</code></div>
+</div>

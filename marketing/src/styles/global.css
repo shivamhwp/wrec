@@ -55,7 +55,7 @@ body {
 .docs-page {
   margin: 0;
   background: var(--page-bg);
-  color: var(--page-fg);
+  color: var(--page-muted);
   font-family: var(--font-geist), sans-serif;
   font-size: 14px;
   overflow-x: hidden;
@@ -76,18 +76,39 @@ body {
 .docs-page h1,
 .docs-page h2 {
   font-weight: 600;
+  color: var(--page-fg);
 }
 
 .docs-page h1 {
-  margin: 28px 0 12px;
-  font-size: 1.45rem;
-  line-height: 1.15;
+  margin: 40px 0 16px;
+  font-size: 2.1rem;
+  font-weight: 700;
+  line-height: 1.1;
 }
 
 .docs-page h2 {
-  margin: 34px 0 12px;
-  font-size: 1.05rem;
+  margin: 38px 0 12px;
+  font-size: 1.2rem;
   line-height: 1.2;
+}
+
+.docs-page .flow-list {
+  margin: 0 0 16px;
+  padding: 0 0 0 28px;
+  list-style: none;
+}
+
+.docs-page ol.flow-list {
+  list-style: decimal;
+}
+
+.docs-page ol.flow-list li {
+  padding-left: 6px;
+}
+
+.docs-page .flow-list li {
+  margin: 0 0 10px;
+  line-height: 1.65;
 }
 
 .docs-page p {
@@ -165,31 +186,23 @@ body {
   margin: 0;
 }
 
-.docs-tabs {
-  display: flex;
-  gap: 8px;
-  margin: 28px 0 8px;
-  border-bottom: 1px solid var(--page-line);
+.docs-nav {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 18px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
-.docs-tab {
-  appearance: none;
-  padding: 8px 10px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: transparent;
+.docs-page .docs-nav-link {
   color: var(--page-subtle);
-  font: inherit;
+  text-decoration: none;
   line-height: 1.2;
 }
 
-.docs-tab:hover,
-.docs-tab[data-active="true"] {
+.docs-page .docs-nav-link:hover,
+.docs-page .docs-nav-link[data-current="true"] {
   color: var(--page-fg);
-}
-
-.docs-tab[data-active="true"] {
-  border-bottom-color: var(--page-fg);
 }
 
 .docs-page pre,
@@ -243,33 +256,14 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--page-line);
 }
 
 .docs-action-group {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-}
-
-.docs-page .docs-brand {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0;
-  font-family: var(--font-clash-grotesk), sans-serif;
-  font-size: 1.75rem;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--page-fg);
-  text-decoration: none;
-}
-
-.docs-page .docs-brand:hover {
-  color: var(--page-fg);
-  text-decoration: none;
-}
-
-.docs-page .docs-brand-dot {
-  color: #c62828;
 }
 
 .docs-theme-toggle {
