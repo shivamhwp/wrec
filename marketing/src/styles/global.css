@@ -223,21 +223,12 @@ body {
 }
 
 .architecture-diagram {
-  margin-top: 28px;
-}
-
-.architecture-diagram .code-pre {
-  overflow-wrap: normal;
-}
-
-.docs-page .architecture-diagram .code-pre code {
-  white-space: pre;
-  word-spacing: normal;
-  overflow-wrap: normal;
-  font-variant-ligatures: none;
-  font-feature-settings:
-    "liga" 0,
-    "calt" 0;
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 28px 0 18px;
+  border: 1px solid var(--page-line);
+  border-radius: 10px;
 }
 
 .docs-page pre {
@@ -300,6 +291,13 @@ body {
   padding: 0 8px;
   font: inherit;
   font-size: 0.85rem;
+  border-color: transparent;
+  background: transparent;
+}
+
+.copy-page-button:hover,
+.copy-page-button:focus-visible {
+  background: var(--page-soft-bg);
 }
 
 .copy-button[data-copied="true"] {
@@ -339,6 +337,36 @@ body {
 .code-block:focus-within .copy-button,
 .code-block .copy-button[data-copied="true"] {
   opacity: 1;
+}
+
+@media (max-width: 640px) {
+  .docs-page main {
+    padding: 14px 16px 24px;
+  }
+
+  .docs-page h1 {
+    margin-top: 28px;
+    font-size: 1.7rem;
+  }
+
+  .docs-actions {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .docs-page th,
+  .docs-page td {
+    padding: 8px 10px;
+  }
+
+  .command-reference .command-item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .command-item {
+    padding: 10px 4px;
+  }
 }
 
 @theme {

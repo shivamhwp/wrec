@@ -1,47 +1,5 @@
 ---
-import CodeBlock from "../../components/CodeBlock.astro";
 import DocsLayout from "../../layouts/DocsLayout.astro";
-
-const architectureDiagram = `                  +----------------+
-                  |     core       |
-                  | domain types   |
-                  +--------+-------+
-                           |
-        +------------------+------------------+
-        |                                     |
-+-------v------+                      +-------v------+
-|   wrec-app   |                      |   wrec CLI   |
-| GPUI client  |                      | terminal UX  |
-+-------+------+                      +------+-------+
-        |                                    |
-        +---------------+--------------------+
-                        |
-                  +-----v------+
-                  |  control   |
-                  | IPC client |
-                  | protocol   |
-                  +-----+------+
-                        |
-                  Unix socket
-                        |
-                  +-----v------+
-                  |   daemon   |
-                  | queue/jobs |
-                  | settings   |
-                  | store I/O  |
-                  +-----+------+
-                        |
-                  +-----v------+
-                  |   macos    |
-                  | recorder   |
-                  +-----+------+
-                        |
-                  +-----v----------+
-                  | capture-engine |
-                  | SCK + writer   |
-                  +-----+----------+
-                        |
-        ScreenCaptureKit -> AVAssetWriter -> .mov`;
 
 const architectureNotes = [
   [
@@ -81,10 +39,12 @@ const architectureNotes = [
     writes the hardware-encoded <code>.mov</code>. Rust never touches frames.
   </p>
 
-  <CodeBlock
-    code={architectureDiagram}
-    label="Copy architecture"
+  <img
+    src="/architecture.svg"
+    alt="wrec architecture diagram: wrec-app and the wrec CLI share core types and talk through an IPC client over a Unix socket to the daemon, which drives the macOS recorder and the capture engine (ScreenCaptureKit → AVAssetWriter → .mov)"
     class="architecture-diagram"
+    width="1200"
+    height="600"
   />
 
   <table>

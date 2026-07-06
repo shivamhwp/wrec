@@ -15,8 +15,7 @@
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^7.0.6",
-    "onedollarstats": "^0.0.23"
+    "astro": "^7.0.6"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",

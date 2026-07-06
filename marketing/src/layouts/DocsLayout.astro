@@ -21,15 +21,11 @@ const navLinks = [
   <head>
     <meta charset="utf-8" />
     <link rel="icon" type="image/svg+xml" href="/wrec.svg" />
-    <meta name="viewport" content="width=device-width" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
     <Font cssVariable="--font-geist" preload />
     <Font cssVariable="--font-geist-mono" preload />
-    <script>
-      import { configure } from "onedollarstats";
-
-      configure();
-    </script>
+    <script defer src="https://assets.onedollarstats.com/stonks.js"></script>
     <script is:inline>
       (() => {
         const themeKey = "wrec-theme";

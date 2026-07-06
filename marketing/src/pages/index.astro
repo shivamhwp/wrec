@@ -7,14 +7,10 @@ import "../styles/global.css";
   <head>
     <meta charset="utf-8" />
     <link rel="icon" type="image/svg+xml" href="/wrec.svg" />
-    <meta name="viewport" content="width=device-width" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
     <Font cssVariable="--font-geist" preload />
-    <script>
-      import { configure } from "onedollarstats";
-
-      configure();
-    </script>
+    <script defer src="https://assets.onedollarstats.com/stonks.js"></script>
     <title>wrec</title>
   </head>
   <body class="m-0 overflow-hidden select-none">
@@ -30,12 +26,20 @@ import "../styles/global.css";
         <a href="/docs">docs</a>
       </header>
       <svg
-        class="home-word"
+        class="home-word home-word-horizontal"
         viewBox="2 -55.2 247.9 56.4"
         preserveAspectRatio="none"
         aria-hidden="true"
       >
         <text x="0" y="0" font-size="100">wrec</text>
+      </svg>
+      <svg
+        class="home-word home-word-vertical"
+        viewBox="-1.2 2 56.4 247.9"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <text x="0" y="0" font-size="100" transform="rotate(90)">wrec</text>
       </svg>
     </main>
   </body>
@@ -55,22 +59,22 @@ import "../styles/global.css";
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 28px 10px;
+    padding: 5px 24px 4px;
     font-size: 0.875rem;
     color: #fff;
   }
 
   .home-bar a {
     color: #fff;
-    text-decoration: underline;
-    text-underline-offset: 6px;
+    text-decoration: none;
+    text-underline-offset: 3px;
     text-decoration-thickness: 1px;
     font-weight: 600;
   }
 
   .home-bar a:hover,
   .home-bar a:focus-visible {
-    color: #0d0d0d;
+    text-decoration: underline;
   }
 
   .home-word {
@@ -84,5 +88,19 @@ import "../styles/global.css";
     font-family: var(--font-geist), sans-serif;
     font-weight: 900;
     fill: #0d0d0d;
+  }
+
+  .home-word-vertical {
+    display: none;
+  }
+
+  @media (max-width: 700px) and (orientation: portrait) {
+    .home-word-horizontal {
+      display: none;
+    }
+
+    .home-word-vertical {
+      display: block;
+    }
   }
 </style>
