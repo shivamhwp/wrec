@@ -26,7 +26,7 @@ pub(crate) type LimitedSelect = SelectState<Vec<LimitedOption>>;
 pub(crate) type TargetSelect = SelectState<Vec<TargetOption>>;
 
 pub(crate) const CONTROL_HEIGHT: f32 = 32.;
-const RECORD_BUTTON_HEIGHT: f32 = 42.;
+const RECORD_BUTTON_HEIGHT: f32 = 48.;
 pub(crate) const WINDOW_WIDTH: f32 = 628.;
 pub(crate) const WINDOW_HEIGHT: f32 = 540.;
 pub(crate) const WINDOW_MIN_WIDTH: f32 = 608.;
@@ -1196,6 +1196,7 @@ fn record_button(
     // weight as record; the red stop glyph is the destructive accent.
     UiButton::new("record-button")
         .primary()
+        .large()
         .h(px(RECORD_BUTTON_HEIGHT))
         .font_weight(FontWeight::SEMIBOLD)
         .icon(UiIcon::new(icon).text_color(if is_idle {
@@ -1221,6 +1222,7 @@ fn pause_button(
 ) -> UiButton {
     UiButton::new("pause-button")
         .with_variant(ButtonVariant::Default)
+        .large()
         .h(px(RECORD_BUTTON_HEIGHT))
         .font_weight(FontWeight::SEMIBOLD)
         .icon(UiIcon::new(icon).text_color(cx.theme().foreground))
