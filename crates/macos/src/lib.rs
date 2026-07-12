@@ -624,9 +624,7 @@ mod platform {
             Err(_) => {
                 signal_startup(
                     &mut startup,
-                    StartupSignal::Failed(
-                        "failed to inspect capture engine exit status".into(),
-                    ),
+                    StartupSignal::Failed("failed to inspect capture engine exit status".into()),
                 );
                 return;
             }

@@ -435,6 +435,9 @@ final class SampleRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         guard didStart, !didFinish else {
             return
         }
+        // elapsed is media time (last appended PTS minus first), not wall
+        // clock: it matches the duration of the written file, freezes during
+        // pause, and lags wall time while the screen is static.
         let elapsed = zip2(firstPTS, lastPTS).map { CMTimeSubtract($1, $0).seconds } ?? 0
         let elapsedSeconds = max(0, Int64(elapsed.rounded()))
         emitEvent([

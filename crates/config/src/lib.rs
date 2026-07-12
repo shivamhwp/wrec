@@ -70,7 +70,10 @@ struct RotatingLogWriter {
 
 impl RotatingLogWriter {
     fn open(path: &Path) -> std::io::Result<Self> {
-        let file = fs::OpenOptions::new().create(true).append(true).open(path)?;
+        let file = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)?;
         let written = file.metadata().map(|meta| meta.len()).unwrap_or(0);
         Ok(Self {
             file,
@@ -268,10 +271,7 @@ mod tests {
         writer.write_all(b"after rotation\n").unwrap();
 
         assert!(old_path.exists());
-        assert_eq!(
-            std::fs::read_to_string(&path).unwrap(),
-            "after rotation\n"
-        );
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "after rotation\n");
 
         let _ = std::fs::remove_dir_all(dir);
     }

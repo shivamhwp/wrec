@@ -21,7 +21,6 @@ pub fn daemon_log_path() -> PathBuf {
     wrec_home().join(DAEMON_LOG_NAME)
 }
 
-
 pub fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

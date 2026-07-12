@@ -360,14 +360,19 @@ mod tests {
 
     #[test]
     fn frame_rate_deserialization_only_accepts_30_and_60() {
-        assert_eq!(
-            serde_json::from_str::<FrameRate>(r#""30""#).unwrap(),
-            FrameRate::Fps30
-        );
-        assert_eq!(
-            serde_json::from_str::<FrameRate>(r#""60""#).unwrap(),
-            FrameRate::Fps60
-        );
+        // Variant-name aliases keep configs written by older builds loading.
+        for (value, expected) in [
+            (r#""30""#, FrameRate::Fps30),
+            (r#""Fps30""#, FrameRate::Fps30),
+            (r#""60""#, FrameRate::Fps60),
+            (r#""Fps60""#, FrameRate::Fps60),
+        ] {
+            assert_eq!(
+                serde_json::from_str::<FrameRate>(value).unwrap(),
+                expected,
+                "{value}"
+            );
+        }
 
         for value in [r#""0""#, r#""24""#, r#""120""#, "30", "60", r#""invalid""#] {
             assert!(serde_json::from_str::<FrameRate>(value).is_err(), "{value}");
