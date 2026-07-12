@@ -1,6 +1,6 @@
 use domain::{
-    CaptureSourceKind, CaptureTarget, PermissionStatus, RecorderEngine, RecorderError,
-    RecorderEvent, RecorderMetrics, RecorderSettings, RecordingSession, Result,
+    CaptureDimensions, CaptureSourceKind, CaptureTarget, PermissionStatus, RecorderEngine,
+    RecorderError, RecorderEvent, RecorderMetrics, RecorderSettings, RecordingSession, Result,
 };
 
 static LAST_SESSION_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -186,13 +186,11 @@ fn chrono_like_timestamp() -> String {
 #[cfg(target_os = "macos")]
 mod platform {
     use super::*;
+    use std::collections::VecDeque;
     use std::io::{BufRead, BufReader};
     use std::path::{Path, PathBuf};
     use std::process::{Command, Output, Stdio};
-    use std::sync::{
-        atomic::{AtomicBool, Ordering},
-        mpsc, Arc, Mutex, OnceLock,
-    };
+    use std::sync::{mpsc, Arc, Mutex, OnceLock};
     use std::time::{Duration, Instant};
 
     const CAPTURE_ENGINE_COMMAND_TIMEOUT: Duration = Duration::from_secs(5);
@@ -206,7 +204,6 @@ mod platform {
         child: std::process::Child,
         session_id: u64,
         events: Option<mpsc::Sender<RecorderEvent>>,
-        metrics_running: Arc<AtomicBool>,
     }
 
     enum StartupSignal {
@@ -216,6 +213,10 @@ mod platform {
 
     static CHILD: OnceLock<Mutex<Option<RecordingProcess>>> = OnceLock::new();
     const CAPTURE_ENGINE_NAME: &str = "capture-engine";
+
+    // BSD sysexits(3) code emitted by the capture engine; keep in sync with
+    // the Exit constants in native/capture_engine.swift.
+    const EX_NOPERM: i32 = 77;
 
     pub fn screen_recording_permission_status() -> Result<PermissionStatus> {
         run_permission_command(
@@ -257,12 +258,12 @@ mod platform {
         )?;
 
         if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            if is_permission_error(&stderr) {
+            if output.status.code() == Some(EX_NOPERM) {
                 return Err(RecorderError::MissingScreenRecordingPermission);
             }
             return Err(RecorderError::Backend(format!(
-                "target listing failed: {stderr}"
+                "target listing failed: {}",
+                String::from_utf8_lossy(&output.stderr)
             )));
         }
 
@@ -339,15 +340,14 @@ mod platform {
                 "false"
             })
             .stdin(Stdio::piped())
-            .stdout(Stdio::inherit())
+            .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|err| {
                 RecorderError::Backend(format!("failed to start capture engine: {err}"))
             })?;
 
-        let metrics_running = Arc::new(AtomicBool::new(true));
-        let metrics_events = events.clone();
+        let stdout = child.stdout.take();
         let stderr = child.stderr.take();
         let (startup_tx, startup_rx) = mpsc::channel();
 
@@ -355,24 +355,38 @@ mod platform {
             child,
             session_id,
             events: events.clone(),
-            metrics_running: metrics_running.clone(),
         });
         drop(active_child);
 
-        let Some(stderr) = stderr else {
+        let (Some(stdout), Some(stderr)) = (stdout, stderr) else {
             let _ = kill_active_child();
             return Err(RecorderError::Backend(
-                "capture engine stderr was not available for startup handshake".into(),
+                "capture engine stdio was not available for startup handshake".into(),
             ));
         };
 
+        let recent_stderr = Arc::new(Mutex::new(VecDeque::new()));
+        let log_events = events.clone();
+        let log_buffer = recent_stderr.clone();
         std::thread::spawn(move || {
-            forward_capture_engine_stderr(session_id, stderr, events, Some(startup_tx));
+            forward_capture_engine_stderr(session_id, stderr, log_events, log_buffer);
+        });
+        let events_output_path = output_path.clone();
+        std::thread::spawn(move || {
+            handle_capture_engine_events(
+                session_id,
+                stdout,
+                events,
+                startup_tx,
+                recent_stderr,
+                events_output_path,
+            );
         });
 
         match startup_rx.recv_timeout(START_TIMEOUT) {
             Ok(StartupSignal::Started) => {}
             Ok(StartupSignal::Failed(message)) => {
+                let _ = kill_active_child();
                 let _ = std::fs::remove_file(&output_path);
                 return Err(RecorderError::Backend(format!(
                     "capture engine failed to start recording: {message}"
@@ -393,13 +407,6 @@ mod platform {
                 ));
             }
         }
-
-        spawn_metrics_thread(
-            session_id,
-            output_path.clone(),
-            metrics_running,
-            metrics_events,
-        );
 
         tracing::info!(?target, ?settings, ?output_path, "started capture engine");
         Ok(RecordingSession {
@@ -425,7 +432,6 @@ mod platform {
             let stopped = match process.child.try_wait() {
                 Ok(stopped) => stopped,
                 Err(err) => {
-                    process.metrics_running.store(false, Ordering::Relaxed);
                     let message = format!("failed polling capture engine: {err}");
                     emit_failed(&process.events, Some(process.session_id), message.clone());
                     return Err(RecorderError::Backend(message));
@@ -441,13 +447,11 @@ mod platform {
                 let status = match process.child.wait() {
                     Ok(status) => status,
                     Err(err) => {
-                        process.metrics_running.store(false, Ordering::Relaxed);
                         let message = format!("failed killing stuck capture engine: {err}");
                         emit_failed(&process.events, Some(process.session_id), message.clone());
                         return Err(RecorderError::Backend(message));
                     }
                 };
-                process.metrics_running.store(false, Ordering::Relaxed);
                 emit_exited(&process.events, process.session_id, &status);
                 return Err(RecorderError::Backend(format!(
                     "capture engine did not stop recording within {}s and was killed with {status}",
@@ -457,7 +461,6 @@ mod platform {
 
             std::thread::sleep(STOP_POLL_INTERVAL);
         };
-        process.metrics_running.store(false, Ordering::Relaxed);
         emit_exited(&process.events, process.session_id, &status);
         if !status.success() {
             return Err(RecorderError::Backend(format!(
@@ -494,85 +497,186 @@ mod platform {
             .map_err(|err| RecorderError::Backend(format!("failed to send {command}: {err}")))
     }
 
+    const RECENT_STDERR_LINES: usize = 8;
+
+    /// stderr is the capture engine's human diagnostic channel. Lines are
+    /// forwarded as logs and buffered for crash reports, never parsed for state.
     fn forward_capture_engine_stderr(
         session_id: u64,
         stderr: std::process::ChildStderr,
         events: Option<std::sync::mpsc::Sender<RecorderEvent>>,
-        startup: Option<mpsc::Sender<StartupSignal>>,
+        recent: Arc<Mutex<VecDeque<String>>>,
     ) {
-        let mut startup = startup;
-        let mut did_start = false;
-        let mut first_startup_failure = None;
-
         for line in BufReader::new(stderr)
             .lines()
             .map_while(std::result::Result::ok)
         {
-            eprintln!("{line}");
-            let is_recording_started = capture_engine_line_is_recording_started(&line);
-            let is_failure = capture_engine_line_is_failure(&line);
-
-            if is_failure && first_startup_failure.is_none() {
-                first_startup_failure = Some(line.clone());
+            tracing::debug!(target: "capture_engine", "{line}");
+            if let Ok(mut recent) = recent.lock() {
+                if recent.len() == RECENT_STDERR_LINES {
+                    recent.pop_front();
+                }
+                recent.push_back(line.clone());
             }
-            if is_recording_started {
-                did_start = true;
-                signal_startup(&mut startup, StartupSignal::Started);
-            }
-
             emit(
                 &events,
-                if did_start && is_failure {
-                    RecorderEvent::Failed {
-                        session_id: Some(session_id),
-                        message: line,
-                    }
-                } else {
-                    RecorderEvent::Log {
-                        session_id: Some(session_id),
-                        message: line,
-                    }
+                RecorderEvent::Log {
+                    session_id: Some(session_id),
+                    message: line,
                 },
             );
         }
+    }
+
+    /// stdout is the capture engine's machine event channel (one JSON event per
+    /// line). It carries the startup handshake and failure signals; process exit
+    /// is detected when the channel closes.
+    fn handle_capture_engine_events(
+        session_id: u64,
+        stdout: std::process::ChildStdout,
+        events: Option<std::sync::mpsc::Sender<RecorderEvent>>,
+        startup: mpsc::Sender<StartupSignal>,
+        recent_stderr: Arc<Mutex<VecDeque<String>>>,
+        output_path: PathBuf,
+    ) {
+        let mut startup = Some(startup);
+        let mut did_start = false;
+        let mut last_failure: Option<String> = None;
+
+        for line in BufReader::new(stdout)
+            .lines()
+            .map_while(std::result::Result::ok)
+        {
+            match parse_engine_event(&line) {
+                Some(EngineEvent::Started { dimensions }) => {
+                    did_start = true;
+                    signal_startup(&mut startup, StartupSignal::Started);
+                    emit(
+                        &events,
+                        RecorderEvent::Started {
+                            session_id,
+                            dimensions,
+                        },
+                    );
+                }
+                Some(EngineEvent::Metrics {
+                    elapsed_secs,
+                    frames,
+                    dropped_frames,
+                }) => {
+                    let output_bytes = std::fs::metadata(&output_path)
+                        .map(|metadata| metadata.len())
+                        .unwrap_or_default();
+                    let estimated_bitrate_mbps = if elapsed_secs > 0 {
+                        output_bytes as f32 * 8. / elapsed_secs as f32 / 1_000_000.
+                    } else {
+                        0.
+                    };
+                    emit(
+                        &events,
+                        RecorderEvent::Metrics {
+                            session_id,
+                            metrics: RecorderMetrics {
+                                elapsed_secs,
+                                output_bytes,
+                                estimated_bitrate_mbps,
+                                frames,
+                                dropped_frames,
+                            },
+                        },
+                    );
+                }
+                Some(EngineEvent::Failed { message }) => {
+                    if did_start {
+                        emit(
+                            &events,
+                            RecorderEvent::Failed {
+                                session_id: Some(session_id),
+                                message,
+                            },
+                        );
+                    } else {
+                        last_failure = Some(message.clone());
+                        signal_startup(&mut startup, StartupSignal::Failed(message));
+                    }
+                }
+                Some(EngineEvent::Unknown) | None => {
+                    tracing::warn!(target: "capture_engine", "unrecognized engine event: {line}");
+                }
+            }
+        }
+
+        let stderr_context = || {
+            let lines = recent_stderr
+                .lock()
+                .map(|recent| recent.iter().cloned().collect::<Vec<_>>().join("; "))
+                .unwrap_or_default();
+            if lines.is_empty() {
+                String::new()
+            } else {
+                format!(" (recent engine output: {lines})")
+            }
+        };
 
         let child_slot = CHILD.get_or_init(|| Mutex::new(None));
-        let Ok(mut child) = child_slot.lock() else {
-            signal_startup(
-                &mut startup,
-                StartupSignal::Failed("failed to inspect capture engine exit status".into()),
-            );
-            return;
-        };
-        let Some(status) = child
-            .as_mut()
-            .and_then(|process| {
-                process.child.try_wait().ok().map(|status| {
-                    if status.is_some() {
-                        process.metrics_running.store(false, Ordering::Relaxed);
-                    }
-                    status
-                })
-            })
-            .flatten()
-        else {
-            if !did_start {
+        let taken = match child_slot.lock() {
+            Ok(mut child) => child.take(),
+            Err(_) => {
                 signal_startup(
                     &mut startup,
                     StartupSignal::Failed(
-                        "capture engine stderr closed before recording started".into(),
+                        "failed to inspect capture engine exit status".into(),
                     ),
+                );
+                return;
+            }
+        };
+        let Some(mut process) = taken else {
+            // stop_recording owns the process and reports its exit itself.
+            if !did_start {
+                signal_startup(
+                    &mut startup,
+                    StartupSignal::Failed(format!(
+                        "capture engine event channel closed before recording started{}",
+                        stderr_context()
+                    )),
                 );
             }
             return;
         };
-        *child = None;
+
+        // A closed event channel means the engine exited or is unusable. Kill
+        // is a no-op for a dead process, and a blocking wait cannot miss the
+        // exit the way a single try_wait sample can (pipe EOF is observable
+        // just before the process becomes reapable).
+        let _ = process.child.kill();
+        let status = match process.child.wait() {
+            Ok(status) => status,
+            Err(err) => {
+                let message = format!("failed to reap capture engine: {err}");
+                if !did_start {
+                    signal_startup(&mut startup, StartupSignal::Failed(message));
+                } else {
+                    emit(
+                        &events,
+                        RecorderEvent::Failed {
+                            session_id: Some(session_id),
+                            message,
+                        },
+                    );
+                }
+                return;
+            }
+        };
 
         if !did_start {
             signal_startup(
                 &mut startup,
-                StartupSignal::Failed(first_startup_failure.unwrap_or_else(|| {
-                    format!("capture engine exited before recording started: {status}")
+                StartupSignal::Failed(last_failure.unwrap_or_else(|| {
+                    format!(
+                        "capture engine exited before recording started: {status}{}",
+                        stderr_context()
+                    )
                 })),
             );
             return;
@@ -593,7 +697,6 @@ mod platform {
             return String::new();
         };
 
-        process.metrics_running.store(false, Ordering::Relaxed);
         let _ = process.child.kill();
         match process.child.wait() {
             Ok(status) => format!("; killed capture engine with {status}"),
@@ -636,59 +739,80 @@ mod platform {
         );
     }
 
-    fn spawn_metrics_thread(
-        session_id: u64,
-        output_path: std::path::PathBuf,
-        running: Arc<AtomicBool>,
-        events: Option<std::sync::mpsc::Sender<RecorderEvent>>,
-    ) {
-        std::thread::spawn(move || {
-            let started_at = Instant::now();
-            while running.load(Ordering::Relaxed) {
-                std::thread::sleep(std::time::Duration::from_secs(1));
-                let elapsed_secs = started_at.elapsed().as_secs();
-                if elapsed_secs == 0 {
-                    continue;
-                }
-
-                let output_bytes = std::fs::metadata(&output_path)
-                    .map(|metadata| metadata.len())
-                    .unwrap_or_default();
-                let estimated_bitrate_mbps =
-                    output_bytes as f32 * 8. / elapsed_secs as f32 / 1_000_000.;
-
-                emit(
-                    &events,
-                    RecorderEvent::Metrics {
-                        session_id,
-                        metrics: RecorderMetrics {
-                            elapsed_secs,
-                            output_bytes,
-                            estimated_bitrate_mbps,
-                        },
-                    },
-                );
-            }
-        });
+    /// Wire format of the capture engine's stdout event channel. Keep in sync
+    /// with `emitEvent` calls in native/capture_engine.swift.
+    #[derive(Debug, serde::Deserialize)]
+    #[serde(tag = "event", rename_all = "snake_case")]
+    enum RawEngineEvent {
+        Started {
+            native_width: Option<i64>,
+            native_height: Option<i64>,
+            output_width: Option<i64>,
+            output_height: Option<i64>,
+        },
+        Metrics {
+            elapsed: Option<u64>,
+            frames: Option<u64>,
+            dropped: Option<u64>,
+        },
+        Failed {
+            message: String,
+        },
+        #[serde(other)]
+        Unknown,
     }
 
-    fn capture_engine_line_is_failure(line: &str) -> bool {
-        line.contains("recording failed")
-            || line.contains("capture-engine: error:")
-            || line.contains("permission")
-            || line.contains("timed out")
-            || line.contains("not found")
-            || line.contains("no display")
-            || line.contains("Assertion failed")
-            || line.contains("CGS_REQUIRE_INIT")
+    #[derive(Debug, PartialEq)]
+    enum EngineEvent {
+        Started {
+            dimensions: Option<CaptureDimensions>,
+        },
+        Metrics {
+            elapsed_secs: u64,
+            frames: Option<u64>,
+            dropped_frames: Option<u64>,
+        },
+        Failed {
+            message: String,
+        },
+        Unknown,
     }
 
-    fn capture_engine_line_is_recording_started(line: &str) -> bool {
-        line.contains("capture-engine: recording started")
-    }
-
-    fn is_permission_error(message: &str) -> bool {
-        message.contains("permission denied") || message.contains("Screen Recording access")
+    fn parse_engine_event(line: &str) -> Option<EngineEvent> {
+        Some(match serde_json::from_str::<RawEngineEvent>(line).ok()? {
+            RawEngineEvent::Started {
+                native_width,
+                native_height,
+                output_width,
+                output_height,
+            } => EngineEvent::Started {
+                dimensions: match (native_width, native_height, output_width, output_height) {
+                    (
+                        Some(native_width),
+                        Some(native_height),
+                        Some(output_width),
+                        Some(output_height),
+                    ) => Some(CaptureDimensions {
+                        native_width,
+                        native_height,
+                        output_width,
+                        output_height,
+                    }),
+                    _ => None,
+                },
+            },
+            RawEngineEvent::Metrics {
+                elapsed,
+                frames,
+                dropped,
+            } => EngineEvent::Metrics {
+                elapsed_secs: elapsed.unwrap_or_default(),
+                frames,
+                dropped_frames: dropped,
+            },
+            RawEngineEvent::Failed { message } => EngineEvent::Failed { message },
+            RawEngineEvent::Unknown => EngineEvent::Unknown,
+        })
     }
 
     fn run_permission_command(
@@ -788,6 +912,55 @@ mod platform {
     #[cfg(test)]
     mod tests {
         use super::*;
+
+        #[test]
+        fn parses_started_event_with_dimensions() {
+            let event = parse_engine_event(
+                r#"{"event":"started","native_width":3024,"native_height":1964,"output_width":1512,"output_height":982}"#,
+            );
+
+            assert_eq!(
+                event,
+                Some(EngineEvent::Started {
+                    dimensions: Some(CaptureDimensions {
+                        native_width: 3024,
+                        native_height: 1964,
+                        output_width: 1512,
+                        output_height: 982,
+                    }),
+                })
+            );
+        }
+
+        #[test]
+        fn parses_started_event_without_dimensions() {
+            assert_eq!(
+                parse_engine_event(r#"{"event":"started"}"#),
+                Some(EngineEvent::Started { dimensions: None })
+            );
+        }
+
+        #[test]
+        fn parses_failed_event() {
+            assert_eq!(
+                parse_engine_event(r#"{"event":"failed","message":"no display found"}"#),
+                Some(EngineEvent::Failed {
+                    message: "no display found".into()
+                })
+            );
+        }
+
+        #[test]
+        fn unknown_events_and_plain_text_are_not_failures() {
+            assert_eq!(
+                parse_engine_event(r#"{"event":"paused"}"#),
+                Some(EngineEvent::Unknown)
+            );
+            assert_eq!(
+                parse_engine_event("capture-engine: recording started"),
+                None
+            );
+        }
 
         #[test]
         fn sibling_capture_engine_path_finds_packaged_capture_engine() {

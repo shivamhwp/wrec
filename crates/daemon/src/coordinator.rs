@@ -3,13 +3,12 @@ use crate::backend::{
 };
 use crate::{
     jobs::JobRecord,
-    paths::append_daemon_log,
     runtime::RecordingRuntime,
     target_resolution::{resolve_record_target, settings_for_target},
 };
 use control::{
-    daemon_log_path, job_events_path, now_ms, socket_path, wrec_home, AgentError, AgentWarning,
-    EventLevel, JobStatus, RecordingOptions, StartRecordingParams, PROTOCOL_VERSION,
+    daemon_log_path, now_ms, socket_path, wrec_home, AgentError, AgentWarning, EventLevel,
+    JobStatus, RecordingOptions, StartRecordingParams, PROTOCOL_VERSION,
 };
 use domain::{CaptureTarget, RecorderEngine, RecorderEvent};
 use serde_json::{json, Value};
@@ -64,7 +63,6 @@ impl<R: RecordingRuntime> Coordinator<R> {
             "home": wrec_home(),
             "socket": socket_path(),
             "daemon_log": daemon_log_path(),
-            "job_events": job_events_path(),
             "active_job_id": self.active_job_id,
             "queued_jobs": self.queue.iter().copied().collect::<Vec<_>>(),
             "stopping": self.shutdown_requested,
@@ -98,7 +96,7 @@ impl<R: RecordingRuntime> Coordinator<R> {
         }
 
         state.shutdown_requested = true;
-        append_daemon_log("shutdown requested");
+        tracing::info!("shutdown requested");
         Ok(json!({
             "stopping": true,
             "home": wrec_home(),
@@ -198,7 +196,7 @@ impl<R: RecordingRuntime> Coordinator<R> {
 
             let snapshot = job.snapshot(state.queued_position(id));
             state.jobs.insert(id, job);
-            append_daemon_log(format!("accepted job {id}"));
+            tracing::info!("accepted job {id}");
             (snapshot, should_launch)
         };
 
@@ -423,7 +421,7 @@ fn launch_job<R: RecordingRuntime>(state: SharedCoordinator<R>, job_id: u64) {
     let runtime = match lock_state(&state).map(|state| state.runtime.clone()) {
         Ok(runtime) => runtime,
         Err(err) => {
-            append_daemon_log(format!("job {job_id} launch failed: {}", err.message));
+            tracing::error!("job {job_id} launch failed: {}", err.message);
             finish_job_failed(
                 &state,
                 job_id,
@@ -439,7 +437,7 @@ fn launch_job<R: RecordingRuntime>(state: SharedCoordinator<R>, job_id: u64) {
         let mut state = match lock_state(&state) {
             Ok(state) => state,
             Err(err) => {
-                append_daemon_log(format!("job {job_id} launch failed: {}", err.message));
+                tracing::error!("job {job_id} launch failed: {}", err.message);
                 finish_job_failed(
                     &state,
                     job_id,
@@ -491,7 +489,7 @@ fn run_job<R: RecordingRuntime>(
     engine: Arc<Mutex<R::Engine>>,
     rx: mpsc::Receiver<RecorderEvent>,
 ) {
-    append_daemon_log(format!("job {job_id} starting"));
+    tracing::info!("job {job_id} starting");
     let start_result = match lock_control(&engine, job_id) {
         Ok(mut engine) => engine.start(target, settings),
         Err(err) => {
@@ -565,7 +563,7 @@ fn handle_recorder_event<R: RecordingRuntime>(
     let mut state = match lock_state(state) {
         Ok(state) => state,
         Err(err) => {
-            append_daemon_log(format!("job {job_id} event failed: {}", err.message));
+            tracing::error!("job {job_id} event failed: {}", err.message);
             return true;
         }
     };
@@ -589,6 +587,10 @@ fn handle_recorder_event<R: RecordingRuntime>(
                 EventLevel::Info,
                 format!("starting capture -> {}", output_path.display()),
             );
+            false
+        }
+        BackendEvent::Started => {
+            job.push_event(EventLevel::Info, "recording started".to_string());
             false
         }
         BackendEvent::Log { message, .. } => {
@@ -634,9 +636,7 @@ fn finish_job_failed<R: RecordingRuntime>(
     let mut state = match state.lock() {
         Ok(state) => state,
         Err(err) => {
-            append_daemon_log(format!(
-                "job {job_id} fail handling recovered poisoned state"
-            ));
+            tracing::warn!("job {job_id} fail handling recovered poisoned state");
             state.clear_poison();
             err.into_inner()
         }
@@ -667,7 +667,7 @@ fn launch_next_queued_job<R: RecordingRuntime>(state: SharedCoordinator<R>) {
         let mut state = match lock_state(&state) {
             Ok(state) => state,
             Err(err) => {
-                append_daemon_log(format!("queue launch failed: {}", err.message));
+                tracing::error!("queue launch failed: {}", err.message);
                 return;
             }
         };

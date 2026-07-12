@@ -92,7 +92,6 @@ dependencies = [
  "macos",
  "phosphor-svgs",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -953,6 +952,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -1250,7 +1250,6 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -3331,6 +3330,8 @@ dependencies = [
  "objc2-metal",
  "objc2-screen-capture-kit",
  "objc2-video-toolbox",
+ "serde",
+ "serde_json",
  "tracing",
 ]
 

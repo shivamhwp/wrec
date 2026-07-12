@@ -1,6 +1,5 @@
 use crate::{
     coordinator::{lock_state, Coordinator, SharedCoordinator},
-    paths::append_daemon_log,
     runtime::{MacosRuntime, RecordingRuntime},
 };
 use control::{
@@ -9,7 +8,6 @@ use control::{
 };
 use serde_json::Value;
 use std::{
-    fs,
     io::{BufRead, BufReader, ErrorKind, Write},
     os::unix::net::{UnixListener, UnixStream},
     sync::{Arc, Mutex},
@@ -25,7 +23,9 @@ pub fn serve_forever() -> Result<(), String> {
     let home = wrec_home();
     std::fs::create_dir_all(&home)
         .map_err(|err| format!("failed to create {}: {err}", home.display()))?;
-    init_tracing();
+    config::init_file_tracing(&daemon_log_path());
+    // job-events.jsonl is no longer written; clean up the stale copy once.
+    let _ = std::fs::remove_file(home.join("job-events.jsonl"));
     let socket = socket_path();
     if socket.exists() {
         if UnixStream::connect(&socket).is_ok() {
@@ -38,7 +38,7 @@ pub fn serve_forever() -> Result<(), String> {
             .map_err(|err| format!("failed to remove stale socket {}: {err}", socket.display()))?;
     }
 
-    append_daemon_log("daemon starting");
+    tracing::info!("daemon starting");
     let listener = UnixListener::bind(&socket)
         .map_err(|err| format!("failed to bind {}: {err}", socket.display()))?;
     listener
@@ -55,45 +55,25 @@ pub fn serve_forever() -> Result<(), String> {
             Err(err) if err.kind() == ErrorKind::WouldBlock => {
                 thread::sleep(POLL_INTERVAL);
             }
-            Err(err) => append_daemon_log(format!("client accept failed: {err}")),
+            Err(err) => tracing::error!("client accept failed: {err}"),
         }
     }
 
-    append_daemon_log("daemon stopped");
+    tracing::info!("daemon stopped");
     let _ = std::fs::remove_file(&socket);
     Ok(())
 }
 
-fn init_tracing() {
-    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
-
-    match fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(daemon_log_path())
-    {
-        Ok(file) => {
-            let _ = tracing_subscriber::fmt()
-                .with_env_filter(env_filter)
-                .with_ansi(false)
-                .with_writer(move || file.try_clone().expect("clone daemon log file"))
-                .try_init();
-        }
-        Err(err) => append_daemon_log(format!("tracing log open failed: {err}")),
-    }
-}
-
 fn handle_client(stream: UnixStream, state: SharedCoordinator<MacosRuntime>) {
     if let Err(err) = stream.set_nonblocking(false) {
-        append_daemon_log(format!("client blocking mode failed: {err}"));
+        tracing::warn!("client blocking mode failed: {err}");
     }
     let response = read_request(&stream)
         .map(|request| handle_request(request, state))
         .unwrap_or_else(|error| response_error(0, error));
 
     if let Err(err) = write_response(stream, &response) {
-        append_daemon_log(format!("response write failed: {err}"));
+        tracing::warn!("response write failed: {err}");
     }
 }
 

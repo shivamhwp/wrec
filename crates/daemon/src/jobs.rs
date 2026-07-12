@@ -1,4 +1,3 @@
-use crate::paths::append_job_event;
 use control::{now_ms, AgentWarning, EventLevel, JobEvent, JobSnapshot, JobStatus, TargetSelector};
 use domain::{CaptureTarget, RecorderMetrics, RecorderSettings};
 use std::{
@@ -132,7 +131,6 @@ impl<E> JobRecord<E> {
             message: message.into(),
             metrics: None,
         };
-        append_job_event(self.id, &event);
         self.events.push(event);
         self.updated_at_ms = now_ms();
     }
@@ -147,7 +145,6 @@ impl<E> JobRecord<E> {
             ),
             metrics: Some(metrics),
         };
-        append_job_event(self.id, &event);
         self.events.push(event);
         self.updated_at_ms = now_ms();
     }
@@ -292,6 +289,8 @@ mod tests {
             elapsed_secs: 3,
             output_bytes: 1024,
             estimated_bitrate_mbps: 1.5,
+            frames: None,
+            dropped_frames: None,
         });
 
         let event = job.events.last().unwrap();

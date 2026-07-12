@@ -17,7 +17,6 @@ config = { path = "../config" }
 macos = { path = "../macos" }
 anyhow.workspace = true
 tracing.workspace = true
-tracing-subscriber.workspace = true
 gpui.workspace = true
 gpui_platform.workspace = true
 gpui-component.workspace = true

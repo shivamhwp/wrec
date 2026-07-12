@@ -246,6 +246,18 @@ pub struct RecorderMetrics {
     pub elapsed_secs: u64,
     pub output_bytes: u64,
     pub estimated_bitrate_mbps: f32,
+    #[serde(default)]
+    pub frames: Option<u64>,
+    #[serde(default)]
+    pub dropped_frames: Option<u64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CaptureDimensions {
+    pub native_width: i64,
+    pub native_height: i64,
+    pub output_width: i64,
+    pub output_height: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -255,6 +267,10 @@ pub enum RecorderEvent {
         target: CaptureTarget,
         settings: RecorderSettings,
         output_path: PathBuf,
+    },
+    Started {
+        session_id: u64,
+        dimensions: Option<CaptureDimensions>,
     },
     Log {
         session_id: Option<u64>,
