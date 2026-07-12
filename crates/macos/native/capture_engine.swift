@@ -18,13 +18,21 @@ func logLine(_ message: String) {
     FileHandle.standardError.write(Data("capture-engine: \(message)\n".utf8))
 }
 
+// Serializes stdout writes: events are emitted from the recorder queue, the
+// main actor, and ScreenCaptureKit delegate queues, and interleaved bytes
+// would corrupt the parent's line-based parser.
+let eventQueue = DispatchQueue(label: "wrec.capture.events")
+
 // Keep event names and fields in sync with EngineEvent in crates/macos/src/lib.rs.
+// Synchronous so an event is fully written before a caller exits the process.
 func emitEvent(_ payload: [String: Any]) {
     guard var data = try? JSONSerialization.data(withJSONObject: payload) else {
         return
     }
     data.append(0x0A)
-    FileHandle.standardOutput.write(data)
+    eventQueue.sync {
+        FileHandle.standardOutput.write(data)
+    }
 }
 
 func emitFailure(_ message: String) {

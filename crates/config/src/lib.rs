@@ -88,13 +88,17 @@ impl RotatingLogWriter {
         }
         let mut old = self.path.clone().into_os_string();
         old.push(".old");
-        if fs::rename(&self.path, PathBuf::from(old)).is_ok() {
-            if let Ok(fresh) = Self::open(&self.path) {
-                *self = fresh;
-            }
-        } else {
-            // Rename failed (e.g. permissions); avoid retrying on every write.
-            self.written = 0;
+        // Best effort: if a previous rotation already renamed the file but
+        // failed to reopen it, the source is gone and this rename fails while
+        // the reopen below still recovers the primary path.
+        let _ = fs::rename(&self.path, PathBuf::from(old));
+        match Self::open(&self.path) {
+            // A fresh handle only helps if the rename actually made room;
+            // otherwise this reopened the same over-cap file.
+            Ok(fresh) if fresh.written < LOG_ROTATE_BYTES => *self = fresh,
+            // Keep the current handle and wait another cap's worth before
+            // retrying, so a persistent failure adds no per-write churn.
+            _ => self.written = 0,
         }
     }
 }
