@@ -163,6 +163,11 @@ pub struct RecorderSettings {
     pub include_microphone: bool,
     #[serde(default = "default_hide_wrec")]
     pub hide_wrec: bool,
+    // On-screen mic indicator during mic recordings. Defaults on so any
+    // client that does not explicitly opt out (CLI, agents) shows it; the
+    // app opts out because its user toggled the mic in visible UI.
+    #[serde(default = "default_show_mic_indicator")]
+    pub show_mic_indicator: bool,
 }
 
 impl Default for RecorderSettings {
@@ -178,6 +183,7 @@ impl Default for RecorderSettings {
             include_system_audio: true,
             include_microphone: false,
             hide_wrec: true,
+            show_mic_indicator: true,
         }
     }
 }
@@ -197,6 +203,10 @@ fn default_include_system_audio() -> bool {
 }
 
 fn default_hide_wrec() -> bool {
+    true
+}
+
+fn default_show_mic_indicator() -> bool {
     true
 }
 

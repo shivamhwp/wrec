@@ -32,9 +32,6 @@ pub(crate) const WINDOW_HEIGHT: f32 = 540.;
 pub(crate) const WINDOW_MIN_WIDTH: f32 = 608.;
 pub(crate) const WINDOW_MIN_HEIGHT: f32 = 500.;
 pub(crate) const SOURCE_OPTIONS: [&str; 2] = ["Display", "Window"];
-pub(crate) const PILL_WIDTH: f32 = 116.;
-pub(crate) const PILL_HEIGHT: f32 = 34.;
-pub(crate) const PILL_BOTTOM_MARGIN: f32 = 24.;
 pub(crate) const CODEC_OPTIONS: [&str; 2] = ["HEVC", "H.264"];
 pub(crate) const QUALITY_OPTIONS: [&str; 3] = ["Balanced", "Efficient", "High"];
 
@@ -1299,61 +1296,6 @@ fn theme_toggle(is_dark: bool, cx: &mut Context<WrecApp>) -> impl IntoElement {
             change_theme(mode, Some(window), cx);
             cx.notify();
         }))
-}
-
-fn switch_row(label: &'static str, value: &'static str, value_color: Hsla, switch: Switch) -> Div {
-    div()
-        .flex()
-        .items_center()
-        .justify_between()
-        .w_full()
-        .h(px(CONTROL_HEIGHT))
-        .gap_3()
-        .child(
-            div()
-                .flex()
-                .items_baseline()
-                .gap_2()
-                .min_w(px(0.))
-                .child(row_label(label))
-                .child(div().text_sm().text_color(value_color).child(value)),
-        )
-        .child(switch)
-}
-
-/// Floating bottom-center indicator shown while a recording captures the
-/// microphone. Lives in its own always-on-top popup window so it stays
-/// visible when the main window is out of the way.
-pub(crate) struct RecordingPill;
-
-impl Render for RecordingPill {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            .size_full()
-            .flex()
-            .items_center()
-            .justify_center()
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap_2()
-                    .h(px(26.))
-                    .px_3()
-                    .rounded_full()
-                    .bg(rgba(0x111111e6))
-                    .border_1()
-                    .border_color(rgba(0xffffff26))
-                    .child(div().w_2().h_2().rounded_full().bg(rgb(0xe5484d)))
-                    .child(
-                        div()
-                            .text_size(px(12.))
-                            .font_family(GEIST_FONT_FAMILY)
-                            .text_color(rgb(0xffffff))
-                            .child("Mic on"),
-                    ),
-            )
-    }
 }
 
 fn label_switch_row(label: &'static str, color: Hsla, switch: Switch) -> Div {

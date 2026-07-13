@@ -80,6 +80,8 @@ pub struct RecordingOptions {
     pub include_system_audio: Option<bool>,
     pub include_microphone: Option<bool>,
     pub hide_wrec: Option<bool>,
+    #[serde(default)]
+    pub show_mic_indicator: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

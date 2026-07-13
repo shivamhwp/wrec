@@ -366,6 +366,7 @@ fn recording_overrides(options: &RecordingOptions) -> RecordingOverrides {
         include_system_audio: options.include_system_audio,
         include_microphone: options.include_microphone,
         hide_wrec: options.hide_wrec,
+        show_mic_indicator: options.show_mic_indicator,
     }
 }
 

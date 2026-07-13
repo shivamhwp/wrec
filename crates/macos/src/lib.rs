@@ -339,6 +339,11 @@ mod platform {
             } else {
                 "false"
             })
+            .arg(if settings.show_mic_indicator {
+                "true"
+            } else {
+                "false"
+            })
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
