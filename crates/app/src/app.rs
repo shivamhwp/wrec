@@ -35,7 +35,7 @@ pub(crate) const GITHUB_URL: &str = "https://github.com/shivamhwp/wrec";
 
 const MAX_LOGS: usize = 80;
 
-actions!(wrec, [Quit, Minimize]);
+actions!(wrec, [Quit, Minimize, Hide]);
 
 #[derive(Clone, Debug)]
 pub(crate) enum RecorderState {
@@ -827,6 +827,10 @@ impl WrecApp {
         _: &mut Context<Self>,
     ) {
         window.minimize_window();
+    }
+
+    pub(crate) fn on_hide_action(&mut self, _: &Hide, _: &mut Window, cx: &mut Context<Self>) {
+        cx.hide();
     }
 
     pub(crate) fn request_quit(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {

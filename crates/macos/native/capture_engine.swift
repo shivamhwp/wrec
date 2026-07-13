@@ -436,7 +436,7 @@ final class SampleRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         if appendAudioSample(sampleBuffer, to: micInput, label: "microphone") {
             micSampleCount += 1
             micLevelCounter += 1
-            if micLevelCounter % 4 == 0, let handler = micLevelHandler,
+            if micLevelCounter % 2 == 0, let handler = micLevelHandler,
                 let level = Self.peakLevel(of: sampleBuffer)
             {
                 handler(level)

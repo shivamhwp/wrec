@@ -905,6 +905,7 @@ impl Render for WrecApp {
         div()
             .id("wrec-root")
             .on_action(cx.listener(WrecApp::on_minimize_action))
+            .on_action(cx.listener(WrecApp::on_hide_action))
             .on_action(cx.listener(WrecApp::on_quit_action))
             .relative()
             .size_full()
