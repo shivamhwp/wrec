@@ -57,6 +57,93 @@ pub fn log_path() -> PathBuf {
     wrec_dir().join("wrec.log")
 }
 
+const LOG_ROTATE_BYTES: u64 = 5 * 1024 * 1024;
+
+/// File-backed log writer that renames the file to `<name>.old` (one
+/// generation) once it exceeds the size cap, so a pathological error loop
+/// cannot grow a log without bound.
+struct RotatingLogWriter {
+    file: fs::File,
+    path: PathBuf,
+    written: u64,
+}
+
+impl RotatingLogWriter {
+    fn open(path: &Path) -> std::io::Result<Self> {
+        let file = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)?;
+        let written = file.metadata().map(|meta| meta.len()).unwrap_or(0);
+        Ok(Self {
+            file,
+            path: path.to_path_buf(),
+            written,
+        })
+    }
+
+    fn rotate_if_needed(&mut self) {
+        if self.written < LOG_ROTATE_BYTES {
+            return;
+        }
+        let mut old = self.path.clone().into_os_string();
+        old.push(".old");
+        // Best effort: if a previous rotation already renamed the file but
+        // failed to reopen it, the source is gone and this rename fails while
+        // the reopen below still recovers the primary path.
+        let _ = fs::rename(&self.path, PathBuf::from(old));
+        match Self::open(&self.path) {
+            // A fresh handle only helps if the rename actually made room;
+            // otherwise this reopened the same over-cap file.
+            Ok(fresh) if fresh.written < LOG_ROTATE_BYTES => *self = fresh,
+            // Keep the current handle and wait another cap's worth before
+            // retrying, so a persistent failure adds no per-write churn.
+            _ => self.written = 0,
+        }
+    }
+}
+
+impl std::io::Write for RotatingLogWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.rotate_if_needed();
+        let written = self.file.write(buf)?;
+        self.written += written as u64;
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.file.flush()
+    }
+}
+
+/// Initialize the process-wide tracing subscriber writing to `path`, with
+/// `RUST_LOG`-style filtering (default `info`) and size-capped rotation.
+/// Falls back to stderr if the file cannot be opened.
+pub fn init_file_tracing(path: &Path) {
+    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+
+    if let Some(parent) = path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+
+    match RotatingLogWriter::open(path) {
+        Ok(writer) => {
+            let _ = tracing_subscriber::fmt()
+                .with_env_filter(env_filter)
+                .with_ansi(false)
+                .with_writer(std::sync::Mutex::new(writer))
+                .try_init();
+        }
+        Err(err) => {
+            eprintln!("failed to open log file {}: {err}", path.display());
+            let _ = tracing_subscriber::fmt()
+                .with_env_filter(env_filter)
+                .try_init();
+        }
+    }
+}
+
 pub fn wrec_dir() -> PathBuf {
     std::env::var_os("WREC_DATA_DIR")
         .map(PathBuf::from)
@@ -173,6 +260,25 @@ fn runtime_app_name() -> String {
 mod tests {
     use super::*;
     use domain::Resolution;
+
+    #[test]
+    fn rotating_writer_moves_full_log_aside_and_starts_fresh() {
+        use std::io::Write;
+
+        let dir = std::env::temp_dir().join(format!("wrec-rotate-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("test.log");
+        let old_path = dir.join("test.log.old");
+        std::fs::write(&path, vec![b'x'; LOG_ROTATE_BYTES as usize]).unwrap();
+
+        let mut writer = RotatingLogWriter::open(&path).unwrap();
+        writer.write_all(b"after rotation\n").unwrap();
+
+        assert!(old_path.exists());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "after rotation\n");
+
+        let _ = std::fs::remove_dir_all(dir);
+    }
 
     #[test]
     fn missing_resolution_uses_recorder_settings_default() {

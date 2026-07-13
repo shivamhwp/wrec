@@ -115,9 +115,9 @@ impl RecorderEngine for FakeEngine {
             })
             .unwrap();
         self.events
-            .send(RecorderEvent::Log {
-                session_id: Some(id),
-                message: "recording started".into(),
+            .send(RecorderEvent::Started {
+                session_id: id,
+                dimensions: None,
             })
             .unwrap();
         Ok(session)

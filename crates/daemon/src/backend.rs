@@ -3,20 +3,28 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use config::{save_config, store_path, AppConfig};
+use crate::store::{
+    now_ms, CaptureDimensions, EventLevel, EventRecord, EventSource, MetricRecord, RecordingRecord,
+    Store,
+};
+use config::{store_path, AppConfig};
 use domain::{
     CaptureSourceKind, CaptureTarget, Codec, FrameRate, Quality, RecorderEvent, RecorderMetrics,
     RecorderSettings, Resolution,
 };
-use store::{
-    now_ms, CaptureDimensions, EventLevel, EventRecord, EventSource, MetricRecord, RecordingRecord,
-    Store,
-};
+
+fn store_dimensions(dimensions: domain::CaptureDimensions) -> CaptureDimensions {
+    CaptureDimensions {
+        native_width: dimensions.native_width,
+        native_height: dimensions.native_height,
+        output_width: dimensions.output_width,
+        output_height: dimensions.output_height,
+    }
+}
 
 #[derive(Debug, Default, Clone)]
 pub struct RecordingOverrides {
     pub source_kind: Option<CaptureSourceKind>,
-    pub target_id: Option<u64>,
     pub fps: Option<FrameRate>,
     pub codec: Option<Codec>,
     pub quality: Option<Quality>,
@@ -28,35 +36,22 @@ pub struct RecordingOverrides {
     pub hide_wrec: Option<bool>,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum ClientEventLevel {
-    Info,
-    Error,
-}
-
 #[derive(Debug, Clone)]
 pub enum BackendEvent {
     Starting {
-        session_id: u64,
-        target: CaptureTarget,
-        settings: RecorderSettings,
         output_path: PathBuf,
     },
+    Started,
     Log {
-        session_id: Option<u64>,
         message: String,
-        marked_started: bool,
     },
     Metrics {
-        session_id: u64,
         metrics: RecorderMetrics,
     },
     Failed {
-        recording_id: Option<u64>,
         message: String,
     },
     Exited {
-        session_id: u64,
         success: bool,
         status: String,
         output_path: Option<PathBuf>,
@@ -88,14 +83,6 @@ impl WrecBackend {
         }
     }
 
-    pub fn active_session_id(&self) -> Option<u64> {
-        self.active_session_id
-    }
-
-    pub fn active_output_path(&self) -> Option<&Path> {
-        self.active_output_path.as_deref()
-    }
-
     pub fn handle_recorder_event(&mut self, event: &RecorderEvent) -> BackendEvent {
         match event {
             RecorderEvent::Starting {
@@ -117,35 +104,36 @@ impl WrecBackend {
                 );
 
                 BackendEvent::Starting {
-                    session_id: *session_id,
-                    target: target.clone(),
-                    settings: settings.clone(),
                     output_path: output_path.clone(),
                 }
+            }
+            RecorderEvent::Started {
+                session_id,
+                dimensions,
+            } => {
+                self.mark_recording_started(*session_id);
+                if let Some(dimensions) = *dimensions {
+                    self.update_recording_dimensions(*session_id, store_dimensions(dimensions));
+                }
+                self.append_event(
+                    Some(*session_id),
+                    EventSource::CaptureEngine,
+                    EventLevel::Info,
+                    None,
+                    "recording started".to_string(),
+                );
+
+                BackendEvent::Started
             }
             RecorderEvent::Log {
                 session_id,
                 message,
             } => {
-                let marked_started = message.contains("recording started");
-                if marked_started {
-                    if let Some(session_id) = session_id {
-                        self.mark_recording_started(*session_id);
-                    }
-                }
-
-                let dimensions = parse_capture_dimensions(message);
-                if let (Some(session_id), Some(dimensions)) = (*session_id, dimensions) {
-                    self.update_recording_dimensions(session_id, dimensions);
-                }
-
                 let source = recorder_event_source(message);
                 self.append_event(*session_id, source, EventLevel::Info, None, message.clone());
 
                 BackendEvent::Log {
-                    session_id: *session_id,
                     message: message.clone(),
-                    marked_started,
                 }
             }
             RecorderEvent::Metrics {
@@ -155,7 +143,6 @@ impl WrecBackend {
                 self.append_metric(*session_id, metrics);
 
                 BackendEvent::Metrics {
-                    session_id: *session_id,
                     metrics: metrics.clone(),
                 }
             }
@@ -179,7 +166,6 @@ impl WrecBackend {
                 self.active_output_path = None;
 
                 BackendEvent::Failed {
-                    recording_id,
                     message: message.clone(),
                 }
             }
@@ -212,7 +198,6 @@ impl WrecBackend {
                 self.active_output_path = None;
 
                 BackendEvent::Exited {
-                    session_id: *session_id,
                     success,
                     status: status.clone(),
                     output_path,
@@ -239,24 +224,6 @@ impl WrecBackend {
                 fields_json,
             });
         }
-    }
-
-    pub fn append_app_event(
-        &self,
-        recording_id: Option<u64>,
-        level: ClientEventLevel,
-        message: String,
-    ) {
-        self.append_event(
-            recording_id,
-            EventSource::App,
-            match level {
-                ClientEventLevel::Info => EventLevel::Info,
-                ClientEventLevel::Error => EventLevel::Error,
-            },
-            None,
-            message,
-        );
     }
 
     fn mark_recording_started(&self, session_id: u64) {
@@ -320,8 +287,8 @@ impl WrecBackend {
                 elapsed_secs: metrics.elapsed_secs,
                 output_bytes: metrics.output_bytes,
                 bitrate_mbps: metrics.estimated_bitrate_mbps,
-                frames: None,
-                dropped_frames: None,
+                frames: metrics.frames,
+                dropped_frames: metrics.dropped_frames,
             });
         }
     }
@@ -331,10 +298,7 @@ pub fn load_config() -> AppConfig {
     AppConfig::load()
 }
 
-pub fn persist_config(config: &AppConfig) -> std::io::Result<()> {
-    save_config(config)
-}
-
+#[cfg(test)]
 pub fn build_settings(
     saved: &RecorderSettings,
     overrides: &RecordingOverrides,
@@ -480,17 +444,6 @@ pub fn recorder_event_source(message: &str) -> EventSource {
     }
 }
 
-pub fn parse_capture_dimensions(message: &str) -> Option<CaptureDimensions> {
-    let (native_width, native_height) = parse_size_after(message, "native=")?;
-    let (output_width, output_height) = parse_size_after(message, "size=")?;
-    Some(CaptureDimensions {
-        native_width,
-        native_height,
-        output_width,
-        output_height,
-    })
-}
-
 fn parse_target_key(key: &str) -> Option<(CaptureSourceKind, u64)> {
     let (kind, id) = key.split_once(':')?;
     let kind = match kind {
@@ -499,12 +452,6 @@ fn parse_target_key(key: &str) -> Option<(CaptureSourceKind, u64)> {
         _ => return None,
     };
     Some((kind, id.parse().ok()?))
-}
-
-fn parse_size_after(message: &str, key: &str) -> Option<(i64, i64)> {
-    let token = message.split_once(key)?.1.split_whitespace().next()?;
-    let (width, height) = token.split_once('x')?;
-    Some((width.parse().ok()?, height.parse().ok()?))
 }
 
 #[cfg(test)]
@@ -601,16 +548,25 @@ mod tests {
     }
 
     #[test]
-    fn parses_capture_dimensions_from_capture_engine_log() {
-        let dimensions = parse_capture_dimensions(
-            "capture-engine: recording started native=3024x1964 size=1512x982",
-        )
-        .unwrap();
+    fn started_event_is_forwarded_as_started() {
+        let mut backend = WrecBackend {
+            store: None,
+            active_session_id: None,
+            active_output_path: None,
+            failed_session_ids: HashSet::new(),
+        };
 
-        assert_eq!(dimensions.native_width, 3024);
-        assert_eq!(dimensions.native_height, 1964);
-        assert_eq!(dimensions.output_width, 1512);
-        assert_eq!(dimensions.output_height, 982);
+        let event = backend.handle_recorder_event(&RecorderEvent::Started {
+            session_id: 7,
+            dimensions: Some(domain::CaptureDimensions {
+                native_width: 3024,
+                native_height: 1964,
+                output_width: 1512,
+                output_height: 982,
+            }),
+        });
+
+        assert!(matches!(event, BackendEvent::Started));
     }
 
     #[test]

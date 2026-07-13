@@ -246,6 +246,18 @@ pub struct RecorderMetrics {
     pub elapsed_secs: u64,
     pub output_bytes: u64,
     pub estimated_bitrate_mbps: f32,
+    #[serde(default)]
+    pub frames: Option<u64>,
+    #[serde(default)]
+    pub dropped_frames: Option<u64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CaptureDimensions {
+    pub native_width: i64,
+    pub native_height: i64,
+    pub output_width: i64,
+    pub output_height: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -255,6 +267,10 @@ pub enum RecorderEvent {
         target: CaptureTarget,
         settings: RecorderSettings,
         output_path: PathBuf,
+    },
+    Started {
+        session_id: u64,
+        dimensions: Option<CaptureDimensions>,
     },
     Log {
         session_id: Option<u64>,
@@ -340,6 +356,27 @@ mod tests {
         assert!(settings.include_system_audio);
         assert!(!settings.include_microphone);
         assert!(settings.hide_wrec);
+    }
+
+    #[test]
+    fn frame_rate_deserialization_only_accepts_30_and_60() {
+        // Variant-name aliases keep configs written by older builds loading.
+        for (value, expected) in [
+            (r#""30""#, FrameRate::Fps30),
+            (r#""Fps30""#, FrameRate::Fps30),
+            (r#""60""#, FrameRate::Fps60),
+            (r#""Fps60""#, FrameRate::Fps60),
+        ] {
+            assert_eq!(
+                serde_json::from_str::<FrameRate>(value).unwrap(),
+                expected,
+                "{value}"
+            );
+        }
+
+        for value in [r#""0""#, r#""24""#, r#""120""#, "30", "60", r#""invalid""#] {
+            assert!(serde_json::from_str::<FrameRate>(value).is_err(), "{value}");
+        }
     }
 
     #[test]

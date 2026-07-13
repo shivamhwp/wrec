@@ -8,7 +8,6 @@ use assets::{register_fonts, WrecAssets};
 use gpui::*;
 use gpui_component::Root;
 use gpui_platform::application;
-use std::{fs, path::Path};
 use ui::{
     change_theme, configure_notifications, WINDOW_HEIGHT, WINDOW_MIN_HEIGHT, WINDOW_MIN_WIDTH,
     WINDOW_WIDTH,
@@ -62,32 +61,7 @@ fn main() {
 }
 
 fn init_tracing() {
-    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
-
-    let path = config::log_path();
-    if let Err(err) = create_parent_dir(&path) {
-        eprintln!("failed to create log directory: {err}");
-    }
-
-    match fs::OpenOptions::new().create(true).append(true).open(&path) {
-        Ok(file) => tracing_subscriber::fmt()
-            .with_env_filter(env_filter)
-            .with_ansi(false)
-            .with_writer(move || file.try_clone().expect("clone log file"))
-            .init(),
-        Err(err) => {
-            eprintln!("failed to open log file {}: {err}", path.display());
-            tracing_subscriber::fmt().with_env_filter(env_filter).init();
-        }
-    }
-}
-
-fn create_parent_dir(path: &Path) -> std::io::Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    Ok(())
+    config::init_file_tracing(&config::log_path());
 }
 
 fn app_key_bindings() -> Vec<KeyBinding> {

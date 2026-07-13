@@ -41,7 +41,6 @@ impl RecordingStatus {
 #[derive(Debug, Clone, Copy)]
 pub enum EventLevel {
     Info,
-    Warn,
     Error,
 }
 
@@ -49,7 +48,6 @@ impl EventLevel {
     const fn as_str(self) -> &'static str {
         match self {
             Self::Info => "info",
-            Self::Warn => "warn",
             Self::Error => "error",
         }
     }
@@ -57,7 +55,6 @@ impl EventLevel {
 
 #[derive(Debug, Clone, Copy)]
 pub enum EventSource {
-    App,
     Backend,
     CaptureEngine,
 }
@@ -65,7 +62,6 @@ pub enum EventSource {
 impl EventSource {
     const fn as_str(self) -> &'static str {
         match self {
-            Self::App => "app",
             Self::Backend => "backend",
             Self::CaptureEngine => "capture_engine",
         }
@@ -154,6 +150,14 @@ impl Store {
         let conn = Connection::open(path)?;
         configure_connection(&conn)?;
         migrate(&conn)?;
+
+        // Only the daemon opens the store, and it does so at startup before
+        // any job can run, so a non-terminal row here means a previous daemon
+        // died mid-recording and the row would otherwise lie forever.
+        let interrupted = mark_stale_recordings_failed(&conn)?;
+        if interrupted > 0 {
+            tracing::warn!("marked {interrupted} interrupted recording(s) as failed");
+        }
 
         let (sender, receiver) = mpsc::channel();
         let handle = thread::spawn(move || writer_loop(conn, receiver));
@@ -245,6 +249,21 @@ fn configure_connection(conn: &Connection) -> rusqlite::Result<()> {
 fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     let version = conn.query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))?;
     if version >= SCHEMA_VERSION {
+        // Version stamps have lied before: a divergent build shipped a
+        // different schema under the same number, leaving stamped databases
+        // without these columns. Verify by inspection instead of trusting it.
+        ensure_column(
+            conn,
+            "recordings",
+            "include_system_audio",
+            "INTEGER NOT NULL DEFAULT 1",
+        )?;
+        ensure_column(
+            conn,
+            "recordings",
+            "include_microphone",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
         return Ok(());
     }
 
@@ -305,21 +324,52 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         ",
     )?;
 
-    if version == 1 {
-        conn.execute(
-            "ALTER TABLE recordings ADD COLUMN include_system_audio INTEGER NOT NULL DEFAULT 1",
-            [],
-        )?;
-    }
-
-    if (1..=2).contains(&version) {
-        conn.execute(
-            "ALTER TABLE recordings ADD COLUMN include_microphone INTEGER NOT NULL DEFAULT 0",
-            [],
-        )?;
-    }
+    ensure_column(
+        conn,
+        "recordings",
+        "include_system_audio",
+        "INTEGER NOT NULL DEFAULT 1",
+    )?;
+    ensure_column(
+        conn,
+        "recordings",
+        "include_microphone",
+        "INTEGER NOT NULL DEFAULT 0",
+    )?;
 
     conn.pragma_update(None, "user_version", SCHEMA_VERSION)
+}
+
+fn mark_stale_recordings_failed(conn: &Connection) -> rusqlite::Result<usize> {
+    conn.execute(
+        "UPDATE recordings SET status = ?1, stopped_at_ms = ?2, error_message = ?3
+         WHERE status IN (?4, ?5)",
+        rusqlite::params![
+            RecordingStatus::Failed.as_str(),
+            now_ms(),
+            "interrupted: daemon stopped while this recording was active",
+            RecordingStatus::Starting.as_str(),
+            RecordingStatus::Recording.as_str(),
+        ],
+    )
+}
+
+fn ensure_column(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    definition: &str,
+) -> rusqlite::Result<()> {
+    let exists = conn
+        .prepare("SELECT 1 FROM pragma_table_info(?1) WHERE name = ?2")?
+        .exists(rusqlite::params![table, column])?;
+    if !exists {
+        conn.execute(
+            &format!("ALTER TABLE {table} ADD COLUMN {column} {definition}"),
+            [],
+        )?;
+    }
+    Ok(())
 }
 
 impl StoreCommand {
@@ -809,6 +859,97 @@ mod tests {
 
         assert_eq!(version, SCHEMA_VERSION);
         assert_eq!(microphone, 0);
+    }
+
+    #[test]
+    fn migrate_heals_stamped_database_with_missing_columns() {
+        // A divergent build shipped a different schema under user_version 3
+        // (extra output_format column, no include_microphone), so the stamp
+        // alone cannot be trusted.
+        let db = TempDb::new("migrate-lying-stamp");
+        {
+            let conn = Connection::open(db.path()).expect("open raw connection");
+            conn.execute_batch(
+                "
+                CREATE TABLE recordings (
+                    id INTEGER PRIMARY KEY,
+                    started_at_ms INTEGER NOT NULL,
+                    stopped_at_ms INTEGER,
+                    status TEXT NOT NULL,
+                    output_path TEXT NOT NULL,
+                    target_kind TEXT NOT NULL,
+                    target_id INTEGER NOT NULL,
+                    target_name TEXT NOT NULL,
+                    codec TEXT NOT NULL,
+                    quality TEXT NOT NULL,
+                    resolution TEXT NOT NULL,
+                    fps INTEGER NOT NULL,
+                    include_cursor INTEGER NOT NULL,
+                    include_system_audio INTEGER NOT NULL DEFAULT 1,
+                    output_format TEXT,
+                    native_width INTEGER,
+                    native_height INTEGER,
+                    output_width INTEGER,
+                    output_height INTEGER,
+                    duration_ms INTEGER,
+                    file_size_bytes INTEGER,
+                    error_message TEXT
+                );
+                PRAGMA user_version = 3;
+                ",
+            )
+            .expect("create divergent v3 schema");
+        }
+
+        {
+            let store = Store::open(db.path()).expect("open heals stamped store");
+            store.upsert_recording(sample_recording(11));
+        }
+
+        let conn = read_connection(&db);
+        let microphone: i64 = conn
+            .query_row(
+                "SELECT include_microphone FROM recordings WHERE id = 11",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+
+        assert_eq!(microphone, 0);
+        assert_eq!(count(&conn, "SELECT COUNT(*) FROM recordings"), 1);
+    }
+
+    #[test]
+    fn reopening_marks_stale_active_recordings_failed() {
+        let db = TempDb::new("interrupted");
+        {
+            let store = Store::open(db.path()).expect("first open");
+            store.upsert_recording(sample_recording(1));
+            store.mark_recording_started(1);
+            store.upsert_recording(sample_recording(2));
+            store.mark_recording_started(2);
+            store.mark_recording_completed(2, 2000, Some(64));
+        }
+
+        drop(Store::open(db.path()).expect("reopen"));
+
+        let conn = read_connection(&db);
+        let (status, error): (String, String) = conn
+            .query_row(
+                "SELECT status, error_message FROM recordings WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        let completed: String = conn
+            .query_row("SELECT status FROM recordings WHERE id = 2", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+
+        assert_eq!(status, "failed");
+        assert!(error.contains("interrupted"));
+        assert_eq!(completed, "completed");
     }
 
     #[test]

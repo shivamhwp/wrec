@@ -5,7 +5,6 @@ use std::{
 
 const SOCKET_NAME: &str = "wrec.sock";
 const DAEMON_LOG_NAME: &str = "daemon.log";
-const JOB_EVENTS_NAME: &str = "job-events.jsonl";
 
 pub fn wrec_home() -> PathBuf {
     std::env::var_os("WREC_HOME")
@@ -20,10 +19,6 @@ pub fn socket_path() -> PathBuf {
 
 pub fn daemon_log_path() -> PathBuf {
     wrec_home().join(DAEMON_LOG_NAME)
-}
-
-pub fn job_events_path() -> PathBuf {
-    wrec_home().join(JOB_EVENTS_NAME)
 }
 
 pub fn now_ms() -> u64 {

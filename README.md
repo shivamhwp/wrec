@@ -102,7 +102,6 @@ Daemon files for local automation:
 ```text
 ~/.wrec/wrec.sock
 ~/.wrec/daemon.log
-~/.wrec/job-events.jsonl
 ```
 
 Set `WREC_HOME` to override the daemon directory for tests or isolated agents.
