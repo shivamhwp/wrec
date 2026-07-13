@@ -40,6 +40,118 @@ func emitFailure(_ message: String) {
     emitEvent(["event": "failed", "message": message])
 }
 
+/// Always-on-top "Mic on" pill shown while a recording captures the
+/// microphone, so recordings started out of sight (CLI, agents) are never
+/// silently listening. The panel dies with the process, so a crashed engine
+/// cannot leave a stale indicator.
+@MainActor
+final class MicIndicator {
+    private var panel: NSPanel?
+
+    // Automated-verification hook. "1" forces the pill without microphone
+    // capture (production sharing behavior); "capturable" additionally skips
+    // the capture exclusion so screenshots can see what eyes see.
+    static let testHook = ProcessInfo.processInfo.environment["WREC_MIC_PILL_TEST"]
+    static let testHookEnabled = testHook == "1" || testHook == "capturable"
+
+    static let pillWidth: CGFloat = 96
+    static let pillHeight: CGFloat = 30
+    static let bottomMargin: CGFloat = 24
+
+    func show(on screen: NSScreen?) {
+        guard panel == nil else {
+            return
+        }
+        guard let screen = screen ?? NSScreen.main else {
+            logLine("mic indicator unavailable: no screen")
+            return
+        }
+        // .prohibited cannot create windows; .accessory still has no Dock
+        // icon or menu bar. This process never calls NSApplication.run(), so
+        // launching must be finished explicitly before windows can appear.
+        NSApplication.shared.setActivationPolicy(.accessory)
+        NSApplication.shared.finishLaunching()
+
+        let frame = screen.visibleFrame
+        let origin = NSPoint(
+            x: frame.midX - Self.pillWidth / 2,
+            y: frame.minY + Self.bottomMargin
+        )
+        let panel = NSPanel(
+            contentRect: NSRect(origin: origin, size: NSSize(width: Self.pillWidth, height: Self.pillHeight)),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.level = .statusBar
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = false
+        panel.ignoresMouseEvents = true
+        panel.hidesOnDeactivate = false
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        // Excluded from capture at the window-server level, so the pill stays
+        // out of the recording even if the shareable-content snapshot races
+        // window registration and misses it (the exclusion-list fallback
+        // alone is racy; independent QA caught it leaking a frame).
+        if Self.testHook != "capturable" {
+            panel.sharingType = .none
+        }
+        panel.contentView = Self.pillView()
+        panel.orderFrontRegardless()
+        self.panel = panel
+        logLine("mic indicator shown windowNumber=\(panel.windowNumber)")
+    }
+
+    func hide() {
+        panel?.orderOut(nil)
+        panel = nil
+    }
+
+    private static func pillView() -> NSView {
+        let view = NSView(frame: NSRect(x: 0, y: 0, width: pillWidth, height: pillHeight))
+        view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor(white: 0.07, alpha: 0.9).cgColor
+        view.layer?.cornerRadius = pillHeight / 2
+        view.layer?.borderWidth = 1
+        view.layer?.borderColor = NSColor(white: 1, alpha: 0.15).cgColor
+
+        let icon = NSImageView(frame: NSRect(x: 12, y: (pillHeight - 16) / 2, width: 16, height: 16))
+        icon.image = NSImage(systemSymbolName: "waveform", accessibilityDescription: "Microphone recording")
+        icon.contentTintColor = NSColor(red: 0.9, green: 0.28, blue: 0.3, alpha: 1)
+        view.addSubview(icon)
+
+        let label = NSTextField(labelWithString: "Mic on")
+        label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+        label.textColor = .white
+        label.sizeToFit()
+        label.frame.origin = NSPoint(x: 36, y: (pillHeight - label.frame.height) / 2)
+        view.addSubview(label)
+
+        return view
+    }
+}
+
+func screenForDisplay(_ displayID: UInt32) -> NSScreen? {
+    NSScreen.screens.first { screen in
+        let key = NSDeviceDescriptionKey("NSScreenNumber")
+        return (screen.deviceDescription[key] as? NSNumber)?.uint32Value == displayID
+    }
+}
+
+// SCWindow frames are top-left-origin global coordinates; NSScreen frames are
+// bottom-left-origin. Match by the window's midpoint after flipping.
+func screenContaining(windowFrame: CGRect) -> NSScreen? {
+    guard let primary = NSScreen.screens.first else {
+        return nil
+    }
+    let midpoint = NSPoint(
+        x: windowFrame.midX,
+        y: primary.frame.maxY - windowFrame.midY
+    )
+    return NSScreen.screens.first { $0.frame.contains(midpoint) }
+}
+
 // Exit codes follow BSD sysexits(3). The Rust parent branches on these; keep
 // in sync with the EX_* constants in crates/macos/src/lib.rs.
 enum Exit {
@@ -266,6 +378,7 @@ final class SampleRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
             droppedMicSampleCount += 1
         }
     }
+
 
     private func appendAudioSample(_ sampleBuffer: CMSampleBuffer, to input: AVAssetWriterInput, label: String) -> Bool {
         guard didStart, let firstPTS else {
@@ -509,7 +622,7 @@ func run() async {
     }
 
     guard args.count >= 9 else {
-        fputs("usage: capture-engine <output-path> <fps> <include-cursor> <display|window> <id> <hevc|h264> <efficient|balanced|high> <native|720p|1080p|2k|4k> [include-system-audio] [hide-wrec] [include-microphone]\n", stderr)
+        fputs("usage: capture-engine <output-path> <fps> <include-cursor> <display|window> <id> <hevc|h264> <efficient|balanced|high> <native|720p|1080p|2k|4k> [include-system-audio] [hide-wrec] [include-microphone] [show-mic-indicator]\n", stderr)
         Foundation.exit(Exit.usage)
     }
 
@@ -527,6 +640,9 @@ func run() async {
     let includeSystemAudio = args.count >= 10 ? args[9] == "true" : false
     let hideWrec = args.count >= 11 ? args[10] == "true" : true
     let includeMicrophone = args.count >= 12 ? args[11] == "true" : false
+    // Defaults on so a caller that says nothing gets the indicator; the app
+    // opts out because its user toggled the mic in visible UI.
+    let showMicIndicator = args.count >= 13 ? args[12] == "true" : true
 
     guard ensureScreenCapturePermission() else {
         emitFailure("permission denied: Screen Recording access is required")
@@ -538,7 +654,16 @@ func run() async {
         Foundation.exit(Exit.noPermission)
     }
 
+    let micIndicator = MicIndicator()
+    let wantsMicIndicator = (includeMicrophone && showMicIndicator) || MicIndicator.testHookEnabled
+
     do {
+        // The pill must exist before the shareable-content snapshot for
+        // display capture so its window can be excluded from the recording.
+        if wantsMicIndicator && targetKind != "window" {
+            micIndicator.show(on: screenForDisplay(targetId))
+        }
+
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
         let filter: SCContentFilter
         let fallbackWidth: Int
@@ -549,6 +674,11 @@ func run() async {
                 emitFailure("window not found")
                 Foundation.exit(Exit.unavailable)
             }
+            // Window capture sees only the target window, so the pill needs
+            // no exclusion in this mode.
+            if wantsMicIndicator {
+                micIndicator.show(on: screenContaining(windowFrame: window.frame))
+            }
             filter = SCContentFilter(desktopIndependentWindow: window)
             fallbackWidth = Int(window.frame.width)
             fallbackHeight = Int(window.frame.height)
@@ -558,9 +688,14 @@ func run() async {
                 emitFailure("no display found")
                 Foundation.exit(Exit.unavailable)
             }
-            let excludedWindows = hideWrec ? wrecWindows(in: content) : []
+            // The engine's own windows (the mic pill) are never meaningful
+            // recording content, so they are excluded even when hideWrec is
+            // off.
+            var excludedWindows = ownWindows(in: content)
             if hideWrec {
-                logLine("excluding \(excludedWindows.count) Wrec window(s)")
+                let wrec = wrecWindows(in: content)
+                logLine("excluding \(wrec.count) Wrec window(s)")
+                excludedWindows.append(contentsOf: wrec)
             }
             filter = SCContentFilter(display: display, excludingWindows: excludedWindows)
             fallbackWidth = display.width
@@ -625,6 +760,7 @@ func run() async {
         await waitForStopSignal(recorder: recorder)
 
         try await stream.stopCapture()
+        micIndicator.hide()
         guard recorder.finish(timeout: .seconds(15)) else {
             emitFailure("timed out waiting for writer finalization")
             Foundation.exit(Exit.ioError)
@@ -713,6 +849,12 @@ func requestMicrophonePermission() async -> Bool {
 func wrecWindows(in content: SCShareableContent) -> [SCWindow] {
     let parentPID = getppid()
     return content.windows.filter { isWrecWindow($0, parentPID: parentPID) }
+}
+
+// Windows owned by this capture-engine process itself (the mic pill).
+func ownWindows(in content: SCShareableContent) -> [SCWindow] {
+    let pid = getpid()
+    return content.windows.filter { $0.owningApplication?.processID == pid }
 }
 
 // The engine's parent is the daemon, which owns no windows, so the ppid check

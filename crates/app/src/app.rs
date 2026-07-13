@@ -3,9 +3,8 @@ use crate::{
     ui::{
         app_notification, fps_disabled, fps_label, fps_options_for, push_app_notification,
         resolution_disabled, resolution_label, resolution_options_for, target_key, AppTab,
-        ControlSelect, LimitedOption, LimitedSelect, RecordingPill, TargetOption, TargetSelect,
-        CODEC_OPTIONS, PILL_BOTTOM_MARGIN, PILL_HEIGHT, PILL_WIDTH, QUALITY_OPTIONS,
-        SOURCE_OPTIONS,
+        ControlSelect, LimitedOption, LimitedSelect, TargetOption, TargetSelect, CODEC_OPTIONS,
+        QUALITY_OPTIONS, SOURCE_OPTIONS,
     },
 };
 use config::{save_config as persist_config, wrec_dir, AppConfig};
@@ -36,7 +35,7 @@ pub(crate) const GITHUB_URL: &str = "https://github.com/shivamhwp/wrec";
 
 const MAX_LOGS: usize = 80;
 
-actions!(wrec, [Quit, Minimize]);
+actions!(wrec, [Quit, Minimize, Hide]);
 
 #[derive(Clone, Debug)]
 pub(crate) enum RecorderState {
@@ -109,7 +108,6 @@ pub(crate) struct WrecApp {
     pub(crate) permission_busy: bool,
     pub(crate) mic_permission_status: PermissionStatus,
     pub(crate) mic_permission_busy: bool,
-    pill_window: Option<AnyWindowHandle>,
     pub(crate) metrics: Option<RecorderMetrics>,
     pub(crate) status: String,
     pub(crate) cli_install_status: CliInstallStatus,
@@ -244,7 +242,6 @@ impl WrecApp {
             permission_busy: false,
             mic_permission_status: PermissionStatus::Unknown,
             mic_permission_busy: false,
-            pill_window: None,
             metrics: None,
             status: "Idle".to_string(),
             cli_install_status: crate::platform::cli_install_status(),
@@ -832,6 +829,10 @@ impl WrecApp {
         window.minimize_window();
     }
 
+    pub(crate) fn on_hide_action(&mut self, _: &Hide, _: &mut Window, cx: &mut Context<Self>) {
+        cx.hide();
+    }
+
     pub(crate) fn request_quit(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         if !self.recorder_state.is_active_session()
             && !matches!(self.recorder_state, RecorderState::Starting)
@@ -932,9 +933,6 @@ impl WrecApp {
         if self.settings.hide_wrec {
             self.push_log("hiding Wrec from recording");
         }
-        // Open before the engine snapshots on-screen windows so the pill is
-        // part of the hide-wrec exclusion list.
-        self.open_recording_pill(&target, cx);
         self.active_job_id = None;
         self.active_job_event_count = 0;
         self.active_output_path = None;
@@ -949,58 +947,6 @@ impl WrecApp {
             let _ = app_events.unbounded_send(UiEvent::App(AppEvent::Started(result)));
         });
         cx.notify();
-    }
-
-    fn open_recording_pill(&mut self, target: &CaptureTarget, cx: &mut Context<Self>) {
-        if !self.settings.include_microphone || self.pill_window.is_some() {
-            return;
-        }
-        let display = match target.kind {
-            CaptureSourceKind::Display => cx
-                .find_display(DisplayId::new(target.id))
-                .or_else(|| cx.primary_display()),
-            CaptureSourceKind::Window => cx.primary_display(),
-        };
-        let Some(display) = display else {
-            return;
-        };
-        let display_bounds = display.bounds();
-        let pill_size = size(px(PILL_WIDTH), px(PILL_HEIGHT));
-        let origin = point(
-            display_bounds.origin.x + (display_bounds.size.width - pill_size.width) / 2.,
-            display_bounds.origin.y + display_bounds.size.height
-                - pill_size.height
-                - px(PILL_BOTTOM_MARGIN),
-        );
-        let options = WindowOptions {
-            window_bounds: Some(WindowBounds::Windowed(Bounds {
-                origin,
-                size: pill_size,
-            })),
-            titlebar: None,
-            focus: false,
-            show: true,
-            kind: WindowKind::PopUp,
-            is_movable: false,
-            is_resizable: false,
-            is_minimizable: false,
-            display_id: Some(display.id()),
-            window_background: WindowBackgroundAppearance::Transparent,
-            ..Default::default()
-        };
-        match cx.open_window(options, |_, cx| cx.new(|_| RecordingPill)) {
-            Ok(handle) => {
-                self.pill_window = Some(handle.into());
-                self.push_log("microphone pill shown");
-            }
-            Err(err) => self.push_log(format!("microphone pill failed to open: {err}")),
-        }
-    }
-
-    fn close_recording_pill(&mut self, cx: &mut Context<Self>) {
-        if let Some(handle) = self.pill_window.take() {
-            let _ = handle.update(cx, |_, window, _| window.remove_window());
-        }
     }
 
     pub(crate) fn toggle_pause(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -1197,7 +1143,6 @@ impl WrecApp {
                     cx.notify();
                     return;
                 }
-                self.close_recording_pill(cx);
                 self.active_job_id = None;
                 self.active_job_event_count = 0;
                 self.active_output_path = None;
@@ -1217,7 +1162,6 @@ impl WrecApp {
             }
             AppEvent::JobPolled(Err(message)) => {
                 if self.active_job_id.is_some() {
-                    self.close_recording_pill(cx);
                     self.recorder_state = RecorderState::Failed;
                     self.active_job_id = None;
                     self.active_output_path = None;
@@ -1254,7 +1198,6 @@ impl WrecApp {
                 self.apply_job_snapshot(job, window, cx);
             }
             AppEvent::Stopped(Err(message)) => {
-                self.close_recording_pill(cx);
                 self.active_job_id = None;
                 self.active_job_event_count = 0;
                 self.active_output_path = None;
@@ -1320,7 +1263,6 @@ impl WrecApp {
                 self.status = "Stopping".to_string();
             }
             JobStatus::Completed => {
-                self.close_recording_pill(cx);
                 self.active_job_id = None;
                 self.active_job_event_count = 0;
                 self.active_output_path = None;
@@ -1352,7 +1294,6 @@ impl WrecApp {
                         "Recording failed".to_string()
                     }
                 });
-                self.close_recording_pill(cx);
                 self.active_job_id = None;
                 self.active_job_event_count = 0;
                 self.active_output_path = None;
@@ -1474,6 +1415,9 @@ fn recording_params(target: CaptureTarget, settings: RecorderSettings) -> StartR
             include_system_audio: Some(settings.include_system_audio),
             include_microphone: Some(settings.include_microphone),
             hide_wrec: Some(settings.hide_wrec),
+            // The app user toggles the mic in visible UI; the engine's
+            // on-screen indicator is for recordings started out of sight.
+            show_mic_indicator: Some(false),
         },
         duration_ms: None,
         queue: false,

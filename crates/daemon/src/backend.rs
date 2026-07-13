@@ -34,6 +34,7 @@ pub struct RecordingOverrides {
     pub include_system_audio: Option<bool>,
     pub include_microphone: Option<bool>,
     pub hide_wrec: Option<bool>,
+    pub show_mic_indicator: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
@@ -352,6 +353,9 @@ fn settings_with_overrides(
     }
     if let Some(hide_wrec) = overrides.hide_wrec {
         settings.hide_wrec = hide_wrec;
+    }
+    if let Some(show_mic_indicator) = overrides.show_mic_indicator {
+        settings.show_mic_indicator = show_mic_indicator;
     }
 
     settings

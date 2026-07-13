@@ -3,7 +3,7 @@ mod assets;
 mod platform;
 mod ui;
 
-use app::{Minimize, Quit, WrecApp};
+use app::{Hide, Minimize, Quit, WrecApp};
 use assets::{register_fonts, WrecAssets};
 use gpui::*;
 use gpui_component::Root;
@@ -67,6 +67,7 @@ fn init_tracing() {
 fn app_key_bindings() -> Vec<KeyBinding> {
     vec![
         KeyBinding::new("cmd-m", Minimize, None),
+        KeyBinding::new("cmd-h", Hide, None),
         KeyBinding::new("cmd-q", Quit, None),
     ]
 }
@@ -74,7 +75,7 @@ fn app_key_bindings() -> Vec<KeyBinding> {
 #[cfg(test)]
 mod tests {
     use super::app_key_bindings;
-    use crate::app::{Minimize, Quit};
+    use crate::app::{Hide, Minimize, Quit};
     use gpui::{Action, KeyBinding, Keystroke};
 
     #[test]
@@ -82,6 +83,7 @@ mod tests {
         let bindings = app_key_bindings();
 
         assert!(has_binding::<Minimize>(&bindings, "cmd-m"));
+        assert!(has_binding::<Hide>(&bindings, "cmd-h"));
         assert!(has_binding::<Quit>(&bindings, "cmd-q"));
     }
 

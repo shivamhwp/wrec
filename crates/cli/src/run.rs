@@ -7,9 +7,9 @@ use std::{
 };
 
 use control::{
-    emit_error, ensure_daemon, run_daemon_foreground, send_request, wait_for_job, AgentError,
-    DaemonClient, IpcResponse, JobSnapshot, JobStatus, RecordingOptions, StartRecordingParams,
-    TargetSelector,
+    daemon_log_path, emit_error, ensure_daemon, run_daemon_foreground, send_request, wait_for_job,
+    AgentError, DaemonClient, IpcResponse, JobSnapshot, JobStatus, RecordingOptions,
+    StartRecordingParams, TargetSelector,
 };
 use serde_json::{json, Value};
 
@@ -166,7 +166,7 @@ fn daemon_status(json_output: bool) -> ExitCode {
                     code: "daemon_error".into(),
                     message: "daemon status failed without details".into(),
                     recoverable: true,
-                    next: "Inspect ~/.wrec/daemon.log and retry.".into(),
+                    next: format!("Inspect {} and retry.", daemon_log_path().display()),
                 }),
                 json_output,
             );
@@ -199,7 +199,7 @@ fn daemon_stop(json_output: bool) -> ExitCode {
                     code: "daemon_error".into(),
                     message: "daemon stop failed without details".into(),
                     recoverable: true,
-                    next: "Inspect ~/.wrec/daemon.log and retry.".into(),
+                    next: format!("Inspect {} and retry.", daemon_log_path().display()),
                 }),
                 json_output,
             );
@@ -262,7 +262,7 @@ fn request_or_error(method: &str, params: Value) -> Result<IpcResponse, AgentErr
             code: "daemon_error".into(),
             message: format!("{method} failed without details"),
             recoverable: true,
-            next: "Inspect ~/.wrec/daemon.log and retry.".into(),
+            next: format!("Inspect {} and retry.", daemon_log_path().display()),
         }))
     }
 }
@@ -281,6 +281,7 @@ fn record_params(args: &RecordArgs) -> StartRecordingParams {
             include_system_audio: args.include_system_audio,
             include_microphone: args.include_microphone,
             hide_wrec: args.hide_wrec,
+            show_mic_indicator: None,
         },
         duration_ms: args.duration.map(|duration| duration.as_millis() as u64),
         queue: args.queue,
@@ -317,7 +318,10 @@ fn protocol_error(err: serde_json::Error) -> AgentError {
         code: "protocol_error".into(),
         message: err.to_string(),
         recoverable: false,
-        next: "Inspect ~/.wrec/daemon.log and report this as a wrec IPC protocol bug.".into(),
+        next: format!(
+            "Inspect {} and report this as a wrec IPC protocol bug.",
+            daemon_log_path().display()
+        ),
     }
 }
 
