@@ -244,7 +244,7 @@ if [[ -d "$TARGET_DIR/$PROFILE_DIR/build" ]]; then
   # an alphabetical sort here once shipped a stale engine. Newest mtime wins.
   CAPTURE_ENGINE="$(find "$TARGET_DIR/$PROFILE_DIR/build" -path "*/out/capture-engine" -type f -print0 | xargs -0 ls -t 2>/dev/null | head -n 1)"
 fi
-if [[ -z "$CAPTURE_ENGINE" ]]; then
+if [[ ! -f "$CAPTURE_ENGINE" ]]; then
   die "Could not find compiled capture-engine in $TARGET_DIR/$PROFILE_DIR/build"
 fi
 

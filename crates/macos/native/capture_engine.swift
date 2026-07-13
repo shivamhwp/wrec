@@ -472,19 +472,27 @@ final class SampleRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
         var peak: Float = 0
         let raw = UnsafeRawPointer(data)
+        // Stride whole frames and inspect every channel within each sampled
+        // frame, so interleaved multi-channel input cannot alias one channel.
+        let channels = max(1, Int(asbd.mChannelsPerFrame))
+        let frameStride = 16 * channels
         if (asbd.mFormatFlags & kAudioFormatFlagIsFloat) != 0 && asbd.mBitsPerChannel == 32 {
             let count = contiguousLength / 4
             let samples = raw.bindMemory(to: Float.self, capacity: count)
-            for index in stride(from: 0, to: count, by: 16) {
-                peak = max(peak, abs(samples[index]))
+            for frame in stride(from: 0, to: count, by: frameStride) {
+                for channel in 0..<channels where frame + channel < count {
+                    peak = max(peak, abs(samples[frame + channel]))
+                }
             }
         } else if (asbd.mFormatFlags & kAudioFormatFlagIsSignedInteger) != 0
             && asbd.mBitsPerChannel == 16
         {
             let count = contiguousLength / 2
             let samples = raw.bindMemory(to: Int16.self, capacity: count)
-            for index in stride(from: 0, to: count, by: 16) {
-                peak = max(peak, abs(Float(samples[index])) / 32768)
+            for frame in stride(from: 0, to: count, by: frameStride) {
+                for channel in 0..<channels where frame + channel < count {
+                    peak = max(peak, abs(Float(samples[frame + channel])) / 32768)
+                }
             }
         } else {
             return nil
