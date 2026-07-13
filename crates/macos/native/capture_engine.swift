@@ -82,6 +82,10 @@ final class MicIndicator {
         panel.ignoresMouseEvents = true
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        // Excluded from capture at the window-server level, so the pill stays
+        // out of the recording even if the shareable-content snapshot races
+        // window registration and misses it.
+        panel.sharingType = .none
         panel.contentView = Self.pillView()
         panel.orderFrontRegardless()
         self.panel = panel
