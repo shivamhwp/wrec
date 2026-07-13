@@ -240,7 +240,9 @@ run cargo "${cargo_args[@]}" -p daemon --bin "$DAEMON_BIN_NAME"
 
 CAPTURE_ENGINE=""
 if [[ -d "$TARGET_DIR/$PROFILE_DIR/build" ]]; then
-  CAPTURE_ENGINE="$(find "$TARGET_DIR/$PROFILE_DIR/build" -path "*/out/capture-engine" -type f -print | sort | tail -n 1)"
+  # Multiple macos-<hash> build dirs can linger from old cargo fingerprints;
+  # an alphabetical sort here once shipped a stale engine. Newest mtime wins.
+  CAPTURE_ENGINE="$(find "$TARGET_DIR/$PROFILE_DIR/build" -path "*/out/capture-engine" -type f -print0 | xargs -0 ls -t 2>/dev/null | head -n 1)"
 fi
 if [[ -z "$CAPTURE_ENGINE" ]]; then
   die "Could not find compiled capture-engine in $TARGET_DIR/$PROFILE_DIR/build"
