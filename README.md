@@ -37,8 +37,7 @@ JSON-friendly CLI for scripts and agents.
 > ```bash
 > xattr -dr com.apple.quarantine /Applications/Wrec.app
 > ```
-> The CLI (installer below or `brew install shivamhwp/tap/wrec-cli`) is not
-> affected by the warning.
+> The CLI (installer below) is not affected by the warning.
 
 ## Features
 
@@ -55,23 +54,17 @@ JSON-friendly CLI for scripts and agents.
 
 ## Install
 
-Download the latest macOS app from
-<a href="https://github.com/shivamhwp/wrec/releases" target="_blank" rel="noopener noreferrer">GitHub Releases</a>.
+**The app** — download the latest macOS build from
+<a href="https://github.com/shivamhwp/wrec/releases" target="_blank" rel="noopener noreferrer">GitHub Releases</a>
+and drag it into `/Applications`.
 
-Both are also on Homebrew:
-
-```bash
-brew install shivamhwp/tap/wrec-cli     # CLI for terminals, scripts, agents
-brew install --cask shivamhwp/tap/wrec  # the app
-```
-
-The standalone CLI can also be installed with:
+**The CLI** — for terminals, scripts, and coding agents:
 
 ```bash
 curl -fsSL https://wrec.app/install | sh
 ```
 
-The CLI installer grabs the dev archive for your Mac, installs the runtime
+The CLI installer grabs the archive for your Mac, installs the runtime
 under `/usr/local/lib/wrec`, and places a managed wrapper at
 `/usr/local/bin/wrec`.
 

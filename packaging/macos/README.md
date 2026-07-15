@@ -46,9 +46,8 @@ uses the DEV-badged `images/wrec-dev.png`.
 
 GitHub artifacts are ad-hoc signed so the bundle is internally consistent, but
 macOS Gatekeeper will still warn users on the app DMG because there is no
-Developer ID signature or notarization. The CLI installer and Homebrew formula
-are not affected by the warning. Homebrew packaging lives in
-`packaging/homebrew`.
+Developer ID signature or notarization. The CLI installer is not affected by
+the warning.
 
 Set `ICON_SOURCE=/path/to/icon.png` to override the channel's default icon.
 
@@ -79,6 +78,6 @@ filter tags by source branch in the trigger itself, so the workflow does an
 explicit ancestry check before packaging.
 
 The workflow uploads the unsigned `.dmg` and standalone CLI runtime archive as
-GitHub Release assets. It does not require Apple Developer Program secrets.
-After publishing, run `./scripts/update-homebrew.sh <version>` and sync the
-tap (see `packaging/homebrew/README.md`).
+GitHub Release assets. It does not require Apple Developer Program secrets. The
+app is distributed from GitHub Releases and the CLI from the curl installer, so
+no further publishing steps are needed.
