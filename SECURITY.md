@@ -22,5 +22,7 @@ You will get a response within a week.
   a sandboxed process drive recordings is a bug.
 - Release artifacts are not notarized and only ad-hoc signed, so macOS
   Gatekeeper warns on the first launch of the app DMG. Download only from the
-  official GitHub Releases page and clear the quarantine as described in the
+  official GitHub Releases page; each release asset publishes a SHA-256 digest
+  (`gh release view <tag> --json assets --jq '.assets[].digest'`) you can verify
+  a manual download against. Then clear the quarantine as described in the
   README.
