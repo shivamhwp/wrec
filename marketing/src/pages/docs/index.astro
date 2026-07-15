@@ -2,9 +2,6 @@
 import CodeBlock from "../../components/CodeBlock.astro";
 import DocsLayout from "../../layouts/DocsLayout.astro";
 
-const brewInstall = `brew install shivamhwp/tap/wrec-cli     # CLI for terminals, scripts, agents
-brew install --cask shivamhwp/tap/wrec  # the app`;
-
 const curlInstall = `curl -fsSL https://wrec.app/install | sh`;
 
 const quarantine = `xattr -dr com.apple.quarantine /Applications/Wrec.app`;
@@ -56,12 +53,10 @@ cargo run -p cli -- targets --json   # the CLI`;
   </ol>
 
   <h2>Install</h2>
-  <p>Both the app and the CLI are on Homebrew:</p>
-  <CodeBlock code={brewInstall} label="Copy install commands" />
-  <p>The standalone CLI can also be installed with:</p>
+  <p>The CLI for terminals, scripts, and agents installs with:</p>
   <CodeBlock code={curlInstall} label="Copy install command" />
   <p>
-    The app is also downloadable from
+    The app is downloadable from
     <a
       href="https://github.com/shivamhwp/wrec/releases"
       target="_blank"

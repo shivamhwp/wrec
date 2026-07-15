@@ -15,7 +15,7 @@ labels: bug
 **Environment**
 
 - wrec version (`wrec -V` or app About):
-- Install method (app DMG / curl installer / brew / source):
+- Install method (app DMG / curl installer / source):
 - macOS version and chip:
 
 **Logs**
