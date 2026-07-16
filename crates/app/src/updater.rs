@@ -41,18 +41,61 @@ pub(crate) struct ReadyUpdate {
     pub(crate) old_bundle: PathBuf,
 }
 
+/// Preview hooks under the wrec data dir (for dev builds:
+/// `~/Library/Application Support/Wrec Dev/`):
+///
+/// - `mock-latest-version` — a version number the About tab treats as the
+///   latest release. Higher than the build shows the update button; equal or
+///   lower shows up to date. On its own, installing is refused (UI preview).
+/// - `mock-latest-archive` — a path to a local `.tar.gz` containing a
+///   packaged `.app`. With both files set and the app running from a
+///   packaged bundle, clicking Update runs the REAL pipeline against that
+///   archive: extract, validate, daemon stop, bundle swap, relaunch.
+///
+/// `scripts/preview-app-update.sh` sets all of this up with the dev build.
+/// Delete the files to restore real release-driven behavior.
+fn mock_latest() -> Option<String> {
+    let contents = std::fs::read_to_string(mock_file("mock-latest-version")?).ok()?;
+    parse_mock(&contents)
+}
+
+fn mock_archive() -> Option<PathBuf> {
+    let contents = std::fs::read_to_string(mock_file("mock-latest-archive")?).ok()?;
+    parse_mock(&contents).map(PathBuf::from)
+}
+
+/// Dev (debug-profile) builds only, matching the data-dir namespace split:
+/// release builds must never let a user-writable file redirect or block
+/// real updates.
+fn mock_file(name: &str) -> Option<PathBuf> {
+    cfg!(debug_assertions).then(|| config::wrec_dir().join(name))
+}
+
+fn parse_mock(contents: &str) -> Option<String> {
+    let version = contents.trim();
+    (!version.is_empty()).then(|| version.to_string())
+}
+
+/// The `.app` bundle this process runs from, if any.
+fn current_bundle() -> Option<PathBuf> {
+    std::env::current_exe().ok().and_then(|exe| {
+        exe.ancestors()
+            .find(|path| path.extension().and_then(|ext| ext.to_str()) == Some("app"))
+            .map(Path::to_path_buf)
+    })
+}
+
 /// The bundle this process runs from, when it is one the updater may replace:
 /// a packaged, non-dev `.app`. Dev bundles and bare Cargo binaries update
 /// through a rebuild instead.
 pub(crate) fn eligible_bundle() -> Result<PathBuf, String> {
-    let bundle = std::env::current_exe()
-        .ok()
-        .and_then(|exe| {
-            exe.ancestors()
-                .find(|path| path.extension().and_then(|ext| ext.to_str()) == Some("app"))
-                .map(Path::to_path_buf)
-        })
-        .ok_or("not running from an app bundle; update by rebuilding instead")?;
+    // With the mock set, the update row stays active even in dev builds so
+    // the update flow can be previewed.
+    if mock_latest().is_some() {
+        return Ok(current_bundle().unwrap_or_default());
+    }
+    let bundle =
+        current_bundle().ok_or("not running from an app bundle; update by rebuilding instead")?;
 
     let is_dev = bundle
         .file_name()
@@ -66,12 +109,37 @@ pub(crate) fn eligible_bundle() -> Result<PathBuf, String> {
 
 /// Returns `Some(version)` when a newer release exists, `None` when current.
 pub(crate) fn check() -> Result<Option<String>, String> {
+    if let Some(mock) = mock_latest() {
+        return Ok(is_newer(&mock, CURRENT_VERSION).then_some(mock));
+    }
     eligible_bundle()?;
     let release = latest_release()?;
     Ok(is_newer(&release.version, CURRENT_VERSION).then_some(release.version))
 }
 
 pub(crate) fn download_and_apply() -> Result<ReadyUpdate, String> {
+    if let Some(version) = mock_latest() {
+        let Some(archive) = mock_archive() else {
+            return Err("mock-latest-version is set without mock-latest-archive (UI preview); \
+                run scripts/preview-app-update.sh for the full flow, or delete the file for real updates"
+                .into());
+        };
+        if !archive.is_file() {
+            return Err(format!(
+                "mock-latest-archive points at {}, which does not exist",
+                archive.display()
+            ));
+        }
+        let bundle = current_bundle().ok_or(
+            "the mock update needs the app to run from a packaged bundle; \
+                open dist/dev/Wrec Dev.app instead of cargo run",
+        )?;
+        let work_dir = exclusive_work_dir()?;
+        let result = apply_archive(&bundle, &archive, &work_dir, &version);
+        let _ = std::fs::remove_dir_all(&work_dir);
+        return result;
+    }
+
     let bundle = eligible_bundle()?;
     let release = latest_release()?;
     if !is_newer(&release.version, CURRENT_VERSION) {
@@ -83,7 +151,7 @@ pub(crate) fn download_and_apply() -> Result<ReadyUpdate, String> {
         .ok_or_else(|| format!("release v{} has no app archive asset yet", release.version))?;
 
     let work_dir = exclusive_work_dir()?;
-    let result = stage_and_swap(&bundle, asset, &work_dir, &release.version);
+    let result = fetch_and_apply(&bundle, asset, &work_dir, &release.version);
     let _ = std::fs::remove_dir_all(&work_dir);
     result
 }
@@ -103,7 +171,7 @@ pub(crate) fn relaunch_and_cleanup(update: &ReadyUpdate) {
         .spawn();
 }
 
-fn stage_and_swap(
+fn fetch_and_apply(
     bundle: &Path,
     asset: &ReleaseAsset,
     work_dir: &Path,
@@ -125,6 +193,17 @@ fn stage_and_swap(
         ));
     }
 
+    apply_archive(bundle, &archive, work_dir, version)
+}
+
+/// The pipeline from a verified archive onward — shared by real updates and
+/// the mock preview, so the preview exercises exactly what ships.
+fn apply_archive(
+    bundle: &Path,
+    archive: &Path,
+    work_dir: &Path,
+    version: &str,
+) -> Result<ReadyUpdate, String> {
     let extracted_dir = work_dir.join("extracted");
     std::fs::create_dir_all(&extracted_dir)
         .map_err(|err| format!("could not create {}: {err}", extracted_dir.display()))?;
@@ -393,6 +472,13 @@ mod tests {
     fn write_marker(bundle: &Path, contents: &str) {
         std::fs::create_dir_all(bundle).unwrap();
         std::fs::write(bundle.join("marker"), contents).unwrap();
+    }
+
+    #[test]
+    fn mock_contents_are_trimmed_and_empty_is_ignored() {
+        assert_eq!(parse_mock("0.3.0\n"), Some("0.3.0".to_string()));
+        assert_eq!(parse_mock("  v0.3.0  "), Some("v0.3.0".to_string()));
+        assert_eq!(parse_mock("\n  \n"), None);
     }
 
     #[test]
