@@ -66,18 +66,62 @@ asset_name() {
   echo "$asset.tar.gz"
 }
 
-download_url() {
-  asset="$(asset_name)"
+release_url() {
+  file="$1"
 
   if [ "$VERSION" = "latest" ]; then
-    echo "https://github.com/$REPO/releases/latest/download/$asset"
+    echo "https://github.com/$REPO/releases/latest/download/$file"
   else
     case "$VERSION" in
       v*) tag="$VERSION" ;;
       *) tag="v$VERSION" ;;
     esac
-    echo "https://github.com/$REPO/releases/download/$tag/$asset"
+    echo "https://github.com/$REPO/releases/download/$tag/$file"
   fi
+}
+
+download_url() {
+  release_url "$(asset_name)"
+}
+
+# Verifies the downloaded archive against the release's published SHA256SUMS
+# so nobody has to run shasum by hand. Fails closed on any mismatch or fetch
+# failure; only a confirmed 404 (a release that predates SHA256SUMS) installs
+# with a loud warning.
+verify_archive() {
+  sums="$tmp_dir/SHA256SUMS"
+  sums_url="$(release_url SHA256SUMS)"
+  http_status="$(curl -sSL -o "$sums" -w '%{http_code}' "$sums_url" 2>/dev/null)" || http_status="000"
+  if [ "$http_status" = "404" ]; then
+    echo "warning: this release publishes no SHA256SUMS; skipping checksum verification" >&2
+    return 0
+  fi
+  if [ "$http_status" != "200" ]; then
+    echo "error: could not fetch SHA256SUMS (HTTP $http_status); refusing to install an unverified archive" >&2
+    echo "Retry in a moment; if this repeats, download manually and verify against the release page." >&2
+    exit 1
+  fi
+
+  asset="$(asset_name)"
+  expected="$(awk -v name="$asset" '$2 == name { print $1 }' "$sums")"
+  if [ -z "$expected" ]; then
+    echo "error: $asset is not listed in the release SHA256SUMS; refusing to install" >&2
+    exit 1
+  fi
+
+  actual="$(shasum -a 256 "$archive" | awk '{ print $1 }')"
+  if [ "$actual" != "$expected" ]; then
+    cat >&2 <<EOF
+error: checksum mismatch for $asset; refusing to install
+  expected: $expected
+  actual:   $actual
+The download may be corrupted or tampered with. Retry, and if this repeats,
+report it: https://github.com/$REPO/security
+EOF
+    exit 1
+  fi
+
+  echo "Verified sha256 $actual"
 }
 
 if [ "${WREC_UNINSTALL:-0}" = "1" ]; then
@@ -116,6 +160,7 @@ Publish a v* release from a public repo, set WREC_VERSION to an existing tag, or
 EOF
     exit 1
   fi
+  verify_archive
 fi
 
 tar -xzf "$archive" -C "$tmp_dir"
