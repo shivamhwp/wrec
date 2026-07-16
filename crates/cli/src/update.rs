@@ -78,6 +78,8 @@ fn run(args: &UpdateArgs) -> Result<ExitCode, String> {
     let _ = std::fs::remove_dir_all(&work_dir);
     let installed = result?;
 
+    // A live socket means a daemon is (or was) running the old binary.
+    let daemon_restart_required = control::socket_path().exists();
     if args.json {
         println!(
             "{}",
@@ -87,11 +89,14 @@ fn run(args: &UpdateArgs) -> Result<ExitCode, String> {
                 "latest": release.version,
                 "status": "updated",
                 "bin": installed,
+                "daemon_restart_required": daemon_restart_required,
+                "next": daemon_restart_required
+                    .then_some("Run `wrec daemon stop` then `wrec daemon start` to pick up the new version."),
             })
         );
     } else {
         println!("updated wrec {CURRENT_VERSION} -> {}", release.version);
-        if control::socket_path().exists() {
+        if daemon_restart_required {
             println!(
                 "the daemon may still be running the old version; restart it with `wrec daemon stop && wrec daemon start`"
             );
