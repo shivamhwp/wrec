@@ -35,7 +35,14 @@ printf '%s\n' "$VERSION" >"$MOCK_DIR/mock-latest-version"
 printf '%s\n' "$ARCHIVE" >"$MOCK_DIR/mock-latest-archive"
 
 log "Opening the dev app"
-open "$ROOT/dist/dev/Wrec Dev.app"
+if [ -n "${WREC_DATA_DIR:-}" ]; then
+  # `open` launches through LaunchServices, which drops the shell's
+  # environment — run the binary directly so the app resolves the same
+  # WREC_DATA_DIR the mock files were just written to.
+  "$ROOT/dist/dev/Wrec Dev.app/Contents/MacOS/wrec-app" >/dev/null 2>&1 &
+else
+  open "$ROOT/dist/dev/Wrec Dev.app"
+fi
 
 log "In the app: About -> \"Update to $VERSION\" runs the real update and relaunches."
 log "The relaunched app still shows the mock; clean up with:"
