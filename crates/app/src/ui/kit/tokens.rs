@@ -4,8 +4,9 @@
 //! (hover/active ramps, muted text, hairlines, tracks) is derived by mixing,
 //! so adding or tweaking a color never requires hand-defining its states.
 //!
-//! Current treatment: gray-washed surfaces with controls sitting on top as
-//! raised cards — lighter than the surface, hairline-bordered, softly shadowed.
+//! Current treatment: near-black monochrome. Flat hairline-bordered controls
+//! one step above the surface, no shadows at rest; the only color anywhere is
+//! the logo red, reserved for record/live states.
 
 use gpui::{hsla, point, px, rgb, App, BoxShadow, Global, Hsla};
 
@@ -31,20 +32,20 @@ struct BasePalette {
 }
 
 const LIGHT_BASE: BasePalette = BasePalette {
-    surface: 0xf2f2f3,
-    panel: 0xe9e9ea,
-    control: 0xffffff,
-    ink: 0x1b1b1d,
+    surface: 0xffffff,
+    panel: 0xfafafa,
+    control: 0xf4f4f5,
+    ink: 0x18181b,
     accent: 0xc62828,
     on_accent: 0xffffff,
 };
 
 const DARK_BASE: BasePalette = BasePalette {
-    surface: 0x1b1b1e,
-    panel: 0x151517,
-    control: 0x28282c,
-    ink: 0xf0f0f1,
-    accent: 0xd03a3f,
+    surface: 0x0f0f10,
+    panel: 0x0b0b0c,
+    control: 0x1b1b1d,
+    ink: 0xf4f4f5,
+    accent: 0xc62828,
     on_accent: 0xffffff,
 };
 
@@ -138,27 +139,8 @@ impl Tokens {
         }
     }
 
-    /// Soft resting shadow for raised controls (buttons, select triggers,
-    /// the active nav card). Dark mode needs more alpha to register at all.
-    pub(crate) fn control_shadow(&self) -> Vec<BoxShadow> {
-        let alpha = if self.is_dark { 0.32 } else { 0.07 };
-        vec![
-            BoxShadow {
-                color: hsla(0., 0., 0., alpha),
-                offset: point(px(0.), px(1.)),
-                blur_radius: px(2.),
-                spread_radius: px(0.),
-            },
-            BoxShadow {
-                color: hsla(0., 0., 0., alpha * 0.5),
-                offset: point(px(0.), px(2.)),
-                blur_radius: px(6.),
-                spread_radius: px(-2.),
-            },
-        ]
-    }
-
-    /// Floating shadow for menus and tooltips.
+    /// Floating shadow for menus and tooltips — the only shadows in the app;
+    /// controls at rest are flat.
     pub(crate) fn menu_shadow(&self) -> Vec<BoxShadow> {
         let alpha = if self.is_dark { 0.55 } else { 0.14 };
         vec![

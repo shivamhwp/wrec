@@ -156,7 +156,6 @@ impl RenderOnce for KitButton {
         };
         let icon_color = self.icon_color.unwrap_or(fg);
 
-        let raised = self.kind != ButtonKind::Ghost;
         let mut button = div()
             .id(self.id)
             .flex()
@@ -169,9 +168,6 @@ impl RenderOnce for KitButton {
             .when(self.square.is_none(), |this| this.h(px(self.height)).px_3())
             .when(self.full_width, |this| this.w_full())
             .when(bordered, |this| this.border_1().border_color(t.line))
-            .when(raised && !self.disabled, |this| {
-                this.shadow(t.control_shadow())
-            })
             .bg(bg);
 
         if self.disabled {

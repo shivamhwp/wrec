@@ -165,7 +165,6 @@ impl<T: PickerItem> RenderOnce for Picker<T> {
             .bg(t.control)
             .border_1()
             .border_color(if open { t.line_strong } else { t.line })
-            .when(!self.disabled, |this| this.shadow(t.control_shadow()))
             .child(
                 div()
                     .flex_1()

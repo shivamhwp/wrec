@@ -1013,15 +1013,7 @@ fn sidebar_nav_row(item: WrecSidebarNavItem, cx: &mut Context<WrecApp>) -> impl 
                 .px_2()
                 .rounded(px(RADIUS))
                 .cursor_pointer()
-                // Reserve the border on every row so the active card doesn't
-                // shift its neighbors by a pixel.
-                .border_1()
-                .border_color(gpui::transparent_black())
-                .when(item.active, |this| {
-                    this.bg(t.control)
-                        .border_color(t.line)
-                        .shadow(t.control_shadow())
-                })
+                .when(item.active, |this| this.bg(t.control))
                 .when(!item.active, |this| {
                     this.hover(|this| this.bg(t.control.opacity(0.55)))
                 })
