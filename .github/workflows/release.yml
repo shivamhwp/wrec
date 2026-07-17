@@ -25,7 +25,7 @@ concurrency:
 jobs:
   macos:
     name: macOS release
-    runs-on: macos-15
+    runs-on: blacksmith-6vcpu-macos-latest
     timeout-minutes: 45
 
     steps:
