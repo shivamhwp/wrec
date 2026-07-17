@@ -6,7 +6,7 @@ output as high severity.
 
 ## Reporting
 
-Open a [GitHub issue](https://github.com/shivamhwp/wrec/issues/new) and
+Open a [GitHub issue](https://github.com/shivamdoting/wrec/issues/new) and
 include:
 
 - what the issue is and where (app, CLI, daemon, capture engine, installer)
@@ -31,6 +31,9 @@ You will get a response within a week.
   from the same release and verify the file you downloaded
   (`grep "  <asset-name>$" SHA256SUMS | shasum -a 256 -c -`; plain
   `shasum -a 256 -c SHA256SUMS` expects every listed asset to be present).
-  Confirm provenance with `gh attestation verify <file> --repo shivamhwp/wrec
-  --signer-workflow shivamhwp/wrec/.github/workflows/release.yml`, which
-  proves the asset was built by this repository's release workflow.
+  Confirm provenance with `gh attestation verify <file> --repo shivamdoting/wrec
+  --signer-workflow shivamdoting/wrec/.github/workflows/release.yml`, which
+  proves the asset was built by this repository's release workflow. Assets from
+  v0.2.0 and earlier were built before the repo moved from `shivamhwp/wrec`, so
+  verify those with `--repo shivamhwp/wrec
+  --signer-workflow shivamhwp/wrec/.github/workflows/release.yml` instead.

@@ -3,7 +3,7 @@ set -eu
 
 PREFIX="${WREC_PREFIX:-/usr/local}"
 VERSION="${WREC_VERSION:-latest}"
-REPO="${WREC_REPO:-shivamhwp/wrec}"
+REPO="${WREC_REPO:-shivamdoting/wrec}"
 ARTIFACT_QUALIFIER="${WREC_ARTIFACT_QUALIFIER-}"
 BIN_DIR="$PREFIX/bin"
 LIB_DIR="$PREFIX/lib/wrec"

@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/shivamhwp/wrec/releases" target="_blank" rel="noopener noreferrer">Download</a>
+  <a href="https://github.com/shivamdoting/wrec/releases" target="_blank" rel="noopener noreferrer">Download</a>
   &nbsp;·&nbsp;
   <a href="https://wrec.app/docs" target="_blank" rel="noopener noreferrer">Docs</a>
   &nbsp;·&nbsp;
@@ -55,7 +55,7 @@ JSON-friendly CLI for scripts and agents.
 ## Install
 
 **The app** — download the latest macOS build from
-<a href="https://github.com/shivamhwp/wrec/releases" target="_blank" rel="noopener noreferrer">GitHub Releases</a>
+<a href="https://github.com/shivamdoting/wrec/releases" target="_blank" rel="noopener noreferrer">GitHub Releases</a>
 and drag it into `/Applications`. After that it updates itself in place:
 About → Check for updates (the update is digest-verified and relaunches
 without the Gatekeeper warning).

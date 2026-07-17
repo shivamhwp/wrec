@@ -14,7 +14,7 @@ on:
 permissions:
   contents: write
   # Build-provenance attestations: verify any asset was built by this
-  # repo's CI with `gh attestation verify <file> --repo shivamhwp/wrec`.
+  # repo's CI with `gh attestation verify <file> --repo shivamdoting/wrec`.
   id-token: write
   attestations: write
 
