@@ -43,8 +43,16 @@ fn dev() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    let app = Command::new(cargo)
-        .args(["run", "-p", "app"])
+    // The GUI shell is Swift now; the debug daemon we just built is picked up
+    // via WREC_DAEMON_BIN so the shell drives this checkout's engine.
+    let daemon_bin = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .expect("workspace root")
+        .join("target/debug/daemon");
+    let app = Command::new("swift")
+        .args(["run", "--package-path", "apps/mac", "wrec-app"])
+        .env("WREC_DAEMON_BIN", daemon_bin)
         .args(env::args_os().skip(2))
         .status();
 

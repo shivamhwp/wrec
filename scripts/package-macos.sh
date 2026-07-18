@@ -233,8 +233,14 @@ log "Dmg enabled: $CREATE_DMG"
 log "Dmg name: $DMG_NAME"
 log "Notarization enabled: $NOTARIZE"
 
-log "Building Rust app"
-run cargo "${cargo_args[@]}" -p app --bin "$BIN_NAME"
+if [[ "$PROFILE_DIR" == "release" ]]; then
+  SWIFT_CONFIG="release"
+else
+  SWIFT_CONFIG="debug"
+fi
+log "Building Swift app shell ($SWIFT_CONFIG)"
+run swift build -c "$SWIFT_CONFIG" --package-path "$ROOT/apps/mac"
+SWIFT_BIN_DIR="$(swift build -c "$SWIFT_CONFIG" --package-path "$ROOT/apps/mac" --show-bin-path)"
 log "Building daemon and capture engine"
 run cargo "${cargo_args[@]}" -p daemon --bin "$DAEMON_BIN_NAME"
 
@@ -248,8 +254,11 @@ if [[ ! -f "$CAPTURE_ENGINE" ]]; then
   die "Could not find compiled capture-engine in $TARGET_DIR/$PROFILE_DIR/build"
 fi
 
-if [[ ! -f "$TARGET_DIR/$PROFILE_DIR/$BIN_NAME" ]]; then
-  die "Could not find compiled app binary at $TARGET_DIR/$PROFILE_DIR/$BIN_NAME"
+if [[ ! -f "$SWIFT_BIN_DIR/$BIN_NAME" ]]; then
+  die "Could not find compiled app binary at $SWIFT_BIN_DIR/$BIN_NAME"
+fi
+if [[ ! -d "$SWIFT_BIN_DIR/wrec-mac_wrec-app.bundle" ]]; then
+  die "Could not find Swift resource bundle at $SWIFT_BIN_DIR/wrec-mac_wrec-app.bundle"
 fi
 if [[ ! -f "$TARGET_DIR/$PROFILE_DIR/$DAEMON_BIN_NAME" ]]; then
   die "Could not find compiled daemon binary at $TARGET_DIR/$PROFILE_DIR/$DAEMON_BIN_NAME"
@@ -266,7 +275,8 @@ fi
 run mkdir -p "$MACOS" "$RESOURCES"
 
 log "Copying executables and metadata"
-run cp "$TARGET_DIR/$PROFILE_DIR/$BIN_NAME" "$MACOS/$BIN_NAME"
+run cp "$SWIFT_BIN_DIR/$BIN_NAME" "$MACOS/$BIN_NAME"
+run cp -R "$SWIFT_BIN_DIR/wrec-mac_wrec-app.bundle" "$RESOURCES/wrec-mac_wrec-app.bundle"
 run cp "$TARGET_DIR/$PROFILE_DIR/$DAEMON_BIN_NAME" "$MACOS/$DAEMON_BIN_NAME"
 run cp "$CAPTURE_ENGINE" "$MACOS/capture-engine"
 run cp "$ROOT/packaging/macos/Info.plist" "$INFO_PLIST"
