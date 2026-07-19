@@ -2,6 +2,7 @@
 // narrow: transport, config, and status are separate child views, each
 // reading only the model properties it renders.
 
+import AppKit
 import SwiftUI
 
 struct PopoverView: View {
@@ -191,12 +192,8 @@ private struct ConfigSection: View {
             GridRow {
                 FieldLabel("TARGET")
                 HStack(spacing: 4) {
-                    Picker("", selection: targetBinding) {
-                        ForEach(model.visibleTargets) { target in
-                            Text(target.name).tag(target.key)
-                        }
-                    }
-                    .labelsHidden()
+                    PopUp(options: model.visibleTargets.map(\.name), selection: targetBinding)
+                        .frame(maxWidth: .infinity)
                     Button {
                         Task { await model.refreshTargets() }
                     } label: {
@@ -261,10 +258,15 @@ private struct ConfigSection: View {
         )
     }
 
-    private var targetBinding: Binding<String> {
+    private var targetBinding: Binding<Int> {
         Binding(
-            get: { model.selectedTarget?.key ?? "" },
-            set: { model.select(targetKey: $0) }
+            get: {
+                model.visibleTargets.firstIndex { $0.key == model.selectedTarget?.key } ?? 0
+            },
+            set: { index in
+                guard model.visibleTargets.indices.contains(index) else { return }
+                model.select(targetKey: model.visibleTargets[index].key)
+            }
         )
     }
 
@@ -273,19 +275,17 @@ private struct ConfigSection: View {
         _ options: [Value],
         label: @escaping (Value) -> String
     ) -> some View {
-        Picker(
-            "",
+        PopUp(
+            options: options.map(label),
             selection: Binding(
-                get: { model.settings[keyPath: keyPath] },
-                set: { value in model.update { $0[keyPath: keyPath] = value } }
+                get: { options.firstIndex(of: model.settings[keyPath: keyPath]) ?? 0 },
+                set: { index in
+                    guard options.indices.contains(index) else { return }
+                    model.update { $0[keyPath: keyPath] = options[index] }
+                }
             )
-        ) {
-            ForEach(options, id: \.self) { option in
-                Text(label(option)).tag(option)
-            }
-        }
-        .labelsHidden()
-        .frame(maxWidth: 140, alignment: .leading)
+        )
+        .frame(width: 140)
     }
 
     private func toggle(_ keyPath: WritableKeyPath<RecorderSettings, Bool>) -> some View {
@@ -298,6 +298,52 @@ private struct ConfigSection: View {
         )
         .toggleStyle(.switch)
         .labelsHidden()
+    }
+}
+
+/// `NSPopUpButton` bridged by hand because SwiftUI's menu `Picker` sizes its
+/// bezel to the widest menu item and ignores proposed widths — the config
+/// rows need every popup to adopt the column width so their edges align.
+private struct PopUp: NSViewRepresentable {
+    let options: [String]
+    @Binding var selection: Int
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeNSView(context: Context) -> NSPopUpButton {
+        let button = NSPopUpButton(frame: .zero, pullsDown: false)
+        button.target = context.coordinator
+        button.action = #selector(Coordinator.changed(_:))
+        button.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return button
+    }
+
+    func updateNSView(_ button: NSPopUpButton, context: Context) {
+        context.coordinator.selection = $selection
+        if button.itemTitles != options {
+            button.removeAllItems()
+            let menu = NSMenu()
+            for title in options {
+                menu.addItem(NSMenuItem(title: title, action: nil, keyEquivalent: ""))
+            }
+            button.menu = menu
+        }
+        if options.indices.contains(selection) {
+            button.selectItem(at: selection)
+        }
+        button.isEnabled = isEnabled
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator($selection) }
+
+    final class Coordinator: NSObject {
+        var selection: Binding<Int>
+
+        init(_ selection: Binding<Int>) { self.selection = selection }
+
+        @objc func changed(_ sender: NSPopUpButton) {
+            selection.wrappedValue = sender.indexOfSelectedItem
+        }
     }
 }
 

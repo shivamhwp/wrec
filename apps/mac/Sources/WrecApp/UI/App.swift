@@ -102,27 +102,20 @@ struct StatusItemFrameReporter: NSViewRepresentable {
 }
 #endif
 
-/// The menu bar item: a record glyph, plus the live timer while recording.
-/// `menuBarText` is precomputed in the model and changes at most once a
-/// second, so this view re-renders only on real state changes.
+/// The menu bar item: the wrec rectangle, plus the live timer while
+/// recording. `menuBarText` is precomputed in the model and changes at most
+/// once a second, so this view re-renders only on real state changes.
 struct MenuBarLabel: View {
     let model: RecorderModel
 
     var body: some View {
-        HStack(spacing: 3) {
-            Image(systemName: symbol)
+        HStack(spacing: 4) {
+            Rectangle()
+                .frame(width: 12, height: 12)
             if !model.menuBarText.isEmpty {
                 Text(model.menuBarText)
                     .font(.system(size: 11, weight: .semibold).monospacedDigit())
             }
-        }
-    }
-
-    private var symbol: String {
-        switch model.phase {
-        case .recording, .stopping: "record.circle.fill"
-        case .paused, .pausing, .resuming: "pause.circle.fill"
-        default: "record.circle"
         }
     }
 }
