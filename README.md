@@ -26,7 +26,7 @@
   <a href="https://wrec.app/docs/agents" target="_blank" rel="noopener noreferrer">CLI</a>
 </p>
 
-[![CI powered by Blacksmith](https://img.shields.io/badge/CI_powered_by-Blacksmith-F0FB29?style=flat-square&labelColor=202020)](https://www.blacksmith.sh/)
+[![CI powered by Blacksmith](https://img.shields.io/badge/CI_powered_by-Blacksmith-F0FB29?style=flat-square&labelColor=202020&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNDQgOTYiPjxwYXRoIGZpbGw9IiNGMEZCMjkiIGQ9Ik0xNDQgMEgwVjQ4QzI2LjUwOTcgNDggNDggNjkuNDkwMyA0OCA5NkgxNDRWMFoiLz48L3N2Zz4=)](https://www.blacksmith.sh/)
 
 Wrec records displays or windows with a native ScreenCaptureKit pipeline, writes
 hardware-encoded `.mov` files, and gives you both a small GPUI app and a
