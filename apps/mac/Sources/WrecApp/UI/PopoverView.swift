@@ -335,8 +335,8 @@ private struct PopUp: NSViewRepresentable {
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.controlSize) private var controlSize
 
-    func makeNSView(context: Context) -> NSPopUpButton {
-        let button = NSPopUpButton(frame: .zero, pullsDown: false)
+    func makeNSView(context: Context) -> TruncatingPopUp {
+        let button = TruncatingPopUp(frame: .zero, pullsDown: false)
         button.target = context.coordinator
         button.action = #selector(Coordinator.changed(_:))
         button.setContentHuggingPriority(.defaultLow, for: .horizontal)
@@ -344,7 +344,7 @@ private struct PopUp: NSViewRepresentable {
         return button
     }
 
-    func updateNSView(_ button: NSPopUpButton, context: Context) {
+    func updateNSView(_ button: TruncatingPopUp, context: Context) {
         context.coordinator.selection = $selection
         if button.itemTitles != options {
             button.removeAllItems()
@@ -359,7 +359,20 @@ private struct PopUp: NSViewRepresentable {
         }
         button.controlSize = controlSize.nsControlSize
         button.font = .menuFont(ofSize: NSFont.systemFontSize(for: controlSize.nsControlSize))
+        button.displayTitle = options.indices.contains(selection) ? options[selection] : ""
         button.isEnabled = isEnabled
+    }
+
+    // Without this, SwiftUI sizes the button to its intrinsic (title) width
+    // and centers it in the proposed frame, so each popup's left edge drifts
+    // with its selected title instead of sitting on the column edge.
+    func sizeThatFits(
+        _ proposal: ProposedViewSize, nsView: TruncatingPopUp, context: Context
+    ) -> NSSize? {
+        NSSize(
+            width: proposal.width ?? nsView.intrinsicContentSize.width,
+            height: nsView.intrinsicContentSize.height
+        )
     }
 
     func makeCoordinator() -> Coordinator { Coordinator($selection) }
@@ -372,6 +385,47 @@ private struct PopUp: NSViewRepresentable {
         @objc func changed(_ sender: NSPopUpButton) {
             selection.wrappedValue = sender.indexOfSelectedItem
         }
+    }
+}
+
+/// When the selected title overflows the bezel, AppKit shaves the title's
+/// leading inset, so a long TARGET name starts left of every other popup's
+/// title. The cell is no longer consulted for layout, so instead the button
+/// displays a detached menu item whose title is pre-truncated to fit — the
+/// dropdown menu keeps the full names.
+final class TruncatingPopUp: NSPopUpButton {
+    var displayTitle: String = "" {
+        didSet {
+            if displayTitle != oldValue { needsLayout = true }
+        }
+    }
+
+    override func layout() {
+        super.layout()
+        updateDisplayItem()
+    }
+
+    private func updateDisplayItem() {
+        guard let cell = cell as? NSPopUpButtonCell else { return }
+        // Leading inset plus chevron area; found empirically, and erring
+        // large only truncates a touch early — it can't break alignment.
+        let available = bounds.width - 40
+        var title = displayTitle
+        if available > 0, width(of: title) > available {
+            while !title.isEmpty, width(of: title + "…") > available {
+                title.removeLast()
+            }
+            title = title.trimmingCharacters(in: .whitespaces) + "…"
+        }
+        guard cell.menuItem?.title != title || cell.usesItemFromMenu else { return }
+        cell.usesItemFromMenu = false
+        cell.menuItem = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        needsDisplay = true
+    }
+
+    private func width(of title: String) -> CGFloat {
+        let font = self.font ?? NSFont.menuFont(ofSize: 0)
+        return (title as NSString).size(withAttributes: [.font: font]).width
     }
 }
 
