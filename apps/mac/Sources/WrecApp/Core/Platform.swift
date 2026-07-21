@@ -127,10 +127,17 @@ enum Platform {
     // MARK: - Bundle identity
 
     static func currentAppBundle() -> URL? {
-        var url = Bundle.main.bundleURL
+        appBundle(containing: Bundle.main.bundleURL)
+    }
+
+    static func appBundle(containing start: URL) -> URL? {
+        var url = start
         while url.pathExtension != "app" {
+            // NSURL-bridged URLs never reach a fixed point: deleting the last
+            // component of "/" yields "/..", so guard on the root path itself.
+            guard url.path != "/" else { return nil }
             let parent = url.deletingLastPathComponent()
-            if parent == url { return nil }
+            if parent.path == url.path { return nil }
             url = parent
         }
         return url
