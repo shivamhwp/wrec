@@ -197,11 +197,14 @@ actor DaemonClient {
         }
         guard ok else { throw IPCError.unreachable("socket path too long") }
 
-        let connected = withUnsafePointer(to: &addr) { ptr in
-            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sa in
-                connect(fd, sa, socklen_t(MemoryLayout<sockaddr_un>.size))
+        var connected: Int32
+        repeat {
+            connected = withUnsafePointer(to: &addr) { ptr in
+                ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sa in
+                    connect(fd, sa, socklen_t(MemoryLayout<sockaddr_un>.size))
+                }
             }
-        }
+        } while connected < 0 && errno == EINTR
         guard connected == 0 else { throw IPCError.unreachable("connect(): \(errnoString())") }
 
         var written = 0
