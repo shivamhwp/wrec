@@ -48,8 +48,8 @@ jobs:
           # A PR carrying are-you-not.md means an agent read AGENTS.md and
           # obeyed it — proof the diff was assembled end-to-end by AI.
           canary=""
-          if gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' \
-            | grep -qx "are-you-not.md"; then
+          pr_files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')
+          if grep -qxF "are-you-not.md" <<<"$pr_files"; then
             canary=$'\nAlso: your agent tripped the wire. `are-you-not.md` showing up in this diff means an agent built this PR and you did not read what it shipped. Drop the file.\n'
           fi
 
