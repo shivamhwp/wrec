@@ -26,6 +26,59 @@ const docsLinks = [
     <a class="bench-brand" href={current === "docs" ? "/docs" : "/benchmarks"}
       >{brand}</a
     >
+    {
+      docsCurrent && (
+        <div class="docs-topbar-tools">
+          <nav class="docs-nav" aria-label="Documentation">
+            {docsLinks.map(([name, href, id]) => (
+              <a
+                href={href}
+                class="docs-nav-link"
+                data-current={docsCurrent === id ? "true" : "false"}
+                aria-current={docsCurrent === id ? "page" : "false"}
+              >
+                {name}
+              </a>
+            ))}
+          </nav>
+          <button
+            type="button"
+            class="copy-button copy-page-button"
+            data-copy-page
+            data-label="Copy page"
+            aria-label="Copy page"
+            title="Copy page"
+          >
+            <svg
+              class="copy-default"
+              viewBox="0 0 256 256"
+              aria-hidden="true"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="18"
+            >
+              <path d="M168 168h48V40H88v48" />
+              <rect x="40" y="88" width="128" height="128" rx="8" />
+            </svg>
+            <svg
+              class="copy-success"
+              viewBox="0 0 256 256"
+              aria-hidden="true"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="20"
+            >
+              <path d="M40 144l56 56L216 72" />
+            </svg>
+            <span>copy page</span>
+          </button>
+        </div>
+      )
+    }
     <div class="bench-nav-links">
       {
         navLinks.map(([name, href]) => (
@@ -49,58 +102,4 @@ const docsLinks = [
       </button>
     </div>
   </nav>
-
-  {
-    docsCurrent && (
-      <nav class="docs-actions" aria-label="Documentation">
-        <div class="docs-nav">
-          {docsLinks.map(([name, href, id]) => (
-            <a
-              href={href}
-              class="docs-nav-link"
-              data-current={docsCurrent === id ? "true" : "false"}
-              aria-current={docsCurrent === id ? "page" : "false"}
-            >
-              {name}
-            </a>
-          ))}
-        </div>
-        <button
-          type="button"
-          class="copy-button copy-page-button"
-          data-copy-page
-          data-label="Copy page"
-          aria-label="Copy page"
-          title="Copy page"
-        >
-          <svg
-            class="copy-default"
-            viewBox="0 0 256 256"
-            aria-hidden="true"
-            fill="none"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="18"
-          >
-            <path d="M168 168h48V40H88v48" />
-            <rect x="40" y="88" width="128" height="128" rx="8" />
-          </svg>
-          <svg
-            class="copy-success"
-            viewBox="0 0 256 256"
-            aria-hidden="true"
-            fill="none"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="20"
-          >
-            <path d="M40 144l56 56L216 72" />
-          </svg>
-          <span>copy page</span>
-        </button>
-      </nav>
-    )
-  }
 </header>

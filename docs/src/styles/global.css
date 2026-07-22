@@ -249,18 +249,15 @@ body {
   overflow-wrap: anywhere;
 }
 
-.docs-actions {
-  display: flex;
+.docs-topbar-tools {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--page-line);
+  gap: 20px;
+  margin-right: auto;
 }
 
-.site-header .docs-actions {
-  max-width: 800px;
-  margin: 0 auto 20px;
+.docs-page .bench-brand {
+  margin-right: 24px;
 }
 
 .docs-action-group {
@@ -365,9 +362,15 @@ body {
     font-size: 1.7rem;
   }
 
-  .docs-actions {
+  .docs-page .bench-nav {
     flex-wrap: wrap;
-    row-gap: 8px;
+  }
+
+  .docs-topbar-tools {
+    order: 3;
+    width: 100%;
+    justify-content: space-between;
+    padding-top: 10px;
   }
 
   .docs-page th,
