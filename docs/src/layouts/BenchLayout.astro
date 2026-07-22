@@ -1,5 +1,6 @@
 ---
 import { Font } from "astro:assets";
+import Topbar from "../components/Topbar.astro";
 import "../styles/global.css";
 
 interface Props {
@@ -8,12 +9,6 @@ interface Props {
 }
 
 const { title, current } = Astro.props;
-
-const navLinks = [
-  ["benchmarks", "/benchmarks"],
-  ["how", "/benchmarks/how"],
-  ["docs", "/docs"],
-] as const;
 ---
 
 <html lang="en">
@@ -69,31 +64,7 @@ const navLinks = [
     <title>{title}</title>
   </head>
   <body class="bench-page">
-    <nav class="bench-nav" aria-label="Primary">
-      <a class="bench-brand" href="/">wrec bench</a>
-      <div class="bench-nav-links">
-        {
-          navLinks.map(([name, href]) => (
-            <a
-              href={href}
-              class="bench-nav-link"
-              data-current={current === name ? "true" : "false"}
-              aria-current={current === name ? "page" : "false"}
-            >
-              {name}
-            </a>
-          ))
-        }
-        <button
-          type="button"
-          class="theme-toggle bench-theme-toggle"
-          data-theme-toggle
-          aria-label="Use dark theme"
-        >
-          dark
-        </button>
-      </div>
-    </nav>
+    <Topbar brand="wrec bench" {current} />
     <main class="bench-main">
       <slot />
     </main>

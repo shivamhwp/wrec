@@ -6,10 +6,10 @@
   --page-fg: #050505;
   --page-muted: #333;
   --page-subtle: #555;
-  --page-line: #ddd;
+  --page-line: color-mix(in srgb, #ddd 70%, transparent);
   --page-soft-bg: #f6f8fa;
-  --page-link: #0645ad;
-  --page-button-border: #bbb;
+  --page-link: #c62828;
+  --page-button-border: color-mix(in srgb, #bbb 70%, transparent);
 }
 
 :root[data-theme="dark"] {
@@ -18,10 +18,10 @@
   --page-fg: #f7f7f7;
   --page-muted: #c7c7c7;
   --page-subtle: #a3a3a3;
-  --page-line: #2b2b2b;
+  --page-line: color-mix(in srgb, #2b2b2b 70%, transparent);
   --page-soft-bg: #111;
-  --page-link: #8ab4ff;
-  --page-button-border: #4a4a4a;
+  --page-link: #e05252;
+  --page-button-border: color-mix(in srgb, #4a4a4a 70%, transparent);
 }
 
 html,
@@ -53,9 +53,11 @@ body {
 }
 
 .docs-page {
+  --docs-foreground: color-mix(in srgb, var(--page-fg) 70%, transparent);
   margin: 0;
+  padding: 0 24px 64px;
   background: var(--page-bg);
-  color: var(--page-muted);
+  color: var(--docs-foreground);
   font-family: var(--font-departure), monospace;
   font-size: 14px;
   overflow-x: hidden;
@@ -64,19 +66,24 @@ body {
 .docs-page main {
   max-width: 800px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 0;
   overflow-x: hidden;
 }
 
 .docs-page a {
   color: var(--page-link);
+  text-decoration: none;
+}
+
+.docs-page article a:hover,
+.docs-page article a:focus-visible {
   text-decoration: underline;
 }
 
 .docs-page h1,
 .docs-page h2 {
   font-weight: 600;
-  color: var(--page-fg);
+  color: var(--docs-foreground);
 }
 
 .docs-page h1 {
@@ -149,7 +156,7 @@ body {
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
   background: var(--page-soft-bg);
-  color: var(--page-fg);
+  color: var(--docs-foreground);
   font-size: 0.92em;
   line-height: inherit;
   overflow-wrap: anywhere;
@@ -172,7 +179,7 @@ body {
 
 .command-item p {
   margin: 4px 0 0;
-  color: var(--page-muted);
+  color: var(--docs-foreground);
 }
 
 .command-reference .command-item {
@@ -195,14 +202,14 @@ body {
 }
 
 .docs-page .docs-nav-link {
-  color: var(--page-subtle);
+  color: var(--docs-foreground);
   text-decoration: none;
   line-height: 1.2;
 }
 
 .docs-page .docs-nav-link:hover,
 .docs-page .docs-nav-link[data-current="true"] {
-  color: var(--page-fg);
+  color: var(--docs-foreground);
 }
 
 .docs-page pre,
@@ -251,6 +258,11 @@ body {
   border-bottom: 1px solid var(--page-line);
 }
 
+.site-header .docs-actions {
+  max-width: 800px;
+  margin: 0 auto 20px;
+}
+
 .docs-action-group {
   display: inline-flex;
   align-items: center;
@@ -272,11 +284,11 @@ body {
   border: 1px solid var(--page-button-border);
   border-radius: 6px;
   background: var(--page-bg);
-  color: var(--page-subtle);
+  color: var(--docs-foreground);
 }
 
 .copy-button:hover {
-  color: var(--page-fg);
+  color: var(--docs-foreground);
 }
 
 .copy-button svg {
@@ -301,7 +313,7 @@ body {
 }
 
 .copy-button[data-copied="true"] {
-  color: var(--page-fg);
+  color: var(--docs-foreground);
 }
 
 .copy-button .copy-success {
@@ -340,8 +352,12 @@ body {
 }
 
 @media (max-width: 640px) {
+  .docs-page {
+    padding: 0 16px 24px;
+  }
+
   .docs-page main {
-    padding: 14px 16px 24px;
+    padding: 0;
   }
 
   .docs-page h1 {
@@ -394,16 +410,16 @@ body {
   /* NES-style stepped-corner border: a 5x5 SVG whose plus-shaped pixel
      cluster becomes the corners via border-image slicing. Colors are baked
      into the data URI, so each theme carries its own pair. */
-  --bench-px: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5'%3E%3Cpath d='M2 1h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM2 3h1v1h-1z' fill='%23050505'/%3E%3C/svg%3E");
-  --bench-px-dim: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5'%3E%3Cpath d='M2 1h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM2 3h1v1h-1z' fill='%23bbbbbb'/%3E%3C/svg%3E");
+  --bench-px: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5'%3E%3Cpath d='M2 1h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM2 3h1v1h-1z' fill='%23050505' fill-opacity='.7'/%3E%3C/svg%3E");
+  --bench-px-dim: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5'%3E%3Cpath d='M2 1h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM2 3h1v1h-1z' fill='%23bbbbbb' fill-opacity='.7'/%3E%3C/svg%3E");
 }
 
 :root[data-theme="dark"] {
   --bench-good: #17c964;
   --bench-warning: #fab219;
   --bench-critical: #e05252;
-  --bench-px: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5'%3E%3Cpath d='M2 1h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM2 3h1v1h-1z' fill='%23f7f7f7'/%3E%3C/svg%3E");
-  --bench-px-dim: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5'%3E%3Cpath d='M2 1h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM2 3h1v1h-1z' fill='%234a4a4a'/%3E%3C/svg%3E");
+  --bench-px: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5'%3E%3Cpath d='M2 1h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM2 3h1v1h-1z' fill='%23f7f7f7' fill-opacity='.7'/%3E%3C/svg%3E");
+  --bench-px-dim: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5'%3E%3Cpath d='M2 1h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM2 3h1v1h-1z' fill='%234a4a4a' fill-opacity='.7'/%3E%3C/svg%3E");
 }
 
 .bench-page {
@@ -461,6 +477,20 @@ body {
   border-image: var(--bench-px) 2 stretch;
   background: var(--page-fg);
   color: var(--page-bg);
+  clip-path: polygon(
+    4px 0,
+    calc(100% - 4px) 0,
+    calc(100% - 4px) 2px,
+    100% 2px,
+    100% calc(100% - 2px),
+    calc(100% - 4px) calc(100% - 2px),
+    calc(100% - 4px) 100%,
+    4px 100%,
+    4px calc(100% - 2px),
+    0 calc(100% - 2px),
+    0 2px,
+    4px 2px
+  );
 }
 
 .bench-theme-toggle {
@@ -637,7 +667,8 @@ body {
 }
 
 .bench-page .prose {
-  max-width: 860px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .bench-page .prose p {
