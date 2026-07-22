@@ -149,10 +149,11 @@ const main = async () => {
   const options = parseArgs(Bun.argv.slice(2));
   // Belt to the stimulus's suspenders: keep display, idle, and system awake
   // for the whole run — display sleep mid-run reads as a frame-rate collapse.
+  // unref, or bun waits for caffeinate while caffeinate -w waits for bun.
   Bun.spawn(["caffeinate", "-dimsu", "-w", String(process.pid)], {
     stdout: "ignore",
     stderr: "ignore",
-  });
+  }).unref();
   if (options.autoBuild) {
     await buildCandidate();
   }
@@ -241,12 +242,17 @@ const main = async () => {
 
   const resultPath = path.join(runsDir, `${result.id}.json`);
   await writeFile(resultPath, `${JSON.stringify(result, null, 2)}\n`);
-  const summaryPath = await writeSummary(resultsDir, result);
+  // Only release suites join the committed record (and the site's history);
+  // smoke runs are local sanity checks.
+  const summaryPath =
+    options.suite === "release" ? await writeSummary(resultsDir, result) : null;
 
   console.log(`status: ${result.status}`);
   console.log(`results: ${resultPath}`);
-  console.log(`summary: ${summaryPath}`);
-  console.log("view: wrec.app/benchmarks (or `bun run dev` in marketing/) after committing the summary");
+  if (summaryPath) {
+    console.log(`summary: ${summaryPath}`);
+    console.log("view: wrec.app/benchmarks (or `bun run dev` in marketing/) after committing the summary");
+  }
 };
 
 const parseArgs = (args: string[]): CliOptions => {
@@ -881,6 +887,17 @@ const stopAllDaemons = async (binaries: BinaryRuntime[]) => {
   for (const binary of binaries) {
     await runWrec(binary, ["daemon", "stop", "--json"]).catch(() => undefined);
   }
+  // `daemon stop` can return before the daemon has unlinked its socket; a
+  // back-to-back `daemon start` on the same home would then fail to bind.
+  for (const binary of binaries) {
+    const socket = path.join(binary.wrecHome, "wrec.sock");
+    for (let waited = 0; waited < 2000; waited += 50) {
+      if (!(await Bun.file(socket).exists())) {
+        break;
+      }
+      await Bun.sleep(50);
+    }
+  }
 };
 
 const runWrec = (binary: BinaryRuntime, args: string[]) =>
@@ -1004,6 +1021,10 @@ const deriveObserved = (
     steadySpan !== null && steadyDurationSecs > 0 ? steadySpan / steadyDurationSecs : null;
   const captureCompleteness =
     steadySpan !== null && steadySpan > 0 ? steadyUnique.size / steadySpan : null;
+  // Gaps and monotonicity are computed in AVAssetReader decode order, which
+  // equals presentation order only when the stream has no B-frames. wrec's
+  // realtime capture pipeline never emits B-frames today; if it ever starts,
+  // pts_monotonic fails loudly and that encoder change gets reviewed here.
   const ptsGaps = pts.slice(1).map((value, index) => value - pts[index]);
   const selfReportDisagreementRatio =
     typeof lastMetrics?.frames === "number" && uniqueIndices.length > 0

@@ -32,10 +32,10 @@ bun run bench release         # gated release profiles
 The candidate binary is built automatically (`cargo build --release -p cli -p
 daemon`) unless `--wrec` or `WREC_BIN` points at a specific one.
 
-Open the generated report:
+View the rendered report — the site builds it from `results/`:
 
 ```sh
-open benchmarks/index.html
+cd marketing && bun run dev   # then open localhost:4321/benchmarks
 ```
 
 The smoke suite runs one balanced HEVC recording against the stimulus window and

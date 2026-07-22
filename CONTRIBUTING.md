@@ -80,13 +80,16 @@ bun run check
 
 Do not use npm, pnpm, yarn, or npx here.
 
-Local recording-path benchmarks live in `benchmarks/`:
+Recording benchmarks live in `benchmarks/` (see its README). From the repo
+root:
 
 ```bash
-cd benchmarks
-bun run bench -- --duration 8s
-open index.html
+bun run bench                 # smoke suite
+bun run bench release         # gated release profiles
 ```
+
+Results land in `benchmarks/results/`; the site renders them at
+`/benchmarks` (`cd marketing && bun run dev`).
 
 ## Packaging
 
