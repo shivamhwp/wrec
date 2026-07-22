@@ -1,0 +1,292 @@
+---
+import BenchLayout from "../../layouts/BenchLayout.astro";
+import {
+  fmt,
+  fmtBytes,
+  fmtPercent,
+  gateDelta,
+  gateMeasured,
+  loadSummaries,
+  statusMeta,
+} from "../../lib/bench";
+
+const summaries = await loadSummaries();
+const latest = summaries[0];
+const history = summaries.slice(1);
+
+const meta = (status: string) => statusMeta(status);
+
+const envLine = latest
+  ? [
+      latest.environment.chip,
+      latest.environment.macos
+        ? `macOS ${latest.environment.macos.productVersion}`
+        : null,
+      `${latest.git.commit.slice(0, 7)}${latest.git.dirty ? " (dirty)" : ""}`,
+      latest.suite === "release" && latest.binaries.reference
+        ? "A/B vs reference"
+        : latest.suite,
+      latest.duration,
+    ].filter(Boolean)
+  : [];
+---
+
+<BenchLayout title="wrec benchmarks" current="benchmarks">
+  {
+    latest ? (
+      <>
+        <section class="px verdict">
+          <span
+            class:list={["chip", "chip-lg", `chip-${meta(latest.status).tone}`]}
+          >
+            <span aria-hidden="true">{meta(latest.status).icon}</span>
+            {meta(latest.status).word}
+          </span>
+          <div>
+            <h2>{latest.id}</h2>
+            <p class="meta">{envLine.join(" · ")}</p>
+            <p class="meta">
+              {(latest.environment.guards ?? []).map((guard) => (
+                <span class="guard">
+                  <span
+                    class:list={["chip", `chip-${meta(guard.status).tone}`]}
+                  >
+                    <span aria-hidden="true">{meta(guard.status).icon}</span>
+                    {meta(guard.status).word}
+                  </span>
+                  <span class="muted">{guard.name}</span>
+                </span>
+              ))}
+            </p>
+          </div>
+        </section>
+
+        {latest.profiles.map((profile, profileIndex) => (
+          <section class="px card">
+            <header class="card-head">
+              <h3>{profile.name}</h3>
+              <span class:list={["chip", `chip-${meta(profile.status).tone}`]}>
+                <span aria-hidden="true">{meta(profile.status).icon}</span>
+                {meta(profile.status).word}
+              </span>
+            </header>
+            <div class="tiles">
+              <div class="t-tt-wrap">
+                <div
+                  class="px-dim tile t-tt-trigger"
+                  tabindex="0"
+                  aria-describedby={`metric-${profileIndex}-fps`}
+                >
+                  <div class="tile-label">observed fps</div>
+                  <div class="tile-value">
+                    {fmt(profile.observed?.effectiveFps)}
+                  </div>
+                </div>
+                <span
+                  class="t-tt"
+                  id={`metric-${profileIndex}-fps`}
+                  role="tooltip"
+                >
+                  Effective FPS measured from the decoded recording.
+                  {profile.observed?.stimulusAchievedFps
+                    ? ` Stimulus: ${fmt(profile.observed.stimulusAchievedFps)} fps.`
+                    : ""}
+                </span>
+              </div>
+              <div class="t-tt-wrap">
+                <div
+                  class="px-dim tile t-tt-trigger"
+                  tabindex="0"
+                  aria-describedby={`metric-${profileIndex}-completeness`}
+                >
+                  <div class="tile-label">completeness</div>
+                  <div class="tile-value">
+                    {fmtPercent(profile.observed?.captureCompleteness)}
+                  </div>
+                </div>
+                <span
+                  class="t-tt"
+                  id={`metric-${profileIndex}-completeness`}
+                  role="tooltip"
+                >
+                  Decoded frames captured divided by stimulus frames.
+                </span>
+              </div>
+              <div class="t-tt-wrap">
+                <div
+                  class="px-dim tile t-tt-trigger"
+                  tabindex="0"
+                  aria-describedby={`metric-${profileIndex}-start`}
+                >
+                  <div class="tile-label">start</div>
+                  <div class="tile-value">
+                    {fmt(profile.latency.startMs, 0)}
+                    <span class="unit">ms</span>
+                  </div>
+                </div>
+                <span
+                  class="t-tt"
+                  id={`metric-${profileIndex}-start`}
+                  role="tooltip"
+                >
+                  Time from job submission until the first captured frame.
+                </span>
+              </div>
+              <div class="t-tt-wrap">
+                <div
+                  class="px-dim tile t-tt-trigger"
+                  tabindex="0"
+                  aria-describedby={`metric-${profileIndex}-finalize`}
+                >
+                  <div class="tile-label">finalize</div>
+                  <div class="tile-value">
+                    {fmt(profile.latency.finalizeMs, 0)}
+                    <span class="unit">ms</span>
+                  </div>
+                </div>
+                <span
+                  class="t-tt"
+                  id={`metric-${profileIndex}-finalize`}
+                  role="tooltip"
+                >
+                  Time from the stop request until the file is finalized.
+                </span>
+              </div>
+              <div class="t-tt-wrap">
+                <div
+                  class="px-dim tile t-tt-trigger"
+                  tabindex="0"
+                  aria-describedby={`metric-${profileIndex}-cpu`}
+                >
+                  <div class="tile-label">cpu avg/p95</div>
+                  <div class="tile-value">
+                    {`${fmt(profile.process.avgTotalCpuPercent, 1)}/${fmt(profile.process.p95TotalCpuPercent, 1)}`}
+                  </div>
+                </div>
+                <span
+                  class="t-tt"
+                  id={`metric-${profileIndex}-cpu`}
+                  role="tooltip"
+                >
+                  Average and p95 CPU percentage across the recorder process
+                  tree.
+                </span>
+              </div>
+              <div class="t-tt-wrap">
+                <div
+                  class="px-dim tile t-tt-trigger"
+                  tabindex="0"
+                  aria-describedby={`metric-${profileIndex}-rss`}
+                >
+                  <div class="tile-label">peak rss</div>
+                  <div class="tile-value">
+                    {fmtBytes(profile.process.maxTotalRssBytes)}
+                  </div>
+                </div>
+                <span
+                  class="t-tt"
+                  id={`metric-${profileIndex}-rss`}
+                  role="tooltip"
+                >
+                  Highest resident memory used by the recorder process tree.
+                </span>
+              </div>
+            </div>
+            {profile.gates.length ? (
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>gate</th>
+                      <th>status</th>
+                      <th class="num">measured</th>
+                      <th>threshold</th>
+                      <th class="num">Δ vs ref</th>
+                      <th>notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {profile.gates.map((gate) => (
+                      <tr>
+                        <td>{gate.name}</td>
+                        <td>
+                          <span
+                            class:list={[
+                              "chip",
+                              `chip-${meta(gate.status).tone}`,
+                            ]}
+                          >
+                            <span aria-hidden="true">
+                              {meta(gate.status).icon}
+                            </span>
+                            {meta(gate.status).word}
+                          </span>
+                        </td>
+                        <td class="num">{gateMeasured(gate)}</td>
+                        <td class="muted">{gate.threshold}</td>
+                        <td class="num">{gateDelta(gate)}</td>
+                        <td class="muted">{gate.details ?? ""}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p class="muted">smoke run — recorded ungated.</p>
+            )}
+          </section>
+        ))}
+
+        {history.length ? (
+          <section class="px card">
+            <header class="card-head">
+              <h3>history</h3>
+            </header>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>run</th>
+                    <th>status</th>
+                    <th>suite</th>
+                    <th>commit</th>
+                    <th>mode</th>
+                    <th>generated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((run) => (
+                    <tr>
+                      <td>{run.id}</td>
+                      <td>
+                        <span
+                          class:list={["chip", `chip-${meta(run.status).tone}`]}
+                        >
+                          <span aria-hidden="true">
+                            {meta(run.status).icon}
+                          </span>
+                          {meta(run.status).word}
+                        </span>
+                      </td>
+                      <td>{run.suite}</td>
+                      <td>
+                        {run.git.commit.slice(0, 7)}
+                        {run.git.dirty ? "*" : ""}
+                      </td>
+                      <td>{run.binaries.reference ? "A/B" : "budgets"}</td>
+                      <td class="muted">{run.generatedAt}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null}
+      </>
+    ) : (
+      <p class="muted">
+        no results yet — run <code>bun run bench</code>.
+      </p>
+    )
+  }
+</BenchLayout>

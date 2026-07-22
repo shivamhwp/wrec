@@ -1,6 +1,8 @@
 /target
 /dist
-/benchmarks
+/benchmarks/runs/
+/benchmarks/.tmp/
+/benchmarks/node_modules/
 .DS_Store
 *.mov
 *.mp4
@@ -10,3 +12,4 @@
 
 # Swift package build artifacts
 apps/mac/.build
+.env*

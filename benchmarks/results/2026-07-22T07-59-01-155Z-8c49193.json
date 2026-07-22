@@ -1,0 +1,4582 @@
+{
+  "schema": "wrec.perf/v1",
+  "id": "2026-07-22T07-59-01-155Z-8c49193",
+  "generatedAt": "2026-07-22T07:59:01.155Z",
+  "suite": "release",
+  "status": "pass",
+  "duration": "6s",
+  "durationMs": 6000,
+  "sampleIntervalMs": 250,
+  "binaries": {
+    "candidate": "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+    "reference": "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec"
+  },
+  "runtime": {
+    "root": "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193",
+    "candidate": {
+      "wrecHome": "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/candidate/home",
+      "dataDir": "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/candidate/data"
+    },
+    "reference": {
+      "wrecHome": "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/reference/home",
+      "dataDir": "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/reference/data"
+    }
+  },
+  "stimulus": {
+    "title": "wrec-bench-stimulus",
+    "readyLine": "STIMULUS_READY title=wrec-bench-stimulus points=1280x720 pixels=2560x1440 scale=2.00",
+    "points": {
+      "width": 1280,
+      "height": 720
+    },
+    "pixels": {
+      "width": 2560,
+      "height": 1440
+    },
+    "scale": 2
+  },
+  "git": {
+    "branch": "bench/ground-truth-gate",
+    "commit": "8c491937dcf518df36e12779a2b54650f7a267b9",
+    "dirty": false
+  },
+  "machine": {
+    "hostname": "mains.local",
+    "platform": "darwin",
+    "release": "25.5.0",
+    "arch": "arm64",
+    "cpu": "Apple M1",
+    "cpuCount": 8,
+    "totalMemoryBytes": 8589934592
+  },
+  "environment": {
+    "acPower": {
+      "command": [
+        "pmset",
+        "-g",
+        "batt"
+      ],
+      "exitCode": 0,
+      "stdout": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=35455075)\t100%; finishing charge; 0:00 remaining present: true\n",
+      "stderr": ""
+    },
+    "thermal": {
+      "command": [
+        "pmset",
+        "-g",
+        "therm"
+      ],
+      "exitCode": 0,
+      "stdout": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n",
+      "stderr": ""
+    },
+    "macos": {
+      "productVersion": "26.5.2",
+      "buildVersion": "25F84"
+    },
+    "chip": "Apple M1",
+    "model": "MacBookAir10,1",
+    "memoryBytes": 8589934592,
+    "loadAverage": [
+      2.298828125,
+      2.70703125,
+      2.57275390625
+    ],
+    "guards": [
+      {
+        "name": "env_ac_power",
+        "threshold": "AC Power",
+        "measured": "AC Power",
+        "status": "pass"
+      },
+      {
+        "name": "env_thermal",
+        "threshold": "thermal limits at 100%",
+        "measured": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+        "status": "pass"
+      },
+      {
+        "name": "env_load_average",
+        "threshold": "1m load <= 8",
+        "measured": 2.298828125,
+        "status": "pass"
+      }
+    ]
+  },
+  "profiles": [
+    {
+      "name": "efficient-720p30-hevc",
+      "request": {
+        "name": "efficient-720p30-hevc",
+        "quality": "efficient",
+        "resolution": "720p",
+        "fps": 30,
+        "codec": "hevc",
+        "duration": "6s",
+        "durationMs": 6000,
+        "expectedDimensions": {
+          "width": 1280,
+          "height": 720
+        }
+      },
+      "target": "window:6427",
+      "targetInfo": {
+        "id": 6427,
+        "kind": "window",
+        "name": "stimulus — wrec-bench-stimulus"
+      },
+      "status": "pass",
+      "warmups": [
+        {
+          "id": "efficient-720p30-hevc-candidate-warmup",
+          "variant": "candidate",
+          "profile": "efficient-720p30-hevc",
+          "rep": 0,
+          "warmup": true,
+          "command": [
+            "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+            "record",
+            "start",
+            "--target",
+            "window:6427",
+            "--quality",
+            "efficient",
+            "--fps",
+            "30",
+            "--codec",
+            "hevc",
+            "--resolution",
+            "720p",
+            "--duration",
+            "6s",
+            "--out",
+            "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/efficient-720p30-hevc-candidate-warmup",
+            "--json",
+            "--no-queue"
+          ],
+          "target": "window:6427",
+          "targetInfo": {
+            "id": 6427,
+            "kind": "window",
+            "name": "stimulus — wrec-bench-stimulus"
+          },
+          "exitCode": 0,
+          "elapsedMs": 7114,
+          "outputBytes": 1162338,
+          "lastMetrics": {
+            "elapsed_secs": 6,
+            "output_bytes": 1151688,
+            "estimated_bitrate_mbps": 1.5355839729309082,
+            "frames": 178,
+            "dropped_frames": 0
+          },
+          "latency": {
+            "startMs": 622,
+            "finalizeMs": 50,
+            "recordingStartedAtMs": 1784707150763,
+            "durationElapsedAtMs": 1784707156766,
+            "terminalAtMs": 1784707156816
+          },
+          "processSummary": {
+            "sampleCount": 26,
+            "maxTotalCpuPercent": 16,
+            "p95TotalCpuPercent": 14.5,
+            "avgTotalCpuPercent": 3.4653846153846155,
+            "maxTotalRssBytes": 47710208,
+            "maxHelperCpuPercent": 16,
+            "maxHelperRssBytes": 43384832,
+            "maxDaemonCpuPercent": 0.1,
+            "maxDaemonRssBytes": 4390912
+          },
+          "decode": {
+            "codec": "hevc",
+            "dimensions": {
+              "height": 720,
+              "width": 1280
+            },
+            "durationMs": 6035,
+            "frameCount": 178
+          },
+          "observed": {
+            "decodedFrames": 178,
+            "readableStimulusFrames": 178,
+            "uniqueStimulusFrames": 178,
+            "duplicateStimulusFrames": 0,
+            "missingStimulusIndices": [
+              139,
+              141,
+              143,
+              145,
+              147,
+              149,
+              151,
+              153,
+              155,
+              157,
+              159,
+              161,
+              162,
+              164,
+              166,
+              168,
+              170,
+              172,
+              174,
+              176,
+              178,
+              180,
+              182,
+              184,
+              186
+            ],
+            "effectiveFps": 29.487713452728027,
+            "stimulusAchievedFps": 59.72511453561016,
+            "captureCompleteness": 0.49372384937238495,
+            "maxInterFramePtsGapMs": 40,
+            "ptsMonotonic": true,
+            "firstPtsMs": 0,
+            "lastPtsMs": 6001.666666666667,
+            "codec": "hevc",
+            "dimensions": {
+              "height": 720,
+              "width": 1280
+            },
+            "durationMs": 6035,
+            "selfReportDisagreementRatio": 0
+          }
+        },
+        {
+          "id": "efficient-720p30-hevc-reference-warmup",
+          "variant": "reference",
+          "profile": "efficient-720p30-hevc",
+          "rep": 0,
+          "warmup": true,
+          "command": [
+            "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+            "record",
+            "start",
+            "--target",
+            "window:6427",
+            "--quality",
+            "efficient",
+            "--fps",
+            "30",
+            "--codec",
+            "hevc",
+            "--resolution",
+            "720p",
+            "--duration",
+            "6s",
+            "--out",
+            "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/efficient-720p30-hevc-reference-warmup",
+            "--json",
+            "--no-queue"
+          ],
+          "target": "window:6427",
+          "targetInfo": {
+            "id": 6427,
+            "kind": "window",
+            "name": "stimulus — wrec-bench-stimulus"
+          },
+          "exitCode": 0,
+          "elapsedMs": 7169,
+          "outputBytes": 1160944,
+          "lastMetrics": {
+            "elapsed_secs": 6,
+            "output_bytes": 1150065,
+            "estimated_bitrate_mbps": 1.5334199666976929,
+            "frames": 178,
+            "dropped_frames": 0
+          },
+          "latency": {
+            "startMs": 687,
+            "finalizeMs": 54,
+            "recordingStartedAtMs": 1784707159410,
+            "durationElapsedAtMs": 1784707165413,
+            "terminalAtMs": 1784707165467
+          },
+          "processSummary": {
+            "sampleCount": 27,
+            "maxTotalCpuPercent": 13.9,
+            "p95TotalCpuPercent": 12.5,
+            "avgTotalCpuPercent": 3.1592592592592585,
+            "maxTotalRssBytes": 47972352,
+            "maxHelperCpuPercent": 13.9,
+            "maxHelperRssBytes": 43483136,
+            "maxDaemonCpuPercent": 0.1,
+            "maxDaemonRssBytes": 4489216
+          },
+          "decode": {
+            "codec": "hevc",
+            "dimensions": {
+              "height": 720,
+              "width": 1280
+            },
+            "durationMs": 6035,
+            "frameCount": 178
+          },
+          "observed": {
+            "decodedFrames": 178,
+            "readableStimulusFrames": 178,
+            "uniqueStimulusFrames": 178,
+            "duplicateStimulusFrames": 0,
+            "missingStimulusIndices": [
+              658,
+              659,
+              661,
+              663,
+              665,
+              667,
+              669,
+              671,
+              673,
+              675,
+              677,
+              679,
+              681,
+              683,
+              685,
+              687,
+              689,
+              691,
+              693,
+              695,
+              697,
+              699,
+              701,
+              703,
+              705
+            ],
+            "effectiveFps": 29.487713452728027,
+            "stimulusAchievedFps": 59.475218658892125,
+            "captureCompleteness": 0.4957983193277311,
+            "maxInterFramePtsGapMs": 38.33333333333394,
+            "ptsMonotonic": true,
+            "firstPtsMs": 0,
+            "lastPtsMs": 6001.666666666667,
+            "codec": "hevc",
+            "dimensions": {
+              "height": 720,
+              "width": 1280
+            },
+            "durationMs": 6035,
+            "selfReportDisagreementRatio": 0
+          }
+        }
+      ],
+      "measured": {
+        "candidate": [
+          {
+            "id": "efficient-720p30-hevc-candidate-rep-1",
+            "variant": "candidate",
+            "profile": "efficient-720p30-hevc",
+            "rep": 1,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "efficient",
+              "--fps",
+              "30",
+              "--codec",
+              "hevc",
+              "--resolution",
+              "720p",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/efficient-720p30-hevc-candidate-rep-1",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7107,
+            "outputBytes": 1161374,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 1150330,
+              "estimated_bitrate_mbps": 1.533773422241211,
+              "frames": 178,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 552,
+              "finalizeMs": 55,
+              "recordingStartedAtMs": 1784707167763,
+              "durationElapsedAtMs": 1784707173768,
+              "terminalAtMs": 1784707173823
+            },
+            "processSummary": {
+              "sampleCount": 26,
+              "maxTotalCpuPercent": 13.4,
+              "p95TotalCpuPercent": 7.8,
+              "avgTotalCpuPercent": 2.9384615384615387,
+              "maxTotalRssBytes": 47775744,
+              "maxHelperCpuPercent": 13.4,
+              "maxHelperRssBytes": 43335680,
+              "maxDaemonCpuPercent": 0.1,
+              "maxDaemonRssBytes": 4456448
+            },
+            "decode": {
+              "codec": "hevc",
+              "dimensions": {
+                "height": 720,
+                "width": 1280
+              },
+              "durationMs": 6030,
+              "frameCount": 178
+            },
+            "observed": {
+              "decodedFrames": 178,
+              "readableStimulusFrames": 178,
+              "uniqueStimulusFrames": 178,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                1160,
+                1162,
+                1164,
+                1166,
+                1168,
+                1170,
+                1172,
+                1174,
+                1176,
+                1178,
+                1180,
+                1182,
+                1184,
+                1186,
+                1188,
+                1190,
+                1192,
+                1193,
+                1195,
+                1197,
+                1199,
+                1201,
+                1203,
+                1205,
+                1207
+              ],
+              "effectiveFps": 29.536921151439298,
+              "stimulusAchievedFps": 59.824780976220275,
+              "captureCompleteness": 0.49372384937238495,
+              "maxInterFramePtsGapMs": 38.33333333333303,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 5995,
+              "codec": "hevc",
+              "dimensions": {
+                "height": 720,
+                "width": 1280
+              },
+              "durationMs": 6030,
+              "selfReportDisagreementRatio": 0
+            }
+          },
+          {
+            "id": "efficient-720p30-hevc-candidate-rep-2",
+            "variant": "candidate",
+            "profile": "efficient-720p30-hevc",
+            "rep": 2,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "efficient",
+              "--fps",
+              "30",
+              "--codec",
+              "hevc",
+              "--resolution",
+              "720p",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/efficient-720p30-hevc-candidate-rep-2",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7109,
+            "outputBytes": 1159525,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 1148687,
+              "estimated_bitrate_mbps": 1.5315825939178467,
+              "frames": 178,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 561,
+              "finalizeMs": 55,
+              "recordingStartedAtMs": 1784707184316,
+              "durationElapsedAtMs": 1784707190321,
+              "terminalAtMs": 1784707190376
+            },
+            "processSummary": {
+              "sampleCount": 26,
+              "maxTotalCpuPercent": 15.5,
+              "p95TotalCpuPercent": 8.2,
+              "avgTotalCpuPercent": 2.957692307692308,
+              "maxTotalRssBytes": 47677440,
+              "maxHelperCpuPercent": 15.4,
+              "maxHelperRssBytes": 43417600,
+              "maxDaemonCpuPercent": 0.1,
+              "maxDaemonRssBytes": 4292608
+            },
+            "decode": {
+              "codec": "hevc",
+              "dimensions": {
+                "height": 720,
+                "width": 1280
+              },
+              "durationMs": 6031.666666666666,
+              "frameCount": 178
+            },
+            "observed": {
+              "decodedFrames": 178,
+              "readableStimulusFrames": 178,
+              "uniqueStimulusFrames": 178,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                2153,
+                2155,
+                2157,
+                2159,
+                2161,
+                2163,
+                2165,
+                2167,
+                2169,
+                2171,
+                2172,
+                2174,
+                2176,
+                2178,
+                2180,
+                2182,
+                2184,
+                2186,
+                2188,
+                2190,
+                2192,
+                2194,
+                2196,
+                2198,
+                2200
+              ],
+              "effectiveFps": 29.512296790329305,
+              "stimulusAchievedFps": 59.77490621092122,
+              "captureCompleteness": 0.49372384937238495,
+              "maxInterFramePtsGapMs": 38.33333333333303,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 5998.333333333333,
+              "codec": "hevc",
+              "dimensions": {
+                "height": 720,
+                "width": 1280
+              },
+              "durationMs": 6031.666666666666,
+              "selfReportDisagreementRatio": 0
+            }
+          },
+          {
+            "id": "efficient-720p30-hevc-candidate-rep-3",
+            "variant": "candidate",
+            "profile": "efficient-720p30-hevc",
+            "rep": 3,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "efficient",
+              "--fps",
+              "30",
+              "--codec",
+              "hevc",
+              "--resolution",
+              "720p",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/efficient-720p30-hevc-candidate-rep-3",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7090,
+            "outputBytes": 1160304,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 1149509,
+              "estimated_bitrate_mbps": 1.5326786041259766,
+              "frames": 178,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 598,
+              "finalizeMs": 55,
+              "recordingStartedAtMs": 1784707200584,
+              "durationElapsedAtMs": 1784707206587,
+              "terminalAtMs": 1784707206642
+            },
+            "processSummary": {
+              "sampleCount": 26,
+              "maxTotalCpuPercent": 12.1,
+              "p95TotalCpuPercent": 11.3,
+              "avgTotalCpuPercent": 3.1153846153846154,
+              "maxTotalRssBytes": 47677440,
+              "maxHelperCpuPercent": 12.1,
+              "maxHelperRssBytes": 43401216,
+              "maxDaemonCpuPercent": 0.1,
+              "maxDaemonRssBytes": 4276224
+            },
+            "decode": {
+              "codec": "hevc",
+              "dimensions": {
+                "height": 720,
+                "width": 1280
+              },
+              "durationMs": 6025,
+              "frameCount": 178
+            },
+            "observed": {
+              "decodedFrames": 178,
+              "readableStimulusFrames": 178,
+              "uniqueStimulusFrames": 178,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                3129,
+                3131,
+                3133,
+                3135,
+                3137,
+                3139,
+                3141,
+                3142,
+                3144,
+                3146,
+                3148,
+                3150,
+                3152,
+                3154,
+                3156,
+                3158,
+                3160,
+                3162,
+                3164,
+                3166,
+                3168,
+                3170,
+                3172,
+                3174,
+                3176
+              ],
+              "effectiveFps": 29.5615866388309,
+              "stimulusAchievedFps": 59.874739039665975,
+              "captureCompleteness": 0.49372384937238495,
+              "maxInterFramePtsGapMs": 38.333333333333314,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 5991.666666666666,
+              "codec": "hevc",
+              "dimensions": {
+                "height": 720,
+                "width": 1280
+              },
+              "durationMs": 6025,
+              "selfReportDisagreementRatio": 0
+            }
+          }
+        ],
+        "reference": [
+          {
+            "id": "efficient-720p30-hevc-reference-rep-1",
+            "variant": "reference",
+            "profile": "efficient-720p30-hevc",
+            "rep": 1,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "efficient",
+              "--fps",
+              "30",
+              "--codec",
+              "hevc",
+              "--resolution",
+              "720p",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/efficient-720p30-hevc-reference-rep-1",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7160,
+            "outputBytes": 1162698,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 1152540,
+              "estimated_bitrate_mbps": 1.5367200374603271,
+              "frames": 178,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 611,
+              "finalizeMs": 51,
+              "recordingStartedAtMs": 1784707175883,
+              "durationElapsedAtMs": 1784707181887,
+              "terminalAtMs": 1784707181938
+            },
+            "processSummary": {
+              "sampleCount": 27,
+              "maxTotalCpuPercent": 12.9,
+              "p95TotalCpuPercent": 10.2,
+              "avgTotalCpuPercent": 3.148148148148149,
+              "maxTotalRssBytes": 47841280,
+              "maxHelperCpuPercent": 12.9,
+              "maxHelperRssBytes": 43368448,
+              "maxDaemonCpuPercent": 0.1,
+              "maxDaemonRssBytes": 4472832
+            },
+            "decode": {
+              "codec": "hevc",
+              "dimensions": {
+                "width": 1280,
+                "height": 720
+              },
+              "durationMs": 6041.666666666667,
+              "frameCount": 178
+            },
+            "observed": {
+              "decodedFrames": 178,
+              "readableStimulusFrames": 178,
+              "uniqueStimulusFrames": 178,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                1647,
+                1649,
+                1651,
+                1653,
+                1655,
+                1657,
+                1659,
+                1660,
+                1662,
+                1664,
+                1666,
+                1668,
+                1670,
+                1672,
+                1674,
+                1676,
+                1678,
+                1680,
+                1682,
+                1684,
+                1686,
+                1688,
+                1690,
+                1692,
+                1694
+              ],
+              "effectiveFps": 29.450915141430947,
+              "stimulusAchievedFps": 59.90016638935108,
+              "captureCompleteness": 0.49166666666666664,
+              "maxInterFramePtsGapMs": 38.33333333333326,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6006.666666666667,
+              "codec": "hevc",
+              "dimensions": {
+                "width": 1280,
+                "height": 720
+              },
+              "durationMs": 6041.666666666667,
+              "selfReportDisagreementRatio": 0
+            }
+          },
+          {
+            "id": "efficient-720p30-hevc-reference-rep-2",
+            "variant": "reference",
+            "profile": "efficient-720p30-hevc",
+            "rep": 2,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "efficient",
+              "--fps",
+              "30",
+              "--codec",
+              "hevc",
+              "--resolution",
+              "720p",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/efficient-720p30-hevc-reference-rep-2",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7118,
+            "outputBytes": 1162601,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 1151335,
+              "estimated_bitrate_mbps": 1.5351133346557617,
+              "frames": 178,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 565,
+              "finalizeMs": 52,
+              "recordingStartedAtMs": 1784707192428,
+              "durationElapsedAtMs": 1784707198429,
+              "terminalAtMs": 1784707198481
+            },
+            "processSummary": {
+              "sampleCount": 26,
+              "maxTotalCpuPercent": 13.2,
+              "p95TotalCpuPercent": 8.1,
+              "avgTotalCpuPercent": 2.938461538461539,
+              "maxTotalRssBytes": 47808512,
+              "maxHelperCpuPercent": 13.2,
+              "maxHelperRssBytes": 43401216,
+              "maxDaemonCpuPercent": 0.1,
+              "maxDaemonRssBytes": 4423680
+            },
+            "decode": {
+              "codec": "hevc",
+              "dimensions": {
+                "height": 720,
+                "width": 1280
+              },
+              "durationMs": 6043.333333333333,
+              "frameCount": 178
+            },
+            "observed": {
+              "decodedFrames": 178,
+              "readableStimulusFrames": 178,
+              "uniqueStimulusFrames": 178,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                2640,
+                2642,
+                2644,
+                2646,
+                2648,
+                2650,
+                2652,
+                2654,
+                2656,
+                2658,
+                2660,
+                2662,
+                2664,
+                2666,
+                2668,
+                2670,
+                2672,
+                2674,
+                2676,
+                2677,
+                2679,
+                2681,
+                2683,
+                2685,
+                2687
+              ],
+              "effectiveFps": 29.450915141430947,
+              "stimulusAchievedFps": 59.650582362728784,
+              "captureCompleteness": 0.49372384937238495,
+              "maxInterFramePtsGapMs": 38.33333333333303,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6006.666666666667,
+              "codec": "hevc",
+              "dimensions": {
+                "height": 720,
+                "width": 1280
+              },
+              "durationMs": 6043.333333333333,
+              "selfReportDisagreementRatio": 0
+            }
+          },
+          {
+            "id": "efficient-720p30-hevc-reference-rep-3",
+            "variant": "reference",
+            "profile": "efficient-720p30-hevc",
+            "rep": 3,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "efficient",
+              "--fps",
+              "30",
+              "--codec",
+              "hevc",
+              "--resolution",
+              "720p",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/efficient-720p30-hevc-reference-rep-3",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7116,
+            "outputBytes": 1161936,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 1150625,
+              "estimated_bitrate_mbps": 1.5341665744781494,
+              "frames": 178,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 549,
+              "finalizeMs": 53,
+              "recordingStartedAtMs": 1784707208731,
+              "durationElapsedAtMs": 1784707214732,
+              "terminalAtMs": 1784707214785
+            },
+            "processSummary": {
+              "sampleCount": 26,
+              "maxTotalCpuPercent": 15.9,
+              "p95TotalCpuPercent": 8.6,
+              "avgTotalCpuPercent": 3.034615384615385,
+              "maxTotalRssBytes": 47661056,
+              "maxHelperCpuPercent": 15.8,
+              "maxHelperRssBytes": 43352064,
+              "maxDaemonCpuPercent": 0.1,
+              "maxDaemonRssBytes": 4308992
+            },
+            "decode": {
+              "codec": "hevc",
+              "dimensions": {
+                "width": 1280,
+                "height": 720
+              },
+              "durationMs": 6041.666666666667,
+              "frameCount": 178
+            },
+            "observed": {
+              "decodedFrames": 178,
+              "readableStimulusFrames": 178,
+              "uniqueStimulusFrames": 178,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                3618,
+                3620,
+                3622,
+                3624,
+                3626,
+                3628,
+                3630,
+                3632,
+                3634,
+                3636,
+                3637,
+                3639,
+                3641,
+                3643,
+                3645,
+                3647,
+                3649,
+                3651,
+                3653,
+                3655,
+                3657,
+                3659,
+                3661,
+                3663,
+                3665
+              ],
+              "effectiveFps": 29.438669438669436,
+              "stimulusAchievedFps": 59.87525987525987,
+              "captureCompleteness": 0.49166666666666664,
+              "maxInterFramePtsGapMs": 38.333333333333485,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6008.333333333334,
+              "codec": "hevc",
+              "dimensions": {
+                "width": 1280,
+                "height": 720
+              },
+              "durationMs": 6041.666666666667,
+              "selfReportDisagreementRatio": 0
+            }
+          }
+        ]
+      },
+      "capture": {
+        "outputBytes": 1160304,
+        "bitrateMbps": 1.5326786041259766,
+        "selfReportedFrames": 178,
+        "selfReportedDroppedFrames": 0,
+        "selfReportedDropRatio": 0
+      },
+      "latency": {
+        "startMs": 561,
+        "finalizeMs": 55
+      },
+      "process": {
+        "avgTotalCpuPercent": 2.957692307692308,
+        "p95TotalCpuPercent": 8.2,
+        "maxTotalCpuPercent": 13.4,
+        "maxTotalRssBytes": 47677440
+      },
+      "observed": {
+        "codec": "hevc",
+        "dimensions": {
+          "width": 1280,
+          "height": 720
+        },
+        "decodedFrames": 178,
+        "uniqueStimulusFrames": 178,
+        "effectiveFps": 29.536921151439298,
+        "stimulusAchievedFps": 59.824780976220275,
+        "captureCompleteness": 0.49372384937238495,
+        "maxInterFramePtsGapMs": 38.333333333333314,
+        "ptsMonotonic": true,
+        "selfReportDisagreementRatio": 0
+      },
+      "reference": {
+        "capture": {
+          "outputBytes": 1162601,
+          "bitrateMbps": 1.5351133346557617,
+          "selfReportedFrames": 178,
+          "selfReportedDroppedFrames": 0,
+          "selfReportedDropRatio": 0
+        },
+        "latency": {
+          "startMs": 565,
+          "finalizeMs": 52
+        },
+        "process": {
+          "avgTotalCpuPercent": 3.034615384615385,
+          "p95TotalCpuPercent": 8.6,
+          "maxTotalCpuPercent": 13.2,
+          "maxTotalRssBytes": 47808512
+        },
+        "observed": {
+          "codec": "hevc",
+          "dimensions": {
+            "width": 1280,
+            "height": 720
+          },
+          "decodedFrames": 178,
+          "uniqueStimulusFrames": 178,
+          "effectiveFps": 29.450915141430947,
+          "stimulusAchievedFps": 59.87525987525987,
+          "captureCompleteness": 0.49166666666666664,
+          "maxInterFramePtsGapMs": 38.333333333333485,
+          "ptsMonotonic": true,
+          "selfReportDisagreementRatio": 0
+        }
+      },
+      "gates": [
+        {
+          "name": "observed_fps",
+          "threshold": ">= 29.1 fps (97% of min(target 30, stimulus 59.825))",
+          "measured": 29.536921151439298,
+          "status": "pass"
+        },
+        {
+          "name": "capture_completeness",
+          "threshold": "capture rate >= display rate",
+          "measured": 0.49372384937238495,
+          "status": "skipped",
+          "details": "profile captures slower than the stimulus displays; skipping every other frame is by design"
+        },
+        {
+          "name": "self_report_drop_ratio",
+          "threshold": "<= 0.50%",
+          "measured": 0,
+          "status": "pass"
+        },
+        {
+          "name": "max_pts_gap_ms",
+          "threshold": "<= 500 ms",
+          "measured": 38.333333333333314,
+          "status": "pass"
+        },
+        {
+          "name": "pts_monotonic",
+          "threshold": "true",
+          "measured": true,
+          "status": "pass"
+        },
+        {
+          "name": "codec_match",
+          "threshold": "hevc",
+          "measured": "hevc",
+          "status": "pass"
+        },
+        {
+          "name": "dimensions_match_request",
+          "threshold": "1280x720",
+          "measured": "1280x720",
+          "status": "pass"
+        },
+        {
+          "name": "self_report_disagreement",
+          "threshold": "<= 5%",
+          "measured": 0,
+          "status": "pass"
+        },
+        {
+          "name": "start_latency_ms",
+          "threshold": "<= 1500 ms",
+          "measured": 561,
+          "status": "pass"
+        },
+        {
+          "name": "finalize_latency_ms",
+          "threshold": "<= 3000 ms",
+          "measured": 55,
+          "status": "pass"
+        },
+        {
+          "name": "regression_cpu_avg",
+          "threshold": "candidate <= reference + 15% and <= reference + 3 %",
+          "measured": 2.957692307692308,
+          "delta": 0.01923076923076872,
+          "deltaPercent": 0.6337135614701985,
+          "status": "pass"
+        },
+        {
+          "name": "regression_cpu_p95",
+          "threshold": "candidate <= reference + 15% and <= reference + 3 %",
+          "measured": 8.2,
+          "delta": 0.09999999999999964,
+          "deltaPercent": 1.1627906976744147,
+          "status": "pass"
+        },
+        {
+          "name": "regression_max_rss",
+          "threshold": "candidate <= reference + 15% and <= reference + 20 MB",
+          "measured": 47677440,
+          "delta": -65536,
+          "deltaPercent": -0.1370801919122687,
+          "status": "pass"
+        },
+        {
+          "name": "regression_start_latency",
+          "threshold": "candidate <= reference + 15% and <= reference + 150 ms",
+          "measured": 561,
+          "delta": -4,
+          "deltaPercent": -0.7079646017699115,
+          "status": "pass"
+        },
+        {
+          "name": "regression_finalize_latency",
+          "threshold": "candidate <= reference + 15% and <= reference + 150 ms",
+          "measured": 55,
+          "delta": 3,
+          "deltaPercent": 5.769230769230769,
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "name": "balanced-1080p30-hevc",
+      "request": {
+        "name": "balanced-1080p30-hevc",
+        "quality": "balanced",
+        "resolution": "1080p",
+        "fps": 30,
+        "codec": "hevc",
+        "duration": "6s",
+        "durationMs": 6000,
+        "expectedDimensions": {
+          "width": 1920,
+          "height": 1080
+        }
+      },
+      "target": "window:6427",
+      "targetInfo": {
+        "id": 6427,
+        "kind": "window",
+        "name": "stimulus — wrec-bench-stimulus"
+      },
+      "status": "pass",
+      "warmups": [
+        {
+          "id": "balanced-1080p30-hevc-candidate-warmup",
+          "variant": "candidate",
+          "profile": "balanced-1080p30-hevc",
+          "rep": 0,
+          "warmup": true,
+          "command": [
+            "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+            "record",
+            "start",
+            "--target",
+            "window:6427",
+            "--quality",
+            "balanced",
+            "--fps",
+            "30",
+            "--codec",
+            "hevc",
+            "--resolution",
+            "1080p",
+            "--duration",
+            "6s",
+            "--out",
+            "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/balanced-1080p30-hevc-candidate-warmup",
+            "--json",
+            "--no-queue"
+          ],
+          "target": "window:6427",
+          "targetInfo": {
+            "id": 6427,
+            "kind": "window",
+            "name": "stimulus — wrec-bench-stimulus"
+          },
+          "exitCode": 0,
+          "elapsedMs": 7105,
+          "outputBytes": 3307703,
+          "lastMetrics": {
+            "elapsed_secs": 6,
+            "output_bytes": 3285519,
+            "estimated_bitrate_mbps": 4.380692005157471,
+            "frames": 178,
+            "dropped_frames": 0
+          },
+          "latency": {
+            "startMs": 553,
+            "finalizeMs": 55,
+            "recordingStartedAtMs": 1784707216842,
+            "durationElapsedAtMs": 1784707222846,
+            "terminalAtMs": 1784707222901
+          },
+          "processSummary": {
+            "sampleCount": 26,
+            "maxTotalCpuPercent": 12.9,
+            "p95TotalCpuPercent": 8.8,
+            "avgTotalCpuPercent": 3.484615384615385,
+            "maxTotalRssBytes": 48136192,
+            "maxHelperCpuPercent": 12.9,
+            "maxHelperRssBytes": 43876352,
+            "maxDaemonCpuPercent": 0.1,
+            "maxDaemonRssBytes": 4259840
+          },
+          "decode": {
+            "codec": "hevc",
+            "dimensions": {
+              "width": 1920,
+              "height": 1080
+            },
+            "durationMs": 6041.666666666667,
+            "frameCount": 178
+          },
+          "observed": {
+            "decodedFrames": 178,
+            "readableStimulusFrames": 178,
+            "uniqueStimulusFrames": 178,
+            "duplicateStimulusFrames": 0,
+            "missingStimulusIndices": [
+              4105,
+              4107,
+              4109,
+              4111,
+              4113,
+              4115,
+              4117,
+              4119,
+              4121,
+              4123,
+              4125,
+              4127,
+              4129,
+              4131,
+              4133,
+              4135,
+              4136,
+              4138,
+              4140,
+              4142,
+              4144,
+              4146,
+              4148,
+              4150,
+              4152
+            ],
+            "effectiveFps": 29.438669438669436,
+            "stimulusAchievedFps": 59.62577962577962,
+            "captureCompleteness": 0.49372384937238495,
+            "maxInterFramePtsGapMs": 36.66666666666697,
+            "ptsMonotonic": true,
+            "firstPtsMs": 0,
+            "lastPtsMs": 6008.333333333334,
+            "codec": "hevc",
+            "dimensions": {
+              "width": 1920,
+              "height": 1080
+            },
+            "durationMs": 6041.666666666667,
+            "selfReportDisagreementRatio": 0
+          }
+        },
+        {
+          "id": "balanced-1080p30-hevc-reference-warmup",
+          "variant": "reference",
+          "profile": "balanced-1080p30-hevc",
+          "rep": 0,
+          "warmup": true,
+          "command": [
+            "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+            "record",
+            "start",
+            "--target",
+            "window:6427",
+            "--quality",
+            "balanced",
+            "--fps",
+            "30",
+            "--codec",
+            "hevc",
+            "--resolution",
+            "1080p",
+            "--duration",
+            "6s",
+            "--out",
+            "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/balanced-1080p30-hevc-reference-warmup",
+            "--json",
+            "--no-queue"
+          ],
+          "target": "window:6427",
+          "targetInfo": {
+            "id": 6427,
+            "kind": "window",
+            "name": "stimulus — wrec-bench-stimulus"
+          },
+          "exitCode": 0,
+          "elapsedMs": 7097,
+          "outputBytes": 3319602,
+          "lastMetrics": {
+            "elapsed_secs": 6,
+            "output_bytes": 3295881,
+            "estimated_bitrate_mbps": 4.394507884979248,
+            "frames": 178,
+            "dropped_frames": 0
+          },
+          "latency": {
+            "startMs": 568,
+            "finalizeMs": 52,
+            "recordingStartedAtMs": 1784707225171,
+            "durationElapsedAtMs": 1784707231174,
+            "terminalAtMs": 1784707231226
+          },
+          "processSummary": {
+            "sampleCount": 26,
+            "maxTotalCpuPercent": 11.8,
+            "p95TotalCpuPercent": 11.1,
+            "avgTotalCpuPercent": 3.692307692307693,
+            "maxTotalRssBytes": 48545792,
+            "maxHelperCpuPercent": 11.8,
+            "maxHelperRssBytes": 44072960,
+            "maxDaemonCpuPercent": 0.1,
+            "maxDaemonRssBytes": 4472832
+          },
+          "decode": {
+            "codec": "hevc",
+            "dimensions": {
+              "width": 1920,
+              "height": 1080
+            },
+            "durationMs": 6043.333333333333,
+            "frameCount": 178
+          },
+          "observed": {
+            "decodedFrames": 178,
+            "readableStimulusFrames": 178,
+            "uniqueStimulusFrames": 178,
+            "duplicateStimulusFrames": 0,
+            "missingStimulusIndices": [
+              4604,
+              4605,
+              4607,
+              4609,
+              4611,
+              4613,
+              4615,
+              4617,
+              4619,
+              4621,
+              4623,
+              4625,
+              4627,
+              4629,
+              4631,
+              4633,
+              4635,
+              4637,
+              4639,
+              4641,
+              4643,
+              4645,
+              4647,
+              4649,
+              4651
+            ],
+            "effectiveFps": 29.426433915211973,
+            "stimulusAchievedFps": 59.600997506234414,
+            "captureCompleteness": 0.49372384937238495,
+            "maxInterFramePtsGapMs": 36.66666666666697,
+            "ptsMonotonic": true,
+            "firstPtsMs": 0,
+            "lastPtsMs": 6010,
+            "codec": "hevc",
+            "dimensions": {
+              "width": 1920,
+              "height": 1080
+            },
+            "durationMs": 6043.333333333333,
+            "selfReportDisagreementRatio": 0
+          }
+        }
+      ],
+      "measured": {
+        "candidate": [
+          {
+            "id": "balanced-1080p30-hevc-candidate-rep-1",
+            "variant": "candidate",
+            "profile": "balanced-1080p30-hevc",
+            "rep": 1,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "balanced",
+              "--fps",
+              "30",
+              "--codec",
+              "hevc",
+              "--resolution",
+              "1080p",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/balanced-1080p30-hevc-candidate-rep-1",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7085,
+            "outputBytes": 3316898,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 3294194,
+              "estimated_bitrate_mbps": 4.392258644104004,
+              "frames": 178,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 550,
+              "finalizeMs": 55,
+              "recordingStartedAtMs": 1784707233560,
+              "durationElapsedAtMs": 1784707239562,
+              "terminalAtMs": 1784707239617
+            },
+            "processSummary": {
+              "sampleCount": 26,
+              "maxTotalCpuPercent": 12.1,
+              "p95TotalCpuPercent": 11,
+              "avgTotalCpuPercent": 3.6538461538461533,
+              "maxTotalRssBytes": 48644096,
+              "maxHelperCpuPercent": 12.1,
+              "maxHelperRssBytes": 44171264,
+              "maxDaemonCpuPercent": 0.1,
+              "maxDaemonRssBytes": 4472832
+            },
+            "decode": {
+              "codec": "hevc",
+              "dimensions": {
+                "width": 1920,
+                "height": 1080
+              },
+              "durationMs": 6045,
+              "frameCount": 178
+            },
+            "observed": {
+              "decodedFrames": 178,
+              "readableStimulusFrames": 178,
+              "uniqueStimulusFrames": 178,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                5108,
+                5110,
+                5112,
+                5114,
+                5116,
+                5118,
+                5120,
+                5122,
+                5124,
+                5126,
+                5128,
+                5130,
+                5132,
+                5134,
+                5136,
+                5138,
+                5140,
+                5142,
+                5143,
+                5145,
+                5147,
+                5149,
+                5151,
+                5153,
+                5155
+              ],
+              "effectiveFps": 29.426433915211973,
+              "stimulusAchievedFps": 59.600997506234414,
+              "captureCompleteness": 0.49372384937238495,
+              "maxInterFramePtsGapMs": 38.33333333333394,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6010,
+              "codec": "hevc",
+              "dimensions": {
+                "width": 1920,
+                "height": 1080
+              },
+              "durationMs": 6045,
+              "selfReportDisagreementRatio": 0
+            }
+          },
+          {
+            "id": "balanced-1080p30-hevc-candidate-rep-2",
+            "variant": "candidate",
+            "profile": "balanced-1080p30-hevc",
+            "rep": 2,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "balanced",
+              "--fps",
+              "30",
+              "--codec",
+              "hevc",
+              "--resolution",
+              "1080p",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/balanced-1080p30-hevc-candidate-rep-2",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7119,
+            "outputBytes": 3301425,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 3278893,
+              "estimated_bitrate_mbps": 4.371857643127441,
+              "frames": 178,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 619,
+              "finalizeMs": 55,
+              "recordingStartedAtMs": 1784707250350,
+              "durationElapsedAtMs": 1784707256351,
+              "terminalAtMs": 1784707256406
+            },
+            "processSummary": {
+              "sampleCount": 27,
+              "maxTotalCpuPercent": 13.6,
+              "p95TotalCpuPercent": 11,
+              "avgTotalCpuPercent": 3.6074074074074076,
+              "maxTotalRssBytes": 48611328,
+              "maxHelperCpuPercent": 13.6,
+              "maxHelperRssBytes": 44171264,
+              "maxDaemonCpuPercent": 0.2,
+              "maxDaemonRssBytes": 4440064
+            },
+            "decode": {
+              "codec": "hevc",
+              "dimensions": {
+                "width": 1920,
+                "height": 1080
+              },
+              "durationMs": 6030,
+              "frameCount": 178
+            },
+            "observed": {
+              "decodedFrames": 178,
+              "readableStimulusFrames": 178,
+              "uniqueStimulusFrames": 178,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                6115,
+                6117,
+                6119,
+                6121,
+                6123,
+                6125,
+                6126,
+                6128,
+                6130,
+                6132,
+                6134,
+                6136,
+                6138,
+                6140,
+                6142,
+                6144,
+                6146,
+                6148,
+                6150,
+                6152,
+                6154,
+                6156,
+                6158,
+                6160,
+                6162
+              ],
+              "effectiveFps": 29.52460383653044,
+              "stimulusAchievedFps": 59.54962468723936,
+              "captureCompleteness": 0.4957983193277311,
+              "maxInterFramePtsGapMs": 36.66666666666788,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 5996.666666666667,
+              "codec": "hevc",
+              "dimensions": {
+                "width": 1920,
+                "height": 1080
+              },
+              "durationMs": 6030,
+              "selfReportDisagreementRatio": 0
+            }
+          },
+          {
+            "id": "balanced-1080p30-hevc-candidate-rep-3",
+            "variant": "candidate",
+            "profile": "balanced-1080p30-hevc",
+            "rep": 3,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "balanced",
+              "--fps",
+              "30",
+              "--codec",
+              "hevc",
+              "--resolution",
+              "1080p",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/balanced-1080p30-hevc-candidate-rep-3",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7114,
+            "outputBytes": 3302399,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 3280167,
+              "estimated_bitrate_mbps": 4.373556137084961,
+              "frames": 178,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 561,
+              "finalizeMs": 55,
+              "recordingStartedAtMs": 1784707267284,
+              "durationElapsedAtMs": 1784707273288,
+              "terminalAtMs": 1784707273343
+            },
+            "processSummary": {
+              "sampleCount": 26,
+              "maxTotalCpuPercent": 13.6,
+              "p95TotalCpuPercent": 8.9,
+              "avgTotalCpuPercent": 3.526923076923077,
+              "maxTotalRssBytes": 48250880,
+              "maxHelperCpuPercent": 13.6,
+              "maxHelperRssBytes": 43859968,
+              "maxDaemonCpuPercent": 0.1,
+              "maxDaemonRssBytes": 4390912
+            },
+            "decode": {
+              "codec": "hevc",
+              "dimensions": {
+                "height": 1080,
+                "width": 1920
+              },
+              "durationMs": 6033.333333333333,
+              "frameCount": 178
+            },
+            "observed": {
+              "decodedFrames": 178,
+              "readableStimulusFrames": 178,
+              "uniqueStimulusFrames": 178,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                7131,
+                7133,
+                7135,
+                7137,
+                7139,
+                7141,
+                7143,
+                7145,
+                7147,
+                7149,
+                7151,
+                7153,
+                7154,
+                7156,
+                7158,
+                7160,
+                7162,
+                7164,
+                7166,
+                7168,
+                7170,
+                7172,
+                7174,
+                7176,
+                7178
+              ],
+              "effectiveFps": 29.5,
+              "stimulusAchievedFps": 59.75,
+              "captureCompleteness": 0.49372384937238495,
+              "maxInterFramePtsGapMs": 38.333333333333314,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6000,
+              "codec": "hevc",
+              "dimensions": {
+                "height": 1080,
+                "width": 1920
+              },
+              "durationMs": 6033.333333333333,
+              "selfReportDisagreementRatio": 0
+            }
+          }
+        ],
+        "reference": [
+          {
+            "id": "balanced-1080p30-hevc-reference-rep-1",
+            "variant": "reference",
+            "profile": "balanced-1080p30-hevc",
+            "rep": 1,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "balanced",
+              "--fps",
+              "30",
+              "--codec",
+              "hevc",
+              "--resolution",
+              "1080p",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/balanced-1080p30-hevc-reference-rep-1",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7109,
+            "outputBytes": 3303226,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 3280707,
+              "estimated_bitrate_mbps": 4.374276161193848,
+              "frames": 178,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 569,
+              "finalizeMs": 55,
+              "recordingStartedAtMs": 1784707241979,
+              "durationElapsedAtMs": 1784707247984,
+              "terminalAtMs": 1784707248039
+            },
+            "processSummary": {
+              "sampleCount": 26,
+              "maxTotalCpuPercent": 13.3,
+              "p95TotalCpuPercent": 12,
+              "avgTotalCpuPercent": 3.6384615384615384,
+              "maxTotalRssBytes": 48562176,
+              "maxHelperCpuPercent": 13.3,
+              "maxHelperRssBytes": 44122112,
+              "maxDaemonCpuPercent": 0,
+              "maxDaemonRssBytes": 4440064
+            },
+            "decode": {
+              "codec": "hevc",
+              "dimensions": {
+                "width": 1920,
+                "height": 1080
+              },
+              "durationMs": 6038.333333333333,
+              "frameCount": 178
+            },
+            "observed": {
+              "decodedFrames": 178,
+              "readableStimulusFrames": 178,
+              "uniqueStimulusFrames": 178,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                5613,
+                5615,
+                5617,
+                5619,
+                5621,
+                5623,
+                5625,
+                5627,
+                5629,
+                5631,
+                5633,
+                5635,
+                5637,
+                5639,
+                5641,
+                5642,
+                5644,
+                5646,
+                5648,
+                5650,
+                5652,
+                5654,
+                5656,
+                5658,
+                5660
+              ],
+              "effectiveFps": 29.475437135720234,
+              "stimulusAchievedFps": 59.700249791840136,
+              "captureCompleteness": 0.49372384937238495,
+              "maxInterFramePtsGapMs": 38.333333333333485,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6003.333333333333,
+              "codec": "hevc",
+              "dimensions": {
+                "width": 1920,
+                "height": 1080
+              },
+              "durationMs": 6038.333333333333,
+              "selfReportDisagreementRatio": 0
+            }
+          },
+          {
+            "id": "balanced-1080p30-hevc-reference-rep-2",
+            "variant": "reference",
+            "profile": "balanced-1080p30-hevc",
+            "rep": 2,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "balanced",
+              "--fps",
+              "30",
+              "--codec",
+              "hevc",
+              "--resolution",
+              "1080p",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/balanced-1080p30-hevc-reference-rep-2",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7179,
+            "outputBytes": 3300239,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 3277482,
+              "estimated_bitrate_mbps": 4.369976043701172,
+              "frames": 178,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 662,
+              "finalizeMs": 55,
+              "recordingStartedAtMs": 1784707258780,
+              "durationElapsedAtMs": 1784707264784,
+              "terminalAtMs": 1784707264839
+            },
+            "processSummary": {
+              "sampleCount": 27,
+              "maxTotalCpuPercent": 13.1,
+              "p95TotalCpuPercent": 12.3,
+              "avgTotalCpuPercent": 3.755555555555556,
+              "maxTotalRssBytes": 48463872,
+              "maxHelperCpuPercent": 13.1,
+              "maxHelperRssBytes": 44040192,
+              "maxDaemonCpuPercent": 0.1,
+              "maxDaemonRssBytes": 4423680
+            },
+            "decode": {
+              "codec": "hevc",
+              "dimensions": {
+                "width": 1920,
+                "height": 1080
+              },
+              "durationMs": 6036.666666666667,
+              "frameCount": 178
+            },
+            "observed": {
+              "decodedFrames": 178,
+              "readableStimulusFrames": 178,
+              "uniqueStimulusFrames": 178,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                6621,
+                6623,
+                6625,
+                6627,
+                6629,
+                6631,
+                6633,
+                6635,
+                6637,
+                6639,
+                6641,
+                6643,
+                6644,
+                6646,
+                6648,
+                6650,
+                6652,
+                6654,
+                6656,
+                6658,
+                6660,
+                6662,
+                6664,
+                6666,
+                6668
+              ],
+              "effectiveFps": 29.475437135720234,
+              "stimulusAchievedFps": 59.700249791840136,
+              "captureCompleteness": 0.49372384937238495,
+              "maxInterFramePtsGapMs": 36.66666666666697,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6003.333333333333,
+              "codec": "hevc",
+              "dimensions": {
+                "width": 1920,
+                "height": 1080
+              },
+              "durationMs": 6036.666666666667,
+              "selfReportDisagreementRatio": 0
+            }
+          },
+          {
+            "id": "balanced-1080p30-hevc-reference-rep-3",
+            "variant": "reference",
+            "profile": "balanced-1080p30-hevc",
+            "rep": 3,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "balanced",
+              "--fps",
+              "30",
+              "--codec",
+              "hevc",
+              "--resolution",
+              "1080p",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/balanced-1080p30-hevc-reference-rep-3",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7088,
+            "outputBytes": 3303627,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 3281416,
+              "estimated_bitrate_mbps": 4.3752217292785645,
+              "frames": 178,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 552,
+              "finalizeMs": 55,
+              "recordingStartedAtMs": 1784707275802,
+              "durationElapsedAtMs": 1784707281803,
+              "terminalAtMs": 1784707281858
+            },
+            "processSummary": {
+              "sampleCount": 26,
+              "maxTotalCpuPercent": 17.1,
+              "p95TotalCpuPercent": 9.4,
+              "avgTotalCpuPercent": 3.826923076923076,
+              "maxTotalRssBytes": 48594944,
+              "maxHelperCpuPercent": 17,
+              "maxHelperRssBytes": 44154880,
+              "maxDaemonCpuPercent": 0.1,
+              "maxDaemonRssBytes": 4440064
+            },
+            "decode": {
+              "codec": "hevc",
+              "dimensions": {
+                "height": 1080,
+                "width": 1920
+              },
+              "durationMs": 6040,
+              "frameCount": 178
+            },
+            "observed": {
+              "decodedFrames": 178,
+              "readableStimulusFrames": 178,
+              "uniqueStimulusFrames": 178,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                7642,
+                7644,
+                7646,
+                7648,
+                7650,
+                7652,
+                7654,
+                7656,
+                7657,
+                7659,
+                7661,
+                7663,
+                7665,
+                7667,
+                7669,
+                7671,
+                7673,
+                7675,
+                7677,
+                7679,
+                7681,
+                7683,
+                7685,
+                7687,
+                7689
+              ],
+              "effectiveFps": 29.450915141430947,
+              "stimulusAchievedFps": 59.90016638935108,
+              "captureCompleteness": 0.49166666666666664,
+              "maxInterFramePtsGapMs": 38.33333333333394,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6006.666666666667,
+              "codec": "hevc",
+              "dimensions": {
+                "height": 1080,
+                "width": 1920
+              },
+              "durationMs": 6040,
+              "selfReportDisagreementRatio": 0
+            }
+          }
+        ]
+      },
+      "capture": {
+        "outputBytes": 3302399,
+        "bitrateMbps": 4.373556137084961,
+        "selfReportedFrames": 178,
+        "selfReportedDroppedFrames": 0,
+        "selfReportedDropRatio": 0
+      },
+      "latency": {
+        "startMs": 561,
+        "finalizeMs": 55
+      },
+      "process": {
+        "avgTotalCpuPercent": 3.6074074074074076,
+        "p95TotalCpuPercent": 11,
+        "maxTotalCpuPercent": 13.6,
+        "maxTotalRssBytes": 48611328
+      },
+      "observed": {
+        "codec": "hevc",
+        "dimensions": {
+          "width": 1920,
+          "height": 1080
+        },
+        "decodedFrames": 178,
+        "uniqueStimulusFrames": 178,
+        "effectiveFps": 29.5,
+        "stimulusAchievedFps": 59.600997506234414,
+        "captureCompleteness": 0.49372384937238495,
+        "maxInterFramePtsGapMs": 38.33333333333394,
+        "ptsMonotonic": true,
+        "selfReportDisagreementRatio": 0
+      },
+      "reference": {
+        "capture": {
+          "outputBytes": 3303226,
+          "bitrateMbps": 4.374276161193848,
+          "selfReportedFrames": 178,
+          "selfReportedDroppedFrames": 0,
+          "selfReportedDropRatio": 0
+        },
+        "latency": {
+          "startMs": 569,
+          "finalizeMs": 55
+        },
+        "process": {
+          "avgTotalCpuPercent": 3.755555555555556,
+          "p95TotalCpuPercent": 12,
+          "maxTotalCpuPercent": 13.3,
+          "maxTotalRssBytes": 48562176
+        },
+        "observed": {
+          "codec": "hevc",
+          "dimensions": {
+            "width": 1920,
+            "height": 1080
+          },
+          "decodedFrames": 178,
+          "uniqueStimulusFrames": 178,
+          "effectiveFps": 29.475437135720234,
+          "stimulusAchievedFps": 59.700249791840136,
+          "captureCompleteness": 0.49372384937238495,
+          "maxInterFramePtsGapMs": 38.33333333333394,
+          "ptsMonotonic": true,
+          "selfReportDisagreementRatio": 0
+        }
+      },
+      "gates": [
+        {
+          "name": "observed_fps",
+          "threshold": ">= 29.1 fps (97% of min(target 30, stimulus 59.601))",
+          "measured": 29.5,
+          "status": "pass"
+        },
+        {
+          "name": "capture_completeness",
+          "threshold": "capture rate >= display rate",
+          "measured": 0.49372384937238495,
+          "status": "skipped",
+          "details": "profile captures slower than the stimulus displays; skipping every other frame is by design"
+        },
+        {
+          "name": "self_report_drop_ratio",
+          "threshold": "<= 0.50%",
+          "measured": 0,
+          "status": "pass"
+        },
+        {
+          "name": "max_pts_gap_ms",
+          "threshold": "<= 500 ms",
+          "measured": 38.33333333333394,
+          "status": "pass"
+        },
+        {
+          "name": "pts_monotonic",
+          "threshold": "true",
+          "measured": true,
+          "status": "pass"
+        },
+        {
+          "name": "codec_match",
+          "threshold": "hevc",
+          "measured": "hevc",
+          "status": "pass"
+        },
+        {
+          "name": "dimensions_match_request",
+          "threshold": "1920x1080",
+          "measured": "1920x1080",
+          "status": "pass"
+        },
+        {
+          "name": "self_report_disagreement",
+          "threshold": "<= 5%",
+          "measured": 0,
+          "status": "pass"
+        },
+        {
+          "name": "start_latency_ms",
+          "threshold": "<= 1500 ms",
+          "measured": 561,
+          "status": "pass"
+        },
+        {
+          "name": "finalize_latency_ms",
+          "threshold": "<= 3000 ms",
+          "measured": 55,
+          "status": "pass"
+        },
+        {
+          "name": "regression_cpu_avg",
+          "threshold": "candidate <= reference + 15% and <= reference + 3 %",
+          "measured": 3.6074074074074076,
+          "delta": -0.14814814814814836,
+          "deltaPercent": -3.944773175542412,
+          "status": "pass"
+        },
+        {
+          "name": "regression_cpu_p95",
+          "threshold": "candidate <= reference + 15% and <= reference + 3 %",
+          "measured": 11,
+          "delta": -1,
+          "deltaPercent": -8.333333333333332,
+          "status": "pass"
+        },
+        {
+          "name": "regression_max_rss",
+          "threshold": "candidate <= reference + 15% and <= reference + 20 MB",
+          "measured": 48611328,
+          "delta": 81920,
+          "deltaPercent": 0.16869095816464239,
+          "status": "pass"
+        },
+        {
+          "name": "regression_start_latency",
+          "threshold": "candidate <= reference + 15% and <= reference + 150 ms",
+          "measured": 561,
+          "delta": -19,
+          "deltaPercent": -3.3391915641476277,
+          "status": "pass"
+        },
+        {
+          "name": "regression_finalize_latency",
+          "threshold": "candidate <= reference + 15% and <= reference + 150 ms",
+          "measured": 55,
+          "delta": 0,
+          "deltaPercent": 0,
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "name": "high-native60-hevc",
+      "request": {
+        "name": "high-native60-hevc",
+        "quality": "high",
+        "resolution": "native",
+        "fps": 60,
+        "codec": "hevc",
+        "duration": "6s",
+        "durationMs": 6000,
+        "expectedDimensions": {
+          "width": 2560,
+          "height": 1440
+        }
+      },
+      "target": "window:6427",
+      "targetInfo": {
+        "id": 6427,
+        "kind": "window",
+        "name": "stimulus — wrec-bench-stimulus"
+      },
+      "status": "pass",
+      "warmups": [
+        {
+          "id": "high-native60-hevc-candidate-warmup",
+          "variant": "candidate",
+          "profile": "high-native60-hevc",
+          "rep": 0,
+          "warmup": true,
+          "command": [
+            "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+            "record",
+            "start",
+            "--target",
+            "window:6427",
+            "--quality",
+            "high",
+            "--fps",
+            "60",
+            "--codec",
+            "hevc",
+            "--resolution",
+            "native",
+            "--duration",
+            "6s",
+            "--out",
+            "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/high-native60-hevc-candidate-warmup",
+            "--json",
+            "--no-queue"
+          ],
+          "target": "window:6427",
+          "targetInfo": {
+            "id": 6427,
+            "kind": "window",
+            "name": "stimulus — wrec-bench-stimulus"
+          },
+          "exitCode": 0,
+          "elapsedMs": 7081,
+          "outputBytes": 8792201,
+          "lastMetrics": {
+            "elapsed_secs": 6,
+            "output_bytes": 8709367,
+            "estimated_bitrate_mbps": 11.612488746643066,
+            "frames": 350,
+            "dropped_frames": 0
+          },
+          "latency": {
+            "startMs": 566,
+            "finalizeMs": 55,
+            "recordingStartedAtMs": 1784707284115,
+            "durationElapsedAtMs": 1784707290120,
+            "terminalAtMs": 1784707290175
+          },
+          "processSummary": {
+            "sampleCount": 26,
+            "maxTotalCpuPercent": 12.8,
+            "p95TotalCpuPercent": 11.7,
+            "avgTotalCpuPercent": 4.288461538461538,
+            "maxTotalRssBytes": 48152576,
+            "maxHelperCpuPercent": 12.8,
+            "maxHelperRssBytes": 43876352,
+            "maxDaemonCpuPercent": 0.1,
+            "maxDaemonRssBytes": 4276224
+          },
+          "decode": {
+            "codec": "hevc",
+            "dimensions": {
+              "height": 1440,
+              "width": 2560
+            },
+            "durationMs": 6036.666666666667,
+            "frameCount": 350
+          },
+          "observed": {
+            "decodedFrames": 350,
+            "readableStimulusFrames": 350,
+            "uniqueStimulusFrames": 350,
+            "duplicateStimulusFrames": 0,
+            "missingStimulusIndices": [
+              8157,
+              8186,
+              8216,
+              8246,
+              8274,
+              8308,
+              8337,
+              8377,
+              8401,
+              8433,
+              8459,
+              8485
+            ],
+            "effectiveFps": 58.2330982994608,
+            "stimulusAchievedFps": 60.223973454997925,
+            "captureCompleteness": 0.9669421487603306,
+            "maxInterFramePtsGapMs": 20.000000000000014,
+            "ptsMonotonic": true,
+            "firstPtsMs": 0,
+            "lastPtsMs": 6018.333333333334,
+            "codec": "hevc",
+            "dimensions": {
+              "height": 1440,
+              "width": 2560
+            },
+            "durationMs": 6036.666666666667,
+            "selfReportDisagreementRatio": 0
+          }
+        },
+        {
+          "id": "high-native60-hevc-reference-warmup",
+          "variant": "reference",
+          "profile": "high-native60-hevc",
+          "rep": 0,
+          "warmup": true,
+          "command": [
+            "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+            "record",
+            "start",
+            "--target",
+            "window:6427",
+            "--quality",
+            "high",
+            "--fps",
+            "60",
+            "--codec",
+            "hevc",
+            "--resolution",
+            "native",
+            "--duration",
+            "6s",
+            "--out",
+            "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/high-native60-hevc-reference-warmup",
+            "--json",
+            "--no-queue"
+          ],
+          "target": "window:6427",
+          "targetInfo": {
+            "id": 6427,
+            "kind": "window",
+            "name": "stimulus — wrec-bench-stimulus"
+          },
+          "exitCode": 0,
+          "elapsedMs": 7123,
+          "outputBytes": 8785806,
+          "lastMetrics": {
+            "elapsed_secs": 6,
+            "output_bytes": 8676150,
+            "estimated_bitrate_mbps": 11.56820011138916,
+            "frames": 350,
+            "dropped_frames": 0
+          },
+          "latency": {
+            "startMs": 613,
+            "finalizeMs": 53,
+            "recordingStartedAtMs": 1784707293079,
+            "durationElapsedAtMs": 1784707299081,
+            "terminalAtMs": 1784707299134
+          },
+          "processSummary": {
+            "sampleCount": 26,
+            "maxTotalCpuPercent": 12.9,
+            "p95TotalCpuPercent": 11.4,
+            "avgTotalCpuPercent": 4.169230769230769,
+            "maxTotalRssBytes": 48594944,
+            "maxHelperCpuPercent": 12.9,
+            "maxHelperRssBytes": 44154880,
+            "maxDaemonCpuPercent": 0.1,
+            "maxDaemonRssBytes": 4456448
+          },
+          "decode": {
+            "codec": "hevc",
+            "dimensions": {
+              "height": 1440,
+              "width": 2560
+            },
+            "durationMs": 6033.333333333333,
+            "frameCount": 350
+          },
+          "observed": {
+            "decodedFrames": 350,
+            "readableStimulusFrames": 350,
+            "uniqueStimulusFrames": 350,
+            "duplicateStimulusFrames": 0,
+            "missingStimulusIndices": [
+              8697,
+              8730,
+              8755,
+              8784,
+              8812,
+              8842,
+              8867,
+              8895,
+              8927,
+              8962,
+              8994,
+              9028
+            ],
+            "effectiveFps": 58.032378580323794,
+            "stimulusAchievedFps": 60.02490660024907,
+            "captureCompleteness": 0.966804979253112,
+            "maxInterFramePtsGapMs": 20.00000000000091,
+            "ptsMonotonic": true,
+            "firstPtsMs": 0,
+            "lastPtsMs": 6015,
+            "codec": "hevc",
+            "dimensions": {
+              "height": 1440,
+              "width": 2560
+            },
+            "durationMs": 6033.333333333333,
+            "selfReportDisagreementRatio": 0
+          }
+        }
+      ],
+      "measured": {
+        "candidate": [
+          {
+            "id": "high-native60-hevc-candidate-rep-1",
+            "variant": "candidate",
+            "profile": "high-native60-hevc",
+            "rep": 1,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "high",
+              "--fps",
+              "60",
+              "--codec",
+              "hevc",
+              "--resolution",
+              "native",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/high-native60-hevc-candidate-rep-1",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7150,
+            "outputBytes": 8808357,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 8698991,
+              "estimated_bitrate_mbps": 11.598654747009277,
+              "frames": 350,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 673,
+              "finalizeMs": 51,
+              "recordingStartedAtMs": 1784707302151,
+              "durationElapsedAtMs": 1784707308153,
+              "terminalAtMs": 1784707308204
+            },
+            "processSummary": {
+              "sampleCount": 27,
+              "maxTotalCpuPercent": 15.7,
+              "p95TotalCpuPercent": 12.1,
+              "avgTotalCpuPercent": 4.181481481481483,
+              "maxTotalRssBytes": 48644096,
+              "maxHelperCpuPercent": 15.6,
+              "maxHelperRssBytes": 44171264,
+              "maxDaemonCpuPercent": 0.1,
+              "maxDaemonRssBytes": 4472832
+            },
+            "decode": {
+              "codec": "hevc",
+              "dimensions": {
+                "width": 2560,
+                "height": 1440
+              },
+              "durationMs": 6031.666666666666,
+              "frameCount": 350
+            },
+            "observed": {
+              "decodedFrames": 350,
+              "readableStimulusFrames": 350,
+              "uniqueStimulusFrames": 350,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                9232,
+                9260,
+                9286,
+                9315,
+                9345,
+                9379,
+                9408,
+                9435,
+                9463,
+                9498,
+                9531,
+                9564
+              ],
+              "effectiveFps": 58.032378580323794,
+              "stimulusAchievedFps": 60.02490660024907,
+              "captureCompleteness": 0.966804979253112,
+              "maxInterFramePtsGapMs": 20,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6015,
+              "codec": "hevc",
+              "dimensions": {
+                "width": 2560,
+                "height": 1440
+              },
+              "durationMs": 6031.666666666666,
+              "selfReportDisagreementRatio": 0
+            }
+          },
+          {
+            "id": "high-native60-hevc-candidate-rep-2",
+            "variant": "candidate",
+            "profile": "high-native60-hevc",
+            "rep": 2,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "high",
+              "--fps",
+              "60",
+              "--codec",
+              "hevc",
+              "--resolution",
+              "native",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/high-native60-hevc-candidate-rep-2",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7157,
+            "outputBytes": 8805079,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 8696814,
+              "estimated_bitrate_mbps": 11.595751762390137,
+              "frames": 349,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 676,
+              "finalizeMs": 54,
+              "recordingStartedAtMs": 1784707320214,
+              "durationElapsedAtMs": 1784707326216,
+              "terminalAtMs": 1784707326270
+            },
+            "processSummary": {
+              "sampleCount": 27,
+              "maxTotalCpuPercent": 12.5,
+              "p95TotalCpuPercent": 8.4,
+              "avgTotalCpuPercent": 4.062962962962962,
+              "maxTotalRssBytes": 48513024,
+              "maxHelperCpuPercent": 12.5,
+              "maxHelperRssBytes": 44072960,
+              "maxDaemonCpuPercent": 0.2,
+              "maxDaemonRssBytes": 4440064
+            },
+            "decode": {
+              "codec": "hevc",
+              "dimensions": {
+                "height": 1440,
+                "width": 2560
+              },
+              "durationMs": 6035,
+              "frameCount": 349
+            },
+            "observed": {
+              "decodedFrames": 349,
+              "readableStimulusFrames": 349,
+              "uniqueStimulusFrames": 349,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                10314,
+                10342,
+                10374,
+                10382,
+                10411,
+                10436,
+                10467,
+                10496,
+                10523,
+                10553,
+                10591,
+                10619,
+                10653
+              ],
+              "effectiveFps": 58.00829875518672,
+              "stimulusAchievedFps": 60.24896265560166,
+              "captureCompleteness": 0.9628099173553719,
+              "maxInterFramePtsGapMs": 30,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6016.666666666667,
+              "codec": "hevc",
+              "dimensions": {
+                "height": 1440,
+                "width": 2560
+              },
+              "durationMs": 6035,
+              "selfReportDisagreementRatio": 0
+            }
+          },
+          {
+            "id": "high-native60-hevc-candidate-rep-3",
+            "variant": "candidate",
+            "profile": "high-native60-hevc",
+            "rep": 3,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "high",
+              "--fps",
+              "60",
+              "--codec",
+              "hevc",
+              "--resolution",
+              "native",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/high-native60-hevc-candidate-rep-3",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7140,
+            "outputBytes": 8786122,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 8730077,
+              "estimated_bitrate_mbps": 11.640103340148926,
+              "frames": 349,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 609,
+              "finalizeMs": 51,
+              "recordingStartedAtMs": 1784707338001,
+              "durationElapsedAtMs": 1784707344005,
+              "terminalAtMs": 1784707344056
+            },
+            "processSummary": {
+              "sampleCount": 27,
+              "maxTotalCpuPercent": 12.8,
+              "p95TotalCpuPercent": 11.9,
+              "avgTotalCpuPercent": 4.148148148148148,
+              "maxTotalRssBytes": 48283648,
+              "maxHelperCpuPercent": 12.8,
+              "maxHelperRssBytes": 43941888,
+              "maxDaemonCpuPercent": 0.1,
+              "maxDaemonRssBytes": 4341760
+            },
+            "decode": {
+              "codec": "hevc",
+              "dimensions": {
+                "width": 2560,
+                "height": 1440
+              },
+              "durationMs": 6021.666666666666,
+              "frameCount": 349
+            },
+            "observed": {
+              "decodedFrames": 349,
+              "readableStimulusFrames": 349,
+              "uniqueStimulusFrames": 349,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                11377,
+                11399,
+                11425,
+                11450,
+                11483,
+                11518,
+                11551,
+                11582,
+                11608,
+                11638,
+                11664,
+                11695,
+                11729
+              ],
+              "effectiveFps": 57.927590511860174,
+              "stimulusAchievedFps": 59.925093632958806,
+              "captureCompleteness": 0.9666666666666667,
+              "maxInterFramePtsGapMs": 20.00000000000091,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6005,
+              "codec": "hevc",
+              "dimensions": {
+                "width": 2560,
+                "height": 1440
+              },
+              "durationMs": 6021.666666666666,
+              "selfReportDisagreementRatio": 0
+            }
+          }
+        ],
+        "reference": [
+          {
+            "id": "high-native60-hevc-reference-rep-1",
+            "variant": "reference",
+            "profile": "high-native60-hevc",
+            "rep": 1,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "high",
+              "--fps",
+              "60",
+              "--codec",
+              "hevc",
+              "--resolution",
+              "native",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/high-native60-hevc-reference-rep-1",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7093,
+            "outputBytes": 8818791,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 8704443,
+              "estimated_bitrate_mbps": 11.605923652648926,
+              "frames": 350,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 559,
+              "finalizeMs": 55,
+              "recordingStartedAtMs": 1784707311235,
+              "durationElapsedAtMs": 1784707317236,
+              "terminalAtMs": 1784707317291
+            },
+            "processSummary": {
+              "sampleCount": 26,
+              "maxTotalCpuPercent": 15.4,
+              "p95TotalCpuPercent": 10.5,
+              "avgTotalCpuPercent": 4.065384615384617,
+              "maxTotalRssBytes": 48398336,
+              "maxHelperCpuPercent": 15.4,
+              "maxHelperRssBytes": 43941888,
+              "maxDaemonCpuPercent": 0.2,
+              "maxDaemonRssBytes": 4472832
+            },
+            "decode": {
+              "codec": "hevc",
+              "dimensions": {
+                "width": 2560,
+                "height": 1440
+              },
+              "durationMs": 6031.666666666666,
+              "frameCount": 350
+            },
+            "observed": {
+              "decodedFrames": 350,
+              "readableStimulusFrames": 350,
+              "uniqueStimulusFrames": 350,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                9775,
+                9807,
+                9834,
+                9868,
+                9900,
+                9933,
+                9963,
+                9995,
+                10019,
+                10047,
+                10080,
+                10111
+              ],
+              "effectiveFps": 58.28144458281445,
+              "stimulusAchievedFps": 60.27397260273973,
+              "captureCompleteness": 0.9669421487603306,
+              "maxInterFramePtsGapMs": 20,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6015,
+              "codec": "hevc",
+              "dimensions": {
+                "width": 2560,
+                "height": 1440
+              },
+              "durationMs": 6031.666666666666,
+              "selfReportDisagreementRatio": 0
+            }
+          },
+          {
+            "id": "high-native60-hevc-reference-rep-2",
+            "variant": "reference",
+            "profile": "high-native60-hevc",
+            "rep": 2,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "high",
+              "--fps",
+              "60",
+              "--codec",
+              "hevc",
+              "--resolution",
+              "native",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/high-native60-hevc-reference-rep-2",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7141,
+            "outputBytes": 8855722,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 8743302,
+              "estimated_bitrate_mbps": 11.657735824584961,
+              "frames": 350,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 608,
+              "finalizeMs": 54,
+              "recordingStartedAtMs": 1784707329195,
+              "durationElapsedAtMs": 1784707335198,
+              "terminalAtMs": 1784707335252
+            },
+            "processSummary": {
+              "sampleCount": 26,
+              "maxTotalCpuPercent": 13,
+              "p95TotalCpuPercent": 10.9,
+              "avgTotalCpuPercent": 4.207692307692308,
+              "maxTotalRssBytes": 48562176,
+              "maxHelperCpuPercent": 13,
+              "maxHelperRssBytes": 44122112,
+              "maxDaemonCpuPercent": 0.1,
+              "maxDaemonRssBytes": 4440064
+            },
+            "decode": {
+              "codec": "hevc",
+              "dimensions": {
+                "height": 1440,
+                "width": 2560
+              },
+              "durationMs": 6036.666666666667,
+              "frameCount": 350
+            },
+            "observed": {
+              "decodedFrames": 350,
+              "readableStimulusFrames": 350,
+              "uniqueStimulusFrames": 350,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                10860,
+                10893,
+                10916,
+                10948,
+                10975,
+                11005,
+                11033,
+                11062,
+                11091,
+                11129,
+                11160,
+                11189
+              ],
+              "effectiveFps": 58.2330982994608,
+              "stimulusAchievedFps": 60.223973454997925,
+              "captureCompleteness": 0.9669421487603306,
+              "maxInterFramePtsGapMs": 20.00000000000091,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6018.333333333334,
+              "codec": "hevc",
+              "dimensions": {
+                "height": 1440,
+                "width": 2560
+              },
+              "durationMs": 6036.666666666667,
+              "selfReportDisagreementRatio": 0
+            }
+          },
+          {
+            "id": "high-native60-hevc-reference-rep-3",
+            "variant": "reference",
+            "profile": "high-native60-hevc",
+            "rep": 3,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "high",
+              "--fps",
+              "60",
+              "--codec",
+              "hevc",
+              "--resolution",
+              "native",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/high-native60-hevc-reference-rep-3",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7054,
+            "outputBytes": 8875748,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 8732484,
+              "estimated_bitrate_mbps": 11.643312454223633,
+              "frames": 350,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 757,
+              "finalizeMs": 52,
+              "recordingStartedAtMs": 1784707347324,
+              "durationElapsedAtMs": 1784707353328,
+              "terminalAtMs": 1784707353380
+            },
+            "processSummary": {
+              "sampleCount": 26,
+              "maxTotalCpuPercent": 20.5,
+              "p95TotalCpuPercent": 13.6,
+              "avgTotalCpuPercent": 5.615384615384617,
+              "maxTotalRssBytes": 46448640,
+              "maxHelperCpuPercent": 20.4,
+              "maxHelperRssBytes": 42418176,
+              "maxDaemonCpuPercent": 0.1,
+              "maxDaemonRssBytes": 4112384
+            },
+            "decode": {
+              "codec": "hevc",
+              "dimensions": {
+                "height": 1440,
+                "width": 2560
+              },
+              "durationMs": 6048.333333333333,
+              "frameCount": 350
+            },
+            "observed": {
+              "decodedFrames": 350,
+              "readableStimulusFrames": 350,
+              "uniqueStimulusFrames": 350,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                11935,
+                11936,
+                11957,
+                11987,
+                12015,
+                12046,
+                12080,
+                12112,
+                12146,
+                12179,
+                12208,
+                12239,
+                12271
+              ],
+              "effectiveFps": 58.264462809917354,
+              "stimulusAchievedFps": 60,
+              "captureCompleteness": 0.9710743801652892,
+              "maxInterFramePtsGapMs": 38.333333333333336,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6033.333333333333,
+              "codec": "hevc",
+              "dimensions": {
+                "height": 1440,
+                "width": 2560
+              },
+              "durationMs": 6048.333333333333,
+              "selfReportDisagreementRatio": 0
+            }
+          }
+        ]
+      },
+      "capture": {
+        "outputBytes": 8805079,
+        "bitrateMbps": 11.598654747009277,
+        "selfReportedFrames": 349,
+        "selfReportedDroppedFrames": 0,
+        "selfReportedDropRatio": 0
+      },
+      "latency": {
+        "startMs": 673,
+        "finalizeMs": 51
+      },
+      "process": {
+        "avgTotalCpuPercent": 4.148148148148148,
+        "p95TotalCpuPercent": 11.9,
+        "maxTotalCpuPercent": 12.8,
+        "maxTotalRssBytes": 48513024
+      },
+      "observed": {
+        "codec": "hevc",
+        "dimensions": {
+          "width": 2560,
+          "height": 1440
+        },
+        "decodedFrames": 349,
+        "uniqueStimulusFrames": 349,
+        "effectiveFps": 58.00829875518672,
+        "stimulusAchievedFps": 60.02490660024907,
+        "captureCompleteness": 0.9666666666666667,
+        "maxInterFramePtsGapMs": 30,
+        "ptsMonotonic": true,
+        "selfReportDisagreementRatio": 0
+      },
+      "reference": {
+        "capture": {
+          "outputBytes": 8855722,
+          "bitrateMbps": 11.643312454223633,
+          "selfReportedFrames": 350,
+          "selfReportedDroppedFrames": 0,
+          "selfReportedDropRatio": 0
+        },
+        "latency": {
+          "startMs": 608,
+          "finalizeMs": 54
+        },
+        "process": {
+          "avgTotalCpuPercent": 4.207692307692308,
+          "p95TotalCpuPercent": 10.9,
+          "maxTotalCpuPercent": 15.4,
+          "maxTotalRssBytes": 48398336
+        },
+        "observed": {
+          "codec": "hevc",
+          "dimensions": {
+            "width": 2560,
+            "height": 1440
+          },
+          "decodedFrames": 350,
+          "uniqueStimulusFrames": 350,
+          "effectiveFps": 58.264462809917354,
+          "stimulusAchievedFps": 60.223973454997925,
+          "captureCompleteness": 0.9669421487603306,
+          "maxInterFramePtsGapMs": 38.333333333333336,
+          "ptsMonotonic": true,
+          "selfReportDisagreementRatio": 0
+        }
+      },
+      "gates": [
+        {
+          "name": "observed_fps",
+          "threshold": ">= 57 fps (95% of min(target 60, stimulus 60.025))",
+          "measured": 58.00829875518672,
+          "status": "pass"
+        },
+        {
+          "name": "capture_completeness",
+          "threshold": ">= 95% of displayed frames",
+          "measured": 0.9666666666666667,
+          "status": "pass"
+        },
+        {
+          "name": "self_report_drop_ratio",
+          "threshold": "<= 1.00%",
+          "measured": 0,
+          "status": "pass"
+        },
+        {
+          "name": "max_pts_gap_ms",
+          "threshold": "<= 500 ms",
+          "measured": 30,
+          "status": "pass"
+        },
+        {
+          "name": "pts_monotonic",
+          "threshold": "true",
+          "measured": true,
+          "status": "pass"
+        },
+        {
+          "name": "codec_match",
+          "threshold": "hevc",
+          "measured": "hevc",
+          "status": "pass"
+        },
+        {
+          "name": "dimensions_match_request",
+          "threshold": "2560x1440",
+          "measured": "2560x1440",
+          "status": "pass"
+        },
+        {
+          "name": "self_report_disagreement",
+          "threshold": "<= 5%",
+          "measured": 0,
+          "status": "pass"
+        },
+        {
+          "name": "start_latency_ms",
+          "threshold": "<= 1500 ms",
+          "measured": 673,
+          "status": "pass"
+        },
+        {
+          "name": "finalize_latency_ms",
+          "threshold": "<= 5000 ms",
+          "measured": 51,
+          "status": "pass"
+        },
+        {
+          "name": "regression_cpu_avg",
+          "threshold": "candidate <= reference + 15% and <= reference + 3 %",
+          "measured": 4.148148148148148,
+          "delta": -0.1447293447293454,
+          "deltaPercent": -3.4396370776626877,
+          "status": "pass"
+        },
+        {
+          "name": "regression_cpu_p95",
+          "threshold": "candidate <= reference + 15% and <= reference + 3 %",
+          "measured": 11.9,
+          "delta": -1.6999999999999993,
+          "deltaPercent": -15.59633027522935,
+          "status": "pass"
+        },
+        {
+          "name": "regression_max_rss",
+          "threshold": "candidate <= reference + 15% and <= reference + 20 MB",
+          "measured": 48513024,
+          "delta": 245760,
+          "deltaPercent": 0.5077860528097494,
+          "status": "pass"
+        },
+        {
+          "name": "regression_start_latency",
+          "threshold": "candidate <= reference + 15% and <= reference + 150 ms",
+          "measured": 673,
+          "delta": 68,
+          "deltaPercent": 11.18421052631579,
+          "status": "pass"
+        },
+        {
+          "name": "regression_finalize_latency",
+          "threshold": "candidate <= reference + 15% and <= reference + 150 ms",
+          "measured": 51,
+          "delta": -1,
+          "deltaPercent": -1.8518518518518516,
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "name": "balanced-1080p30-h264",
+      "request": {
+        "name": "balanced-1080p30-h264",
+        "quality": "balanced",
+        "resolution": "1080p",
+        "fps": 30,
+        "codec": "h264",
+        "duration": "6s",
+        "durationMs": 6000,
+        "expectedDimensions": {
+          "width": 1920,
+          "height": 1080
+        }
+      },
+      "target": "window:6427",
+      "targetInfo": {
+        "id": 6427,
+        "kind": "window",
+        "name": "stimulus — wrec-bench-stimulus"
+      },
+      "status": "pass",
+      "warmups": [
+        {
+          "id": "balanced-1080p30-h264-candidate-warmup",
+          "variant": "candidate",
+          "profile": "balanced-1080p30-h264",
+          "rep": 0,
+          "warmup": true,
+          "command": [
+            "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+            "record",
+            "start",
+            "--target",
+            "window:6427",
+            "--quality",
+            "balanced",
+            "--fps",
+            "30",
+            "--codec",
+            "h264",
+            "--resolution",
+            "1080p",
+            "--duration",
+            "6s",
+            "--out",
+            "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/balanced-1080p30-h264-candidate-warmup",
+            "--json",
+            "--no-queue"
+          ],
+          "target": "window:6427",
+          "targetInfo": {
+            "id": 6427,
+            "kind": "window",
+            "name": "stimulus — wrec-bench-stimulus"
+          },
+          "exitCode": 0,
+          "elapsedMs": 7094,
+          "outputBytes": 4473203,
+          "lastMetrics": {
+            "elapsed_secs": 6,
+            "output_bytes": 4442386,
+            "estimated_bitrate_mbps": 5.923181533813477,
+            "frames": 178,
+            "dropped_frames": 0
+          },
+          "latency": {
+            "startMs": 542,
+            "finalizeMs": 51,
+            "recordingStartedAtMs": 1784707355984,
+            "durationElapsedAtMs": 1784707361986,
+            "terminalAtMs": 1784707362037
+          },
+          "processSummary": {
+            "sampleCount": 26,
+            "maxTotalCpuPercent": 12.3,
+            "p95TotalCpuPercent": 8.9,
+            "avgTotalCpuPercent": 3.3692307692307684,
+            "maxTotalRssBytes": 48185344,
+            "maxHelperCpuPercent": 12.3,
+            "maxHelperRssBytes": 43941888,
+            "maxDaemonCpuPercent": 0.1,
+            "maxDaemonRssBytes": 4259840
+          },
+          "decode": {
+            "codec": "h264",
+            "dimensions": {
+              "height": 1080,
+              "width": 1920
+            },
+            "durationMs": 6040,
+            "frameCount": 178
+          },
+          "observed": {
+            "decodedFrames": 178,
+            "readableStimulusFrames": 178,
+            "uniqueStimulusFrames": 178,
+            "duplicateStimulusFrames": 0,
+            "missingStimulusIndices": [
+              12453,
+              12455,
+              12457,
+              12459,
+              12461,
+              12463,
+              12465,
+              12467,
+              12469,
+              12471,
+              12473,
+              12475,
+              12477,
+              12479,
+              12481,
+              12483,
+              12485,
+              12487,
+              12489,
+              12490,
+              12492,
+              12494,
+              12496,
+              12498,
+              12500
+            ],
+            "effectiveFps": 29.450915141430947,
+            "stimulusAchievedFps": 59.650582362728784,
+            "captureCompleteness": 0.49372384937238495,
+            "maxInterFramePtsGapMs": 36.66666666666697,
+            "ptsMonotonic": true,
+            "firstPtsMs": 0,
+            "lastPtsMs": 6006.666666666667,
+            "codec": "h264",
+            "dimensions": {
+              "height": 1080,
+              "width": 1920
+            },
+            "durationMs": 6040,
+            "selfReportDisagreementRatio": 0
+          }
+        },
+        {
+          "id": "balanced-1080p30-h264-reference-warmup",
+          "variant": "reference",
+          "profile": "balanced-1080p30-h264",
+          "rep": 0,
+          "warmup": true,
+          "command": [
+            "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+            "record",
+            "start",
+            "--target",
+            "window:6427",
+            "--quality",
+            "balanced",
+            "--fps",
+            "30",
+            "--codec",
+            "h264",
+            "--resolution",
+            "1080p",
+            "--duration",
+            "6s",
+            "--out",
+            "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/balanced-1080p30-h264-reference-warmup",
+            "--json",
+            "--no-queue"
+          ],
+          "target": "window:6427",
+          "targetInfo": {
+            "id": 6427,
+            "kind": "window",
+            "name": "stimulus — wrec-bench-stimulus"
+          },
+          "exitCode": 0,
+          "elapsedMs": 7093,
+          "outputBytes": 4464639,
+          "lastMetrics": {
+            "elapsed_secs": 6,
+            "output_bytes": 4437106,
+            "estimated_bitrate_mbps": 5.916141510009766,
+            "frames": 178,
+            "dropped_frames": 0
+          },
+          "latency": {
+            "startMs": 561,
+            "finalizeMs": 55,
+            "recordingStartedAtMs": 1784707364305,
+            "durationElapsedAtMs": 1784707370306,
+            "terminalAtMs": 1784707370361
+          },
+          "processSummary": {
+            "sampleCount": 26,
+            "maxTotalCpuPercent": 12.8,
+            "p95TotalCpuPercent": 11,
+            "avgTotalCpuPercent": 3.6115384615384616,
+            "maxTotalRssBytes": 48119808,
+            "maxHelperCpuPercent": 12.8,
+            "maxHelperRssBytes": 43892736,
+            "maxDaemonCpuPercent": 0.1,
+            "maxDaemonRssBytes": 4227072
+          },
+          "decode": {
+            "codec": "h264",
+            "dimensions": {
+              "height": 1080,
+              "width": 1920
+            },
+            "durationMs": 6031.666666666666,
+            "frameCount": 178
+          },
+          "observed": {
+            "decodedFrames": 178,
+            "readableStimulusFrames": 178,
+            "uniqueStimulusFrames": 178,
+            "duplicateStimulusFrames": 0,
+            "missingStimulusIndices": [
+              12952,
+              12954,
+              12956,
+              12958,
+              12960,
+              12962,
+              12964,
+              12966,
+              12968,
+              12970,
+              12972,
+              12973,
+              12975,
+              12977,
+              12979,
+              12981,
+              12983,
+              12985,
+              12987,
+              12989,
+              12991,
+              12993,
+              12995,
+              12997,
+              12999
+            ],
+            "effectiveFps": 29.512296790329305,
+            "stimulusAchievedFps": 59.77490621092122,
+            "captureCompleteness": 0.49372384937238495,
+            "maxInterFramePtsGapMs": 36.66666666666697,
+            "ptsMonotonic": true,
+            "firstPtsMs": 0,
+            "lastPtsMs": 5998.333333333333,
+            "codec": "h264",
+            "dimensions": {
+              "height": 1080,
+              "width": 1920
+            },
+            "durationMs": 6031.666666666666,
+            "selfReportDisagreementRatio": 0
+          }
+        }
+      ],
+      "measured": {
+        "candidate": [
+          {
+            "id": "balanced-1080p30-h264-candidate-rep-1",
+            "variant": "candidate",
+            "profile": "balanced-1080p30-h264",
+            "rep": 1,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "balanced",
+              "--fps",
+              "30",
+              "--codec",
+              "h264",
+              "--resolution",
+              "1080p",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/balanced-1080p30-h264-candidate-rep-1",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7189,
+            "outputBytes": 4472225,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 4442029,
+              "estimated_bitrate_mbps": 5.92270565032959,
+              "frames": 178,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 636,
+              "finalizeMs": 53,
+              "recordingStartedAtMs": 1784707372618,
+              "durationElapsedAtMs": 1784707378622,
+              "terminalAtMs": 1784707378675
+            },
+            "processSummary": {
+              "sampleCount": 26,
+              "maxTotalCpuPercent": 13.1,
+              "p95TotalCpuPercent": 12.3,
+              "avgTotalCpuPercent": 3.7384615384615385,
+              "maxTotalRssBytes": 48267264,
+              "maxHelperCpuPercent": 13.1,
+              "maxHelperRssBytes": 43974656,
+              "maxDaemonCpuPercent": 0.1,
+              "maxDaemonRssBytes": 4308992
+            },
+            "decode": {
+              "codec": "h264",
+              "dimensions": {
+                "width": 1920,
+                "height": 1080
+              },
+              "durationMs": 6035,
+              "frameCount": 178
+            },
+            "observed": {
+              "decodedFrames": 178,
+              "readableStimulusFrames": 178,
+              "uniqueStimulusFrames": 178,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                13451,
+                13453,
+                13455,
+                13457,
+                13459,
+                13461,
+                13463,
+                13465,
+                13467,
+                13469,
+                13471,
+                13473,
+                13475,
+                13477,
+                13479,
+                13481,
+                13483,
+                13485,
+                13487,
+                13489,
+                13491,
+                13492,
+                13494,
+                13496,
+                13498
+              ],
+              "effectiveFps": 29.487713452728027,
+              "stimulusAchievedFps": 59.72511453561016,
+              "captureCompleteness": 0.49372384937238495,
+              "maxInterFramePtsGapMs": 38.33333333333303,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6001.666666666667,
+              "codec": "h264",
+              "dimensions": {
+                "width": 1920,
+                "height": 1080
+              },
+              "durationMs": 6035,
+              "selfReportDisagreementRatio": 0
+            }
+          },
+          {
+            "id": "balanced-1080p30-h264-candidate-rep-2",
+            "variant": "candidate",
+            "profile": "balanced-1080p30-h264",
+            "rep": 2,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "balanced",
+              "--fps",
+              "30",
+              "--codec",
+              "h264",
+              "--resolution",
+              "1080p",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/balanced-1080p30-h264-candidate-rep-2",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7105,
+            "outputBytes": 4457279,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 4426416,
+              "estimated_bitrate_mbps": 5.901887893676758,
+              "frames": 178,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 539,
+              "finalizeMs": 53,
+              "recordingStartedAtMs": 1784707389548,
+              "durationElapsedAtMs": 1784707395552,
+              "terminalAtMs": 1784707395605
+            },
+            "processSummary": {
+              "sampleCount": 26,
+              "maxTotalCpuPercent": 16.700000000000003,
+              "p95TotalCpuPercent": 8.9,
+              "avgTotalCpuPercent": 3.6384615384615384,
+              "maxTotalRssBytes": 47939584,
+              "maxHelperCpuPercent": 16.6,
+              "maxHelperRssBytes": 43712512,
+              "maxDaemonCpuPercent": 0.1,
+              "maxDaemonRssBytes": 4227072
+            },
+            "decode": {
+              "codec": "h264",
+              "dimensions": {
+                "width": 1920,
+                "height": 1080
+              },
+              "durationMs": 6031.666666666666,
+              "frameCount": 178
+            },
+            "observed": {
+              "decodedFrames": 178,
+              "readableStimulusFrames": 178,
+              "uniqueStimulusFrames": 178,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                14467,
+                14469,
+                14471,
+                14473,
+                14475,
+                14477,
+                14479,
+                14481,
+                14483,
+                14485,
+                14487,
+                14489,
+                14491,
+                14493,
+                14495,
+                14497,
+                14499,
+                14501,
+                14503,
+                14505,
+                14506,
+                14508,
+                14510,
+                14512,
+                14514
+              ],
+              "effectiveFps": 29.512296790329305,
+              "stimulusAchievedFps": 59.77490621092122,
+              "captureCompleteness": 0.49372384937238495,
+              "maxInterFramePtsGapMs": 36.66666666666697,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 5998.333333333333,
+              "codec": "h264",
+              "dimensions": {
+                "width": 1920,
+                "height": 1080
+              },
+              "durationMs": 6031.666666666666,
+              "selfReportDisagreementRatio": 0
+            }
+          },
+          {
+            "id": "balanced-1080p30-h264-candidate-rep-3",
+            "variant": "candidate",
+            "profile": "balanced-1080p30-h264",
+            "rep": 3,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "balanced",
+              "--fps",
+              "30",
+              "--codec",
+              "h264",
+              "--resolution",
+              "1080p",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/balanced-1080p30-h264-candidate-rep-3",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7099,
+            "outputBytes": 4484679,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 4428000,
+              "estimated_bitrate_mbps": 5.9039998054504395,
+              "frames": 179,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 557,
+              "finalizeMs": 50,
+              "recordingStartedAtMs": 1784707406395,
+              "durationElapsedAtMs": 1784707412396,
+              "terminalAtMs": 1784707412446
+            },
+            "processSummary": {
+              "sampleCount": 26,
+              "maxTotalCpuPercent": 12.4,
+              "p95TotalCpuPercent": 10.9,
+              "avgTotalCpuPercent": 3.5153846153846158,
+              "maxTotalRssBytes": 48414720,
+              "maxHelperCpuPercent": 12.3,
+              "maxHelperRssBytes": 43941888,
+              "maxDaemonCpuPercent": 0.1,
+              "maxDaemonRssBytes": 4489216
+            },
+            "decode": {
+              "codec": "h264",
+              "dimensions": {
+                "width": 1920,
+                "height": 1080
+              },
+              "durationMs": 6063.333333333333,
+              "frameCount": 179
+            },
+            "observed": {
+              "decodedFrames": 179,
+              "readableStimulusFrames": 179,
+              "uniqueStimulusFrames": 179,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                15477,
+                15479,
+                15481,
+                15483,
+                15485,
+                15487,
+                15489,
+                15491,
+                15492,
+                15494,
+                15496,
+                15498,
+                15500,
+                15502,
+                15504,
+                15506,
+                15508,
+                15510,
+                15512,
+                15514,
+                15516,
+                15518,
+                15520,
+                15522,
+                15524
+              ],
+              "effectiveFps": 29.540752999586264,
+              "stimulusAchievedFps": 59.826230864708315,
+              "captureCompleteness": 0.49377593360995853,
+              "maxInterFramePtsGapMs": 38.333333333333485,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6028.333333333333,
+              "codec": "h264",
+              "dimensions": {
+                "width": 1920,
+                "height": 1080
+              },
+              "durationMs": 6063.333333333333,
+              "selfReportDisagreementRatio": 0
+            }
+          }
+        ],
+        "reference": [
+          {
+            "id": "balanced-1080p30-h264-reference-rep-1",
+            "variant": "reference",
+            "profile": "balanced-1080p30-h264",
+            "rep": 1,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "balanced",
+              "--fps",
+              "30",
+              "--codec",
+              "h264",
+              "--resolution",
+              "1080p",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/balanced-1080p30-h264-reference-rep-1",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7147,
+            "outputBytes": 4467168,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 4436182,
+              "estimated_bitrate_mbps": 5.914909362792969,
+              "frames": 178,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 604,
+              "finalizeMs": 50,
+              "recordingStartedAtMs": 1784707380938,
+              "durationElapsedAtMs": 1784707386940,
+              "terminalAtMs": 1784707386990
+            },
+            "processSummary": {
+              "sampleCount": 27,
+              "maxTotalCpuPercent": 10.2,
+              "p95TotalCpuPercent": 9.1,
+              "avgTotalCpuPercent": 3.5666666666666664,
+              "maxTotalRssBytes": 48103424,
+              "maxHelperCpuPercent": 10.2,
+              "maxHelperRssBytes": 43810816,
+              "maxDaemonCpuPercent": 0.2,
+              "maxDaemonRssBytes": 4292608
+            },
+            "decode": {
+              "codec": "h264",
+              "dimensions": {
+                "width": 1920,
+                "height": 1080
+              },
+              "durationMs": 6036.666666666667,
+              "frameCount": 178
+            },
+            "observed": {
+              "decodedFrames": 178,
+              "readableStimulusFrames": 178,
+              "uniqueStimulusFrames": 178,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                13950,
+                13952,
+                13954,
+                13956,
+                13958,
+                13960,
+                13962,
+                13964,
+                13966,
+                13968,
+                13970,
+                13972,
+                13974,
+                13976,
+                13977,
+                13979,
+                13981,
+                13983,
+                13985,
+                13987,
+                13989,
+                13991,
+                13993,
+                13995,
+                13997
+              ],
+              "effectiveFps": 29.475437135720234,
+              "stimulusAchievedFps": 59.700249791840136,
+              "captureCompleteness": 0.49372384937238495,
+              "maxInterFramePtsGapMs": 36.66666666666697,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6003.333333333333,
+              "codec": "h264",
+              "dimensions": {
+                "width": 1920,
+                "height": 1080
+              },
+              "durationMs": 6036.666666666667,
+              "selfReportDisagreementRatio": 0
+            }
+          },
+          {
+            "id": "balanced-1080p30-h264-reference-rep-2",
+            "variant": "reference",
+            "profile": "balanced-1080p30-h264",
+            "rep": 2,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "balanced",
+              "--fps",
+              "30",
+              "--codec",
+              "h264",
+              "--resolution",
+              "1080p",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/balanced-1080p30-h264-reference-rep-2",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 6994,
+            "outputBytes": 4476737,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 4425735,
+              "estimated_bitrate_mbps": 5.900979995727539,
+              "frames": 179,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 591,
+              "finalizeMs": 55,
+              "recordingStartedAtMs": 1784707398137,
+              "durationElapsedAtMs": 1784707404139,
+              "terminalAtMs": 1784707404194
+            },
+            "processSummary": {
+              "sampleCount": 26,
+              "maxTotalCpuPercent": 13.8,
+              "p95TotalCpuPercent": 11.4,
+              "avgTotalCpuPercent": 3.826923076923077,
+              "maxTotalRssBytes": 46071808,
+              "maxHelperCpuPercent": 13.8,
+              "maxHelperRssBytes": 42156032,
+              "maxDaemonCpuPercent": 0.1,
+              "maxDaemonRssBytes": 4194304
+            },
+            "decode": {
+              "codec": "h264",
+              "dimensions": {
+                "height": 1080,
+                "width": 1920
+              },
+              "durationMs": 6073.333333333333,
+              "frameCount": 179
+            },
+            "observed": {
+              "decodedFrames": 179,
+              "readableStimulusFrames": 179,
+              "uniqueStimulusFrames": 179,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                14981,
+                14983,
+                14985,
+                14987,
+                14989,
+                14991,
+                14993,
+                14995,
+                14996,
+                14998,
+                15000,
+                15002,
+                15004,
+                15006,
+                15008,
+                15010,
+                15012,
+                15014,
+                15016,
+                15018,
+                15020,
+                15022,
+                15024,
+                15026,
+                15028
+              ],
+              "effectiveFps": 29.455445544554454,
+              "stimulusAchievedFps": 59.9009900990099,
+              "captureCompleteness": 0.49173553719008267,
+              "maxInterFramePtsGapMs": 38.333333333332575,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6040,
+              "codec": "h264",
+              "dimensions": {
+                "height": 1080,
+                "width": 1920
+              },
+              "durationMs": 6073.333333333333,
+              "selfReportDisagreementRatio": 0
+            }
+          },
+          {
+            "id": "balanced-1080p30-h264-reference-rep-3",
+            "variant": "reference",
+            "profile": "balanced-1080p30-h264",
+            "rep": 3,
+            "warmup": false,
+            "command": [
+              "/Users/shivam/Developer/t3/ccing/wrec/target/release/wrec",
+              "record",
+              "start",
+              "--target",
+              "window:6427",
+              "--quality",
+              "balanced",
+              "--fps",
+              "30",
+              "--codec",
+              "h264",
+              "--resolution",
+              "1080p",
+              "--duration",
+              "6s",
+              "--out",
+              "/tmp/wrec-bench/2026-07-22T07-59-01-155Z-8c49193/recordings/balanced-1080p30-h264-reference-rep-3",
+              "--json",
+              "--no-queue"
+            ],
+            "target": "window:6427",
+            "targetInfo": {
+              "id": 6427,
+              "kind": "window",
+              "name": "stimulus — wrec-bench-stimulus"
+            },
+            "exitCode": 0,
+            "elapsedMs": 7137,
+            "outputBytes": 4466367,
+            "lastMetrics": {
+              "elapsed_secs": 6,
+              "output_bytes": 4436282,
+              "estimated_bitrate_mbps": 5.915042400360107,
+              "frames": 178,
+              "dropped_frames": 0
+            },
+            "latency": {
+              "startMs": 657,
+              "finalizeMs": 51,
+              "recordingStartedAtMs": 1784707414756,
+              "durationElapsedAtMs": 1784707420760,
+              "terminalAtMs": 1784707420811
+            },
+            "processSummary": {
+              "sampleCount": 27,
+              "maxTotalCpuPercent": 18.1,
+              "p95TotalCpuPercent": 9.4,
+              "avgTotalCpuPercent": 3.9925925925925916,
+              "maxTotalRssBytes": 48201728,
+              "maxHelperCpuPercent": 18,
+              "maxHelperRssBytes": 43941888,
+              "maxDaemonCpuPercent": 0.3,
+              "maxDaemonRssBytes": 4259840
+            },
+            "decode": {
+              "codec": "h264",
+              "dimensions": {
+                "width": 1920,
+                "height": 1080
+              },
+              "durationMs": 6036.666666666667,
+              "frameCount": 178
+            },
+            "observed": {
+              "decodedFrames": 178,
+              "readableStimulusFrames": 178,
+              "uniqueStimulusFrames": 178,
+              "duplicateStimulusFrames": 0,
+              "missingStimulusIndices": [
+                15979,
+                15981,
+                15983,
+                15985,
+                15987,
+                15989,
+                15991,
+                15993,
+                15995,
+                15997,
+                15999,
+                16001,
+                16003,
+                16005,
+                16007,
+                16009,
+                16010,
+                16012,
+                16014,
+                16016,
+                16018,
+                16020,
+                16022,
+                16024,
+                16026
+              ],
+              "effectiveFps": 29.487713452728027,
+              "stimulusAchievedFps": 59.72511453561016,
+              "captureCompleteness": 0.49372384937238495,
+              "maxInterFramePtsGapMs": 36.66666666666697,
+              "ptsMonotonic": true,
+              "firstPtsMs": 0,
+              "lastPtsMs": 6001.666666666667,
+              "codec": "h264",
+              "dimensions": {
+                "width": 1920,
+                "height": 1080
+              },
+              "durationMs": 6036.666666666667,
+              "selfReportDisagreementRatio": 0
+            }
+          }
+        ]
+      },
+      "capture": {
+        "outputBytes": 4472225,
+        "bitrateMbps": 5.9039998054504395,
+        "selfReportedFrames": 178,
+        "selfReportedDroppedFrames": 0,
+        "selfReportedDropRatio": 0
+      },
+      "latency": {
+        "startMs": 557,
+        "finalizeMs": 53
+      },
+      "process": {
+        "avgTotalCpuPercent": 3.6384615384615384,
+        "p95TotalCpuPercent": 10.9,
+        "maxTotalCpuPercent": 13.1,
+        "maxTotalRssBytes": 48267264
+      },
+      "observed": {
+        "codec": "h264",
+        "dimensions": {
+          "width": 1920,
+          "height": 1080
+        },
+        "decodedFrames": 178,
+        "uniqueStimulusFrames": 178,
+        "effectiveFps": 29.512296790329305,
+        "stimulusAchievedFps": 59.77490621092122,
+        "captureCompleteness": 0.49372384937238495,
+        "maxInterFramePtsGapMs": 38.333333333333485,
+        "ptsMonotonic": true,
+        "selfReportDisagreementRatio": 0
+      },
+      "reference": {
+        "capture": {
+          "outputBytes": 4467168,
+          "bitrateMbps": 5.914909362792969,
+          "selfReportedFrames": 178,
+          "selfReportedDroppedFrames": 0,
+          "selfReportedDropRatio": 0
+        },
+        "latency": {
+          "startMs": 604,
+          "finalizeMs": 51
+        },
+        "process": {
+          "avgTotalCpuPercent": 3.826923076923077,
+          "p95TotalCpuPercent": 9.4,
+          "maxTotalCpuPercent": 13.8,
+          "maxTotalRssBytes": 48103424
+        },
+        "observed": {
+          "codec": "h264",
+          "dimensions": {
+            "width": 1920,
+            "height": 1080
+          },
+          "decodedFrames": 178,
+          "uniqueStimulusFrames": 178,
+          "effectiveFps": 29.475437135720234,
+          "stimulusAchievedFps": 59.72511453561016,
+          "captureCompleteness": 0.49372384937238495,
+          "maxInterFramePtsGapMs": 38.333333333332575,
+          "ptsMonotonic": true,
+          "selfReportDisagreementRatio": 0
+        }
+      },
+      "gates": [
+        {
+          "name": "observed_fps",
+          "threshold": ">= 29.1 fps (97% of min(target 30, stimulus 59.775))",
+          "measured": 29.512296790329305,
+          "status": "pass"
+        },
+        {
+          "name": "capture_completeness",
+          "threshold": "capture rate >= display rate",
+          "measured": 0.49372384937238495,
+          "status": "skipped",
+          "details": "profile captures slower than the stimulus displays; skipping every other frame is by design"
+        },
+        {
+          "name": "self_report_drop_ratio",
+          "threshold": "<= 0.50%",
+          "measured": 0,
+          "status": "pass"
+        },
+        {
+          "name": "max_pts_gap_ms",
+          "threshold": "<= 500 ms",
+          "measured": 38.333333333333485,
+          "status": "pass"
+        },
+        {
+          "name": "pts_monotonic",
+          "threshold": "true",
+          "measured": true,
+          "status": "pass"
+        },
+        {
+          "name": "codec_match",
+          "threshold": "h264",
+          "measured": "h264",
+          "status": "pass"
+        },
+        {
+          "name": "dimensions_match_request",
+          "threshold": "1920x1080",
+          "measured": "1920x1080",
+          "status": "pass"
+        },
+        {
+          "name": "self_report_disagreement",
+          "threshold": "<= 5%",
+          "measured": 0,
+          "status": "pass"
+        },
+        {
+          "name": "start_latency_ms",
+          "threshold": "<= 1500 ms",
+          "measured": 557,
+          "status": "pass"
+        },
+        {
+          "name": "finalize_latency_ms",
+          "threshold": "<= 3000 ms",
+          "measured": 53,
+          "status": "pass"
+        },
+        {
+          "name": "regression_cpu_avg",
+          "threshold": "candidate <= reference + 15% and <= reference + 3 %",
+          "measured": 3.6384615384615384,
+          "delta": -0.18846153846153868,
+          "deltaPercent": -4.924623115577894,
+          "status": "pass"
+        },
+        {
+          "name": "regression_cpu_p95",
+          "threshold": "candidate <= reference + 15% and <= reference + 3 %",
+          "measured": 10.9,
+          "delta": 1.5,
+          "deltaPercent": 15.957446808510637,
+          "status": "pass"
+        },
+        {
+          "name": "regression_max_rss",
+          "threshold": "candidate <= reference + 15% and <= reference + 20 MB",
+          "measured": 48267264,
+          "delta": 212992,
+          "deltaPercent": 0.44277929155313356,
+          "status": "pass"
+        },
+        {
+          "name": "regression_start_latency",
+          "threshold": "candidate <= reference + 15% and <= reference + 150 ms",
+          "measured": 557,
+          "delta": -52,
+          "deltaPercent": -8.609271523178808,
+          "status": "pass"
+        },
+        {
+          "name": "regression_finalize_latency",
+          "threshold": "candidate <= reference + 15% and <= reference + 150 ms",
+          "measured": 53,
+          "delta": -1,
+          "deltaPercent": -1.9607843137254901,
+          "status": "pass"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,437 @@
+---
+import CodeBlock from "../../components/CodeBlock.astro";
+import DocsLayout from "../../layouts/DocsLayout.astro";
+
+const commandBlocks = [
+  {
+    title: "1. Discover targets",
+    body: "Always start here unless the user already supplied an exact target id from the current session.",
+    code: "wrec targets --json",
+  },
+  {
+    title: "2. Record an exact target",
+    body: "Prefer --target kind:id over name matching. Foreground mode waits until the job is completed, failed, or cancelled.",
+    code: "wrec record start --target display:1 --duration 30s --json",
+  },
+  {
+    title: "3. Submit and return",
+    body: "Use --detach when another process will monitor or control the job.",
+    code: "wrec record start --target window:438 --duration 5m --detach --json",
+  },
+  {
+    title: "4. Inspect and control jobs",
+    body: "Use the job id from job_submitted or from wrec jobs --json.",
+    code: "wrec jobs --json\nwrec job show 42 --json\nwrec job stop 42 --json",
+  },
+  {
+    title: "Override capture settings",
+    body: "Overrides apply only to this run. They do not rewrite saved app settings.",
+    code: "wrec record start --app Safari --quality high --resolution native --fps 60 --codec hevc --out ~/Movies/Wrec --no-cursor --system-audio --hide-wrec",
+  },
+  {
+    title: "Non-interactive duration recording",
+    body: "A duration recording keeps running if stdin closes, then finalizes when the duration elapses.",
+    code: "wrec record start --target window:438 --duration 30s --json </dev/null",
+  },
+];
+
+const contractRows = [
+  [
+    "Use JSON",
+    "Pass --json on every command that supports it. Do not parse plain text when JSON exists.",
+  ],
+  [
+    "Select exact targets",
+    "Run wrec targets --json, then pass --target display:<id> or --target window:<id>.",
+  ],
+  [
+    "Treat ids as temporary",
+    "Target ids are stable only for the current target list. Refresh targets before a new task.",
+  ],
+  [
+    "Trust job status",
+    "A recording is done only when its job status is completed, failed, or cancelled.",
+  ],
+  [
+    "Follow error.next",
+    "JSON errors include code, message, recoverable, and next. Use next as the retry instruction.",
+  ],
+  [
+    "Expect one active job",
+    "The daemon runs one active recording. Extra recordings queue by default unless --no-queue is passed.",
+  ],
+];
+
+const commandRows = [
+  [
+    "wrec targets --json",
+    "Return the current capture targets as a JSON array.",
+  ],
+  ["wrec targets list --json", "Explicit form of target listing."],
+  ["wrec list --json", "Alias for wrec targets --json."],
+  [
+    "wrec record start --json",
+    "Submit a recording job and, unless --detach is passed, stream job events until terminal status.",
+  ],
+  ["wrec record --json", "Alias for wrec record start --json."],
+  ["wrec jobs --json", "List queued, active, and recent recording jobs."],
+  ["wrec job show <id> --json", "Inspect one job snapshot."],
+  ["wrec job logs <id> --json", "Read job events."],
+  ["wrec job pause <id> --json", "Pause the active job."],
+  ["wrec job resume <id> --json", "Resume a paused job."],
+  ["wrec job stop <id> --json", "Stop the active job and finalize the file."],
+  ["wrec job cancel <id> --json", "Cancel a queued job."],
+  [
+    "wrec daemon start --json",
+    "Start the local coordinator if it is not already running.",
+  ],
+  ["wrec daemon status --json", "Check the local coordinator."],
+  [
+    "wrec daemon stop --json",
+    "Stop the coordinator when no jobs are active or queued.",
+  ],
+  [
+    "wrec daemon serve",
+    "Run the coordinator in the foreground, for debugging.",
+  ],
+  ["wrec help, -h, --help", "Print CLI help."],
+  ["wrec -V, --version", "Print the CLI version."],
+];
+
+const selectorRows = [
+  ["--target display:1", "Best selector for agents when recording a display."],
+  ["--target window:438", "Best selector for agents when recording a window."],
+  ["--display 1", "Equivalent display-id form."],
+  ["--window 438", "Equivalent window-id form."],
+  [
+    "--app Safari",
+    "Match one visible window by app name. Use only when id is unavailable.",
+  ],
+  [
+    "--target-name README",
+    "Match one display or window by name. Can fail on ambiguous matches.",
+  ],
+  ["--display-name Studio", "Match one display by name."],
+  ["--window-name README", "Match one window by name."],
+];
+
+const overrideRows = [
+  ["--fps 30|60", "Override frame rate."],
+  ["--codec hevc|h264", "Override video codec."],
+  ["--quality efficient|balanced|high", "Override quality preset."],
+  ["--resolution native|720p|1080p|2k|4k", "Override output resolution."],
+  ["--out <dir>", "Override output directory."],
+  ["--duration <time>", "Stop after a duration like 500ms, 30s, 5m, or 1h."],
+  ["--cursor / --no-cursor", "Enable or disable cursor capture."],
+  [
+    "--system-audio / --no-system-audio",
+    "Enable or disable system audio capture.",
+  ],
+  [
+    "--mic / --no-mic",
+    "Enable or disable microphone capture (a separate mono audio track from the default mic). Without a flag, recordings follow the saved app setting.",
+  ],
+  [
+    "--hide-wrec / --no-hide-wrec",
+    "Enable or disable hiding wrec windows from capture.",
+  ],
+  ["--detach", "Submit the job and return after job_submitted."],
+  [
+    "--wait",
+    "Wait for terminal status. This is the default; the inverse of --detach.",
+  ],
+  [
+    "--queue / --no-queue",
+    "Queue behind the active recording or fail instead.",
+  ],
+  ["--json", "Emit machine-readable output."],
+];
+
+const presetRows = [
+  ["Efficient", "720p", "30 fps"],
+  ["Balanced", "1080p", "30 fps"],
+  ["High", "Native, 2k, or 4k", "60 fps"],
+];
+
+const eventRows = [
+  ["job_submitted", "First JSON line from record start --json. Contains job."],
+  [
+    "job_event",
+    "Streaming foreground event with job_id, level, message, metrics, timestamp_ms.",
+  ],
+  ["error", "Command failure with code, message, recoverable, next."],
+];
+
+const statusRows = [
+  ["queued", "Waiting behind another recording."],
+  ["starting", "Daemon accepted the job and is starting capture."],
+  ["recording", "Capture is active."],
+  ["paused", "Capture is paused."],
+  ["finishing", "Stop requested; capture engine is finalizing the file."],
+  ["completed", "Terminal success state. Output is finalized."],
+  ["failed", "Terminal failure state. Inspect error events and daemon log."],
+  [
+    "cancelled",
+    "Terminal failure state for a queued job cancelled before recording.",
+  ],
+];
+
+const snapshotRows = [
+  ["id", "Job id for show/logs/pause/resume/stop/cancel."],
+  ["status", "One of the job statuses below."],
+  ["target", "Selected capture target when resolved."],
+  [
+    "settings",
+    "Final settings after saved app config plus CLI overrides plus preset caps.",
+  ],
+  ["output_path", "Final .mov path once the capture engine reports it."],
+  ["queued_position", "Queue position when waiting behind another job."],
+  ["warnings", "Non-fatal issues with code, message, next."],
+  ["events", "Job event history."],
+];
+
+const targetJson = `[{"id":1,"kind":"display","name":"Display 1"}]`;
+
+const recordJson = `{"event":"job_submitted","job":{"id":42,"status":"starting","output_path":null,"warnings":[],"events":[]}}
+{"event":"job_event","job_id":42,"level":"info","message":"starting capture -> /Users/me/Movies/Wrec/wrec-2026.mov","metrics":null,"timestamp_ms":1790000000000}
+{"event":"job_event","job_id":42,"level":"info","message":"capture engine exited: exit status: 0","metrics":null,"timestamp_ms":1790000030000}`;
+
+const jobsJson = `{"jobs":[{"id":42,"status":"recording","output_path":"/Users/me/Movies/Wrec/wrec-2026.mov","queued_position":null}],"active_job_id":42}`;
+
+const errorJson = `{"event":"error","code":"target_not_found","message":"no window with id 438","recoverable":true,"next":"Run \`wrec targets --json\` and pass one of the listed \`window\` ids."}`;
+---
+
+<DocsLayout title="wrec agent docs" current="agents">
+  <p>
+    This page is the operating contract for automation agents. Prefer the CLI,
+    prefer JSON, select exact targets, and treat daemon job state as the source
+    of truth.
+  </p>
+
+  <h2>Agent contract</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Rule</th>
+        <th>Reason</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        contractRows.map(([rule, reason]) => (
+          <tr>
+            <td>{rule}</td>
+            <td>{reason}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+
+  {
+    commandBlocks.map(({ title, body, code }) => (
+      <>
+        <h2>{title}</h2>
+        <p>{body}</p>
+        <CodeBlock code={code} label="Copy command" />
+      </>
+    ))
+  }
+
+  <h2>Target output</h2>
+  <p>
+    <code>wrec targets --json</code> returns a JSON array. Each item has
+    <code>id</code>, <code>kind</code>, and <code>name</code>. Valid kinds are
+    <code>display</code> and <code>window</code>.
+  </p>
+  <CodeBlock code={targetJson} label="Copy example" />
+  <p>
+    Do not reuse ids across independent tasks. If a selector fails, rerun
+    <code>wrec targets --json</code> and choose from the new list.
+  </p>
+
+  <h2>Recording output</h2>
+  <p>
+    <code>wrec record start --json</code> prints JSON lines. The first line is
+    <code>job_submitted</code>. Foreground recordings then stream
+    <code>job_event</code> lines until the job reaches a terminal status.
+  </p>
+  <CodeBlock code={recordJson} label="Copy example" />
+  <table>
+    <thead>
+      <tr>
+        <th>Event</th>
+        <th>Fields</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        eventRows.map(([event, fields]) => (
+          <tr>
+            <td>
+              <code>{event}</code>
+            </td>
+            <td>{fields}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+
+  <h2>Job snapshots</h2>
+  <p>
+    <code>wrec jobs --json</code> returns <code>jobs</code> and
+    <code>active_job_id</code>. <code>wrec job show &lt;id&gt; --json</code>
+    returns <code>job</code>. Job control commands return the updated
+    <code>job</code>.
+  </p>
+  <CodeBlock code={jobsJson} label="Copy example" />
+  <table>
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Meaning</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        snapshotRows.map(([field, meaning]) => (
+          <tr>
+            <td>
+              <code>{field}</code>
+            </td>
+            <td>{meaning}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+
+  <h2>Job statuses</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>Meaning</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        statusRows.map(([status, meaning]) => (
+          <tr>
+            <td>
+              <code>{status}</code>
+            </td>
+            <td>{meaning}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+
+  <h2>Error handling</h2>
+  <p>
+    With <code>--json</code>, command failures print one <code>error</code>
+    object. If <code>recoverable</code> is true, follow <code>next</code>. If it
+    is false, stop and report the error.
+  </p>
+  <CodeBlock code={errorJson} label="Copy example" />
+  <p>
+    Foreground <code>record start --json</code> exits with code 0 for
+    <code>completed</code>. It exits nonzero for <code>failed</code> or
+    <code>cancelled</code>. Detached mode exits after submission; inspect the
+    job later to determine final success.
+  </p>
+
+  <h2>Target selectors</h2>
+  <p>
+    Pass only one target selector. Name and app selectors resolve by exact,
+    prefix, then contains match, and fail if more than one target matches.
+    Agents should use name matching only as a fallback.
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Selector</th>
+        <th>Use</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        selectorRows.map(([selector, use]) => (
+          <tr>
+            <td>
+              <code>{selector}</code>
+            </td>
+            <td>{use}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+
+  <h2>Record options</h2>
+  <div class="command-list command-reference">
+    {
+      overrideRows.map(([option, use]) => (
+        <section class="command-item">
+          <div class="command-line">
+            <code>{option}</code>
+          </div>
+          <p>{use}</p>
+        </section>
+      ))
+    }
+  </div>
+
+  <h2>Preset caps</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Preset</th>
+        <th>Max resolution</th>
+        <th>Max frame rate</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        presetRows.map(([preset, resolution, fps]) => (
+          <tr>
+            <td>{preset}</td>
+            <td>{resolution}</td>
+            <td>{fps}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+  <p>
+    Saved settings and CLI overrides are capped by the selected preset before
+    recording. Use <code>--quality high</code> when automation needs native resolution
+    or 60 fps.
+  </p>
+
+  <h2>Defaults</h2>
+  <p>
+    Fresh config defaults to display capture, 30 fps, HEVC, Balanced, 1080p,
+    cursor on, system audio on, hide wrec on, and
+    <code>~/Movies/&lt;app name&gt;</code> as the output folder (<code
+      >~/Movies/Wrec</code
+    > for the release app). See
+    <a href="/docs/configuration">configuration</a> for paths and environment overrides.
+  </p>
+
+  <h2>Command reference</h2>
+  <div class="command-list command-reference">
+    {
+      commandRows.map(([command, use]) => (
+        <section class="command-item">
+          <div class="command-line">
+            <code>{command}</code>
+          </div>
+          <p>{use}</p>
+        </section>
+      ))
+    }
+  </div>
+</DocsLayout>

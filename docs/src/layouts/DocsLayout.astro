@@ -1,0 +1,150 @@
+---
+import { Font } from "astro:assets";
+import Seo from "../components/Seo.astro";
+import Topbar from "../components/Topbar.astro";
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  current: "docs" | "agents" | "architecture" | "configuration";
+}
+
+const { title, current } = Astro.props;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/wrec.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <Seo
+      {title}
+      description="Agent-native documentation for installing, automating, and understanding wrec."
+    />
+    <Font cssVariable="--font-departure" preload />
+    <script defer src="https://assets.onedollarstats.com/stonks.js"></script>
+    <script is:inline>
+      (() => {
+        const themeKey = "wrec-theme";
+        const isTheme = (value) => value === "light" || value === "dark";
+        const readTheme = () => {
+          try {
+            const stored = localStorage.getItem(themeKey);
+            return isTheme(stored) ? stored : "light";
+          } catch {
+            return "light";
+          }
+        };
+        const writeTheme = (theme) => {
+          try {
+            localStorage.setItem(themeKey, theme);
+          } catch {}
+        };
+        const applyTheme = (theme) => {
+          document.documentElement.dataset.theme = theme;
+        };
+        const currentTheme = () =>
+          document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+        const labelThemeButton = (button) => {
+          const next = currentTheme() === "dark" ? "light" : "dark";
+          button.textContent = next;
+          button.setAttribute("aria-label", `Use ${next} theme`);
+        };
+
+        applyTheme(readTheme());
+
+        const copy = async (button, text) => {
+          await navigator.clipboard.writeText(text.trim());
+          button.dataset.copied = "true";
+          button.setAttribute("aria-label", "Copied");
+          window.setTimeout(() => {
+            delete button.dataset.copied;
+            button.setAttribute("aria-label", button.dataset.label || "Copy");
+          }, 1200);
+        };
+
+        window.addEventListener("DOMContentLoaded", () => {
+          document.querySelectorAll("[data-theme-toggle]").forEach((button) => {
+            labelThemeButton(button);
+            button.addEventListener("click", () => {
+              const next = currentTheme() === "dark" ? "light" : "dark";
+              applyTheme(next);
+              writeTheme(next);
+              labelThemeButton(button);
+            });
+          });
+
+          document.querySelectorAll("[data-copy-button]").forEach((button) => {
+            button.addEventListener("click", () => {
+              const target = button.closest("[data-copy-block]");
+              const text = target?.querySelector("code")?.textContent ?? "";
+              copy(button, text);
+            });
+          });
+
+          document.querySelectorAll("[data-docs-dropdown]").forEach((root) => {
+            const trigger = root.querySelector("[data-docs-dropdown-trigger]");
+            const menu = root.querySelector("[data-docs-dropdown-menu]");
+            const closeMs =
+              parseFloat(
+                getComputedStyle(document.documentElement).getPropertyValue(
+                  "--dropdown-close-dur",
+                ),
+              ) || 150;
+
+            const openDropdown = () => {
+              menu?.classList.remove("is-closing");
+              menu?.classList.add("is-open");
+              trigger?.setAttribute("aria-expanded", "true");
+            };
+            const closeDropdown = ({ restoreFocus = false } = {}) => {
+              if (!menu?.classList.contains("is-open")) return;
+              menu.classList.remove("is-open");
+              menu.classList.add("is-closing");
+              trigger?.setAttribute("aria-expanded", "false");
+              window.setTimeout(
+                () => menu.classList.remove("is-closing"),
+                closeMs,
+              );
+              if (restoreFocus) trigger?.focus();
+            };
+
+            trigger?.addEventListener("click", () => {
+              if (menu?.classList.contains("is-open")) closeDropdown();
+              else openDropdown();
+            });
+            document.addEventListener("click", (event) => {
+              if (!root.contains(event.target)) closeDropdown();
+            });
+            document.addEventListener("keydown", (event) => {
+              if (event.key === "Escape") closeDropdown({ restoreFocus: true });
+            });
+          });
+
+          document
+            .querySelector("[data-copy-page]")
+            ?.addEventListener("click", (event) => {
+              const button = event.currentTarget;
+              const content = document
+                .querySelector("[data-docs-content]")
+                ?.cloneNode(true);
+              content
+                ?.querySelectorAll("[data-copy-button]")
+                .forEach((node) => node.remove());
+              copy(button, content?.textContent ?? "");
+            });
+        });
+      })();
+    </script>
+    <title>{title}</title>
+  </head>
+  <body class="docs-page">
+    <Topbar brand="wrec docs" current="docs" docsCurrent={current} />
+    <main>
+      <article data-docs-content>
+        <slot />
+      </article>
+    </main>
+  </body>
+</html>

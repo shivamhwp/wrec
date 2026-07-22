@@ -1,0 +1,85 @@
+---
+import BenchLayout from "../../layouts/BenchLayout.astro";
+
+// A miniature of the real marker strip: guard pattern + a few index bits.
+const markerBits = [1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1];
+---
+
+<BenchLayout title="wrec benchmarks · how" current="how">
+  <section class="px card prose">
+    <h2>how this was recorded</h2>
+    <p>
+      the bench never trusts what wrec says about itself. every number on the
+      benchmarks page is decoded out of the pixels of the finished recording —
+      the same file a user would keep.
+    </p>
+
+    <h3>1 · a window that counts out loud</h3>
+    <p>
+      a stimulus window redraws 60 times a second, synced to the display. each
+      redraw paints its own frame number as a strip of big black/white blocks —
+      1 bit per block, with guard patterns at both ends:
+    </p>
+    <div class="marker" aria-hidden="true">
+      {markerBits.map((bit) => <span class:list={[bit ? "on" : "off"]} />)}
+    </div>
+    <p>
+      the number advances once per <em>rendered</em> frame, so every index that reaches
+      the screen is consecutive. the window also holds a power assertion — a dimming
+      display would otherwise read as a frame-rate collapse.
+    </p>
+
+    <h3>2 · wrec records it, black box</h3>
+    <p>
+      the harness drives the real release binary through the public CLI only:
+      <code>wrec record start --target window:&lt;id&gt; --json</code>, one
+      fresh isolated daemon per recording (own <code>WREC_HOME</code>, own
+      socket, env overrides scrubbed). no bench mode, no test hooks — wrec
+      cannot tell it is being measured.
+    </p>
+
+    <h3>3 · the file is the referee</h3>
+    <p>
+      after each run an AVAssetReader walks every frame of the
+      <code>.mov</code> and reads the block numbers back. missing number = a displayed
+      frame the recorder lost. from this fall out observed fps, capture completeness,
+      duplicate frames, PTS gaps and ordering. the engine's own <code
+        >frames/dropped</code
+      > counters are recorded too — and if they disagree with the decoded truth by
+      more than 5%, that is itself a failing gate.
+    </p>
+
+    <h3>4 · cost and latency on the side</h3>
+    <p>
+      while recording, <code>ps</code> samples cpu and rss of the daemon tree every
+      250 ms; start latency (command → first frame written) and finalize latency (duration
+      elapsed → closed file) come from the timestamped
+      <code>--json</code> job events.
+    </p>
+
+    <h3>5 · a/b, not vibes</h3>
+    <p>
+      for a release, candidate and reference binaries run interleaved — A B A B
+      A B, three reps each per profile, same session — and gates compare paired
+      medians. a regression fails only if the candidate is &gt;15% worse
+      <em>and</em> beyond an absolute noise floor. thermal drift and background load
+      hit both binaries equally, so they cancel.
+    </p>
+
+    <h3>6 · three verdicts, not two</h3>
+    <p>
+      on battery, under thermal pressure, under load, or when same-binary reps
+      disagree beyond the noise floor, perf gates return
+      <strong>inconclusive</strong> instead of pass/fail. correctness gates (codec,
+      dimensions, PTS order, frame accounting) always stay hard — machine load cannot
+      corrupt those.
+    </p>
+
+    <p class="muted">
+      profiles: efficient-720p30-hevc · balanced-1080p30-hevc ·
+      high-native60-hevc · balanced-1080p30-h264. every release ships its bench
+      as <code>wrec-bench-&lt;version&gt;.json</code>; run it yourself with
+      <code>bun run bench release --against &lt;previous wrec&gt;</code>.
+    </p>
+  </section>
+</BenchLayout>
