@@ -90,7 +90,7 @@ body {
   padding-top: 20px;
 }
 
-.docs-page a {
+.docs-page article a {
   color: var(--page-link);
   text-decoration: none;
 }
