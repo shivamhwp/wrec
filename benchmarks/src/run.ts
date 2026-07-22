@@ -148,6 +148,12 @@ const stimulusTitle = "wrec-bench-stimulus";
 
 const main = async () => {
   const options = parseArgs(Bun.argv.slice(2));
+  // Belt to the stimulus's suspenders: keep display, idle, and system awake
+  // for the whole run — display sleep mid-run reads as a frame-rate collapse.
+  Bun.spawn(["caffeinate", "-dimsu", "-w", String(process.pid)], {
+    stdout: "ignore",
+    stderr: "ignore",
+  });
   if (options.autoBuild) {
     await buildCandidate();
   }

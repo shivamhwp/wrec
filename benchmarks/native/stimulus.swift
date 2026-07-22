@@ -99,6 +99,15 @@ let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 app.finishLaunching()
 
+// An idle machine dims the display mid-run; the display link then pauses,
+// frames stop, and the recorder gets blamed for a dark screen. Hold the
+// display awake and opt out of App Nap for the stimulus lifetime.
+let activity = ProcessInfo.processInfo.beginActivity(
+    options: [.userInitiated, .idleDisplaySleepDisabled, .idleSystemSleepDisabled],
+    reason: "wrec bench stimulus"
+)
+_ = activity
+
 let view = StimulusView(frame: NSRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
 guard let screen = NSScreen.main else {
     fputs("stimulus: no screen available\n", stderr)
