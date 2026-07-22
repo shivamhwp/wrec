@@ -102,6 +102,62 @@ jobs:
           cargo test
           swift test --package-path apps/mac
 
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      # CI runners have no Screen Recording permission, so the bench runs on a
+      # real Mac before tagging (`bun run bench release --against <previous>`)
+      # and commits its summary to benchmarks/results/. This step refuses to
+      # release code that was never benched: the newest clean, passing release
+      # summary must cover a commit whose only difference from the release
+      # commit is the benchmarks/ directory itself.
+      - name: Verify release bench
+        id: bench
+        run: |
+          set -euo pipefail
+
+          release_commit="${{ steps.release.outputs.commit }}"
+          picked=""
+          for file in $(ls -r benchmarks/results/*.json 2>/dev/null); do
+            suite=$(jq -r '.suite' "$file")
+            status=$(jq -r '.status' "$file")
+            dirty=$(jq -r '.git.dirty' "$file")
+            benched=$(jq -r '.git.commit' "$file")
+
+            [[ "$suite" == "release" && "$status" == "pass" && "$dirty" == "false" ]] || continue
+            git cat-file -e "$benched" 2>/dev/null || continue
+            git merge-base --is-ancestor "$benched" "$release_commit" || continue
+
+            non_bench_diff=$(git diff --name-only "$benched" "$release_commit" -- . ':!benchmarks' | head -5)
+            if [[ -n "$non_bench_diff" ]]; then
+              echo "skipping $file: code changed since benched commit $benched:"
+              echo "$non_bench_diff"
+              continue
+            fi
+
+            picked="$file"
+            break
+          done
+
+          if [[ -z "$picked" ]]; then
+            echo "::error::No passing release bench found for this code. Run 'bun run bench release --against <previous wrec>' on a Mac, commit benchmarks/results/, then tag."
+            exit 1
+          fi
+
+          echo "using bench summary: $picked"
+          echo "summary=$picked" >> "$GITHUB_OUTPUT"
+
+      - name: Publish bench artifacts
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist/bench
+          cp "${{ steps.bench.outputs.summary }}" "dist/bench/wrec-bench-$VERSION.json"
+          bun benchmarks/src/report.ts
+          cp benchmarks/index.html "dist/bench/wrec-bench-$VERSION.html"
+
       - name: Package unsigned DMG
         env:
           VERSION: ${{ steps.release.outputs.version }}
@@ -188,6 +244,7 @@ jobs:
             dist/release/*.dmg \
             dist/release/*.tar.gz \
             dist/cli/*.tar.gz \
+            dist/bench/* \
             SHA256SUMS \
             --target "${{ steps.release.outputs.commit }}" \
             --title "$GITHUB_REF_NAME" \

@@ -1,13 +1,18 @@
 # wrec ground-truth performance benchmarks
 
-This directory contains the pre-release performance gate for wrec. The harness is
-source-controlled; generated runs, temporary native binaries, local dependencies,
-and the rendered report stay ignored:
+This directory contains the pre-release performance gate for wrec.
 
-- `runs/`
-- `.tmp/`
-- `node_modules/`
-- `index.html`
+- `results/` — slim run summaries (verdicts, gates, aggregates; ~100 KB each).
+  **Committed to git** — this is the published record of every bench.
+- `runs/` — full raw run documents (~2 MB each: per-frame decode arrays,
+  process samples, event logs). Local debugging only, git-ignored.
+- `.tmp/`, `node_modules/`, `index.html` — generated, git-ignored.
+
+Every `v*` release requires a bench: the release workflow fails unless
+`results/` contains a passing, non-dirty release-suite summary for a commit
+whose only difference from the tagged commit is the `benchmarks/` directory,
+and it attaches that summary plus the rendered HTML report to the GitHub
+release as `wrec-bench-<version>.json` / `.html`.
 
 The suite is intentionally black-box. It drives wrec only through the public CLI,
 uses an isolated `WREC_HOME` and `WREC_DATA_DIR` for each tested binary, and

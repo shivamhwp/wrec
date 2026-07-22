@@ -27,6 +27,7 @@ import {
   type RunResult,
 } from "./gates";
 import { writeReport } from "./report";
+import { writeSummary } from "./summary";
 
 type CliOptions = {
   suite: SuiteName;
@@ -138,6 +139,7 @@ type BenchmarkResult = {
 const root = path.resolve(import.meta.dir, "..");
 const repoRoot = path.resolve(root, "..");
 const runsDir = path.join(root, "runs");
+const resultsDir = path.join(root, "results");
 // Daemon homes live under the run dir, and the daemon binds a unix socket at
 // <home>/wrec.sock. macOS caps socket paths at ~104 bytes (SUN_LEN), so the
 // run dir must stay short — a repo-relative .tmp/ path is already too long.
@@ -234,10 +236,12 @@ const main = async () => {
 
   const resultPath = path.join(runsDir, `${result.id}.json`);
   await writeFile(resultPath, `${JSON.stringify(result, null, 2)}\n`);
+  const summaryPath = await writeSummary(resultsDir, result);
   await writeReport();
 
   console.log(`status: ${result.status}`);
   console.log(`results: ${resultPath}`);
+  console.log(`summary: ${summaryPath}`);
   console.log(`report: ${path.join(root, "index.html")}`);
 };
 
