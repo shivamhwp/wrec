@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "cd docs && rm -rf node_modules .astro dist && bun install",
+  "buildCommand": "cd docs && rm -rf .astro node_modules/.astro dist && bun run build",
+  "outputDirectory": "docs/dist"
+}
