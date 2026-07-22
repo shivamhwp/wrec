@@ -56,7 +56,7 @@ body {
   margin: 0;
   background: var(--page-bg);
   color: var(--page-muted);
-  font-family: var(--font-geist), sans-serif;
+  font-family: var(--font-departure), monospace;
   font-size: 14px;
   overflow-x: hidden;
 }
@@ -138,7 +138,7 @@ body {
 .docs-page code,
 .docs-page pre,
 .docs-page .font-mono {
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--font-departure), monospace;
 }
 
 .docs-page :where(p, td, .command-line) code {
@@ -383,4 +383,303 @@ body {
       opacity: 0;
     }
   }
+}
+
+/* ---- benchmarks: pixel chrome in the site palette ---- */
+
+:root {
+  --bench-good: #0a8a0a;
+  --bench-warning: #9a6a00;
+  --bench-critical: #c62828;
+  /* NES-style stepped-corner border: a 5x5 SVG whose plus-shaped pixel
+     cluster becomes the corners via border-image slicing. Colors are baked
+     into the data URI, so each theme carries its own pair. */
+  --bench-px: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5'%3E%3Cpath d='M2 1h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM2 3h1v1h-1z' fill='%23050505'/%3E%3C/svg%3E");
+  --bench-px-dim: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5'%3E%3Cpath d='M2 1h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM2 3h1v1h-1z' fill='%23bbbbbb'/%3E%3C/svg%3E");
+}
+
+:root[data-theme="dark"] {
+  --bench-good: #17c964;
+  --bench-warning: #fab219;
+  --bench-critical: #e05252;
+  --bench-px: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5'%3E%3Cpath d='M2 1h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM2 3h1v1h-1z' fill='%23f7f7f7'/%3E%3C/svg%3E");
+  --bench-px-dim: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5'%3E%3Cpath d='M2 1h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM2 3h1v1h-1z' fill='%234a4a4a'/%3E%3C/svg%3E");
+}
+
+.bench-page {
+  margin: 0;
+  padding: 0 24px 64px;
+  background: var(--page-bg);
+  color: var(--page-fg);
+  font-family: var(--font-departure), monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  image-rendering: pixelated;
+}
+
+.bench-main {
+  width: 100%;
+  display: grid;
+  gap: 20px;
+}
+
+.bench-nav {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 0 16px;
+  margin-bottom: 20px;
+  border-bottom: 2px dashed var(--page-line);
+}
+
+.bench-brand {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-right: auto;
+  color: inherit;
+  text-decoration: none;
+}
+
+.bench-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bench-nav-link {
+  color: inherit;
+  text-decoration: none;
+  padding: 3px 14px;
+  border: 4px solid transparent;
+  border-image: var(--bench-px-dim) 2 stretch;
+}
+
+.bench-nav-link[data-current="true"],
+.bench-nav-link:hover,
+.bench-nav-link:focus-visible {
+  border-image: var(--bench-px) 2 stretch;
+  background: var(--page-fg);
+  color: var(--page-bg);
+}
+
+.bench-theme-toggle {
+  font: inherit;
+  padding: 3px 6px;
+}
+
+.bench-page .px {
+  border: 4px solid transparent;
+  border-image: var(--bench-px) 2 stretch;
+  background: var(--page-bg);
+}
+
+.bench-page .px-dim {
+  border: 4px solid transparent;
+  border-image: var(--bench-px-dim) 2 stretch;
+}
+
+.bench-page h2 {
+  font-size: 16px;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.bench-page h3 {
+  font-size: 14px;
+  margin: 0;
+  font-weight: 700;
+}
+
+.bench-page .verdict {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  padding: 18px 20px;
+}
+
+.bench-page .meta {
+  margin: 6px 0 0;
+  color: var(--page-subtle);
+  font-size: 12px;
+}
+
+.bench-page .guard {
+  margin-right: 12px;
+  white-space: nowrap;
+}
+
+.bench-page .card {
+  padding: 16px 18px 18px;
+}
+
+.bench-page .card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  gap: 12px;
+}
+
+.bench-page .tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.bench-page .tile {
+  padding: 10px 12px;
+}
+
+.bench-page .tile-label {
+  font-size: 11px;
+  color: var(--page-subtle);
+  letter-spacing: 0.5px;
+}
+
+.bench-page .tile-value {
+  font-size: 22px;
+  margin-top: 4px;
+}
+
+.bench-page .tile-value .unit {
+  font-size: 12px;
+  color: var(--page-subtle);
+  margin-left: 2px;
+}
+
+.bench-page .tile-sub {
+  font-size: 11px;
+  color: var(--page-subtle);
+  margin-top: 2px;
+}
+
+.bench-page .table-wrap {
+  overflow-x: auto;
+}
+
+.bench-page table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.bench-page th {
+  text-align: left;
+  color: var(--page-subtle);
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  padding: 6px 10px;
+  border-bottom: 2px solid var(--page-line);
+}
+
+.bench-page td {
+  padding: 7px 10px;
+  border-bottom: 2px solid var(--page-line);
+  vertical-align: top;
+}
+
+.bench-page tr:last-child td {
+  border-bottom: none;
+}
+
+.bench-page .num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.bench-page th.num {
+  text-align: right;
+}
+
+.bench-page .muted {
+  color: var(--page-subtle);
+}
+
+.bench-page code {
+  background: var(--page-soft-bg);
+  padding: 1px 5px;
+}
+
+.bench-page .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  padding: 1px 9px;
+  border: 3px solid transparent;
+  border-image: var(--bench-px-dim) 2 stretch;
+  white-space: nowrap;
+}
+
+.bench-page .chip-lg {
+  font-size: 15px;
+  padding: 7px 16px;
+  border-image: var(--bench-px) 2 stretch;
+}
+
+.bench-page .chip-good {
+  color: var(--bench-good);
+}
+
+.bench-page .chip-critical {
+  color: var(--bench-critical);
+}
+
+.bench-page .chip-warning {
+  color: var(--bench-warning);
+}
+
+.bench-page .chip-muted {
+  color: var(--page-subtle);
+}
+
+.bench-page .prose {
+  max-width: 860px;
+}
+
+.bench-page .prose p {
+  margin: 10px 0 18px;
+  color: var(--page-muted);
+}
+
+.bench-page .prose h2 {
+  margin-bottom: 6px;
+}
+
+.bench-page .prose h3 {
+  margin: 22px 0 4px;
+}
+
+.bench-page .prose em {
+  font-style: normal;
+  color: var(--page-fg);
+}
+
+.bench-page .prose strong {
+  color: var(--bench-warning);
+}
+
+.bench-page .marker {
+  display: inline-flex;
+  gap: 3px;
+  padding: 8px;
+  background: #6c6b66;
+  margin: 4px 0 10px;
+}
+
+.bench-page .marker span {
+  width: 18px;
+  height: 40px;
+  display: inline-block;
+}
+
+.bench-page .marker .on {
+  background: #fff;
+}
+
+.bench-page .marker .off {
+  background: #000;
 }

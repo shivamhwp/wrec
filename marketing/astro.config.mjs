@@ -40,5 +40,19 @@ export default defineConfig({
         ],
       },
     },
+    {
+      provider: fontProviders.local(),
+      name: "Departure Mono",
+      cssVariable: "--font-departure",
+      options: {
+        variants: [
+          {
+            src: ["./src/assets/fonts/departure/DepartureMono-Regular.otf"],
+            weight: "400",
+            style: "normal",
+          },
+        ],
+      },
+    },
   ],
 });

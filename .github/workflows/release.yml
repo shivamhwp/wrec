@@ -102,9 +102,6 @@ jobs:
           cargo test
           swift test --package-path apps/mac
 
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
-
       # CI runners have no Screen Recording permission, so the bench runs on a
       # real Mac before tagging (`bun run bench release --against <previous>`)
       # and commits its summary to benchmarks/results/. This step refuses to
@@ -147,6 +144,7 @@ jobs:
           echo "using bench summary: $picked"
           echo "summary=$picked" >> "$GITHUB_OUTPUT"
 
+      # The rendered UI lives at wrec.app/benchmarks; releases carry the data.
       - name: Publish bench artifacts
         env:
           VERSION: ${{ steps.release.outputs.version }}
@@ -155,9 +153,6 @@ jobs:
 
           mkdir -p dist/bench
           cp "${{ steps.bench.outputs.summary }}" "dist/bench/wrec-bench-$VERSION.json"
-          bun benchmarks/src/report.ts
-          cp benchmarks/index.html "dist/bench/wrec-bench-$VERSION.html"
-          cp benchmarks/how.html "dist/bench/wrec-bench-$VERSION-how.html"
 
       - name: Package unsigned DMG
         env:

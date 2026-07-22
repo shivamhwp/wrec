@@ -26,7 +26,6 @@ import {
   type VariantName,
   type RunResult,
 } from "./gates";
-import { writeReport } from "./report";
 import { writeSummary } from "./summary";
 
 type CliOptions = {
@@ -243,12 +242,11 @@ const main = async () => {
   const resultPath = path.join(runsDir, `${result.id}.json`);
   await writeFile(resultPath, `${JSON.stringify(result, null, 2)}\n`);
   const summaryPath = await writeSummary(resultsDir, result);
-  await writeReport();
 
   console.log(`status: ${result.status}`);
   console.log(`results: ${resultPath}`);
   console.log(`summary: ${summaryPath}`);
-  console.log(`report: ${path.join(root, "index.html")}`);
+  console.log("view: wrec.app/benchmarks (or `bun run dev` in marketing/) after committing the summary");
 };
 
 const parseArgs = (args: string[]): CliOptions => {

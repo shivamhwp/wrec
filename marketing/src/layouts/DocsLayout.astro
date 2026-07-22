@@ -4,7 +4,7 @@ import "../styles/global.css";
 
 interface Props {
   title: string;
-  current: "docs" | "agents" | "architecture" | "configuration";
+  current: "docs" | "agents" | "architecture" | "configuration" | "benchmarks";
 }
 
 const { title, current } = Astro.props;
@@ -14,6 +14,7 @@ const navLinks = [
   ["agents", "/docs/agents"],
   ["architecture", "/docs/architecture"],
   ["configuration", "/docs/configuration"],
+  ["benchmarks", "/benchmarks"],
 ] as const;
 ---
 
@@ -23,8 +24,7 @@ const navLinks = [
     <link rel="icon" type="image/svg+xml" href="/wrec.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
-    <Font cssVariable="--font-geist" preload />
-    <Font cssVariable="--font-geist-mono" preload />
+    <Font cssVariable="--font-departure" preload />
     <script defer src="https://assets.onedollarstats.com/stonks.js"></script>
     <script is:inline>
       (() => {

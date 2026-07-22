@@ -1,0 +1,101 @@
+---
+import { Font } from "astro:assets";
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  current: "benchmarks" | "how";
+}
+
+const { title, current } = Astro.props;
+
+const navLinks = [
+  ["benchmarks", "/benchmarks"],
+  ["how", "/benchmarks/how"],
+  ["docs", "/docs"],
+] as const;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/wrec.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <Font cssVariable="--font-departure" preload />
+    <script defer src="https://assets.onedollarstats.com/stonks.js"></script>
+    <script is:inline>
+      (() => {
+        const themeKey = "wrec-theme";
+        const isTheme = (value) => value === "light" || value === "dark";
+        const readTheme = () => {
+          try {
+            const stored = localStorage.getItem(themeKey);
+            return isTheme(stored) ? stored : "light";
+          } catch {
+            return "light";
+          }
+        };
+        const applyTheme = (theme) => {
+          document.documentElement.dataset.theme = theme;
+        };
+        applyTheme(readTheme());
+        window.addEventListener("DOMContentLoaded", () => {
+          document.querySelectorAll("[data-theme-toggle]").forEach((button) => {
+            const label = () => {
+              const next =
+                document.documentElement.dataset.theme === "dark"
+                  ? "light"
+                  : "dark";
+              button.textContent = next;
+              button.setAttribute("aria-label", `Use ${next} theme`);
+            };
+            label();
+            button.addEventListener("click", () => {
+              const next =
+                document.documentElement.dataset.theme === "dark"
+                  ? "light"
+                  : "dark";
+              applyTheme(next);
+              try {
+                localStorage.setItem(themeKey, next);
+              } catch {}
+              label();
+            });
+          });
+        });
+      })();
+    </script>
+    <title>{title}</title>
+  </head>
+  <body class="bench-page">
+    <nav class="bench-nav" aria-label="Primary">
+      <a class="bench-brand" href="/">wrec bench</a>
+      <div class="bench-nav-links">
+        {
+          navLinks.map(([name, href]) => (
+            <a
+              href={href}
+              class="bench-nav-link"
+              data-current={current === name ? "true" : "false"}
+              aria-current={current === name ? "page" : "false"}
+            >
+              {name}
+            </a>
+          ))
+        }
+        <button
+          type="button"
+          class="theme-toggle bench-theme-toggle"
+          data-theme-toggle
+          aria-label="Use dark theme"
+        >
+          dark
+        </button>
+      </div>
+    </nav>
+    <main class="bench-main">
+      <slot />
+    </main>
+  </body>
+</html>

@@ -10,6 +10,7 @@ import "../styles/global.css";
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
     <Font cssVariable="--font-geist" preload />
+    <Font cssVariable="--font-departure" preload />
     <script defer src="https://assets.onedollarstats.com/stonks.js"></script>
     <title>wrec</title>
   </head>
@@ -23,7 +24,10 @@ import "../styles/global.css";
             rel="noopener noreferrer">shivam</a
           >
         </span>
-        <a href="/docs">docs</a>
+        <span class="home-bar-links">
+          <a href="/benchmarks">benchmarks</a>
+          <a href="/docs">docs</a>
+        </span>
       </header>
       <svg
         class="home-word home-word-horizontal"
@@ -52,7 +56,14 @@ import "../styles/global.css";
     display: flex;
     flex-direction: column;
     background: #c62828;
-    font-family: var(--font-geist), sans-serif;
+    /* Departure Mono is wrec's voice everywhere; only the giant wordmark
+       below stays Geist. */
+    font-family: var(--font-departure), monospace;
+  }
+
+  .home-bar-links {
+    display: inline-flex;
+    gap: 18px;
   }
 
   .home-bar {

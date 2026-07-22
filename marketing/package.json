@@ -20,6 +20,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
     "@tailwindcss/vite": "^4.3.2",
+    "@types/node": "^26.1.1",
     "prettier": "^3.9.4",
     "prettier-plugin-astro": "^0.14.1",
     "tailwindcss": "^4.3.2",

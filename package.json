@@ -4,7 +4,6 @@
   "type": "module",
   "packageManager": "bun@1.3.12",
   "scripts": {
-    "bench": "bun benchmarks/src/run.ts",
-    "bench:report": "bun benchmarks/src/report.ts"
+    "bench": "bun benchmarks/src/run.ts"
   }
 }
