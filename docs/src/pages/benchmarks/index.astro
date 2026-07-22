@@ -160,9 +160,7 @@ const envLine = latest
                 >
                   <div class="tile-label">cpu avg/p95</div>
                   <div class="tile-value">
-                    {fmt(profile.process.avgTotalCpuPercent, 1)}/
-                    {fmt(profile.process.p95TotalCpuPercent, 1)}
-                    <span class="unit">%</span>
+                    {`${fmt(profile.process.avgTotalCpuPercent, 1)}/${fmt(profile.process.p95TotalCpuPercent, 1)}`}
                   </div>
                 </div>
                 <span
@@ -170,7 +168,8 @@ const envLine = latest
                   id={`metric-${profileIndex}-cpu`}
                   role="tooltip"
                 >
-                  Average and p95 CPU across the recorder process tree.
+                  Average and p95 CPU percentage across the recorder process
+                  tree.
                 </span>
               </div>
               <div class="t-tt-wrap">

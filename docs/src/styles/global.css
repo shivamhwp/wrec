@@ -742,9 +742,12 @@ body {
   border-radius: 8px;
   background: var(--tt-bg);
   color: var(--tt-fg);
+  width: max-content;
+  max-width: min(220px, calc(100vw - 32px));
   font-size: 11px;
   line-height: 1.4;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: break-word;
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.06),
     0 2px 6px 0 rgba(0, 0, 0, 0.05),
