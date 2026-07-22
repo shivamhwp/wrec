@@ -15,6 +15,14 @@ bun run check
 
 Do not use npm, pnpm, yarn, or npx in this project.
 
+## Deployment
+
+The Vercel project root is this `docs` directory. Vercel detects Astro and
+owns the install, build, and output settings; do not configure commands or a
+`dist` directory manually. Keep source files outside the root directory
+available during builds so the benchmark pages can read
+`../benchmarks/results`.
+
 ## Pages
 
 - `src/pages/index.astro` is the minimal landing page.
