@@ -19,6 +19,8 @@ const docsLinks = [
   ["architecture", "/docs/architecture", "architecture"],
   ["configuration", "/docs/configuration", "configuration"],
 ] as const;
+
+const activeDocsLink = docsLinks.find(([, , id]) => id === docsCurrent);
 ---
 
 <header class="site-header">
@@ -29,18 +31,38 @@ const docsLinks = [
     {
       docsCurrent && (
         <div class="docs-topbar-tools">
-          <nav class="docs-nav" aria-label="Documentation">
-            {docsLinks.map(([name, href, id]) => (
-              <a
-                href={href}
-                class="docs-nav-link"
-                data-current={docsCurrent === id ? "true" : "false"}
-                aria-current={docsCurrent === id ? "page" : "false"}
-              >
-                {name}
-              </a>
-            ))}
-          </nav>
+          <div class="docs-dropdown" data-docs-dropdown>
+            <button
+              type="button"
+              class="docs-dropdown-trigger"
+              aria-expanded="false"
+              aria-haspopup="menu"
+              data-docs-dropdown-trigger
+            >
+              <span>{activeDocsLink?.[0]}</span>
+              <span class="docs-dropdown-caret" aria-hidden="true">
+                ▾
+              </span>
+            </button>
+            <nav
+              class="docs-dropdown-menu t-dropdown"
+              data-origin="top-left"
+              data-docs-dropdown-menu
+              aria-label="Documentation"
+            >
+              {docsLinks.map(([name, href, id]) => (
+                <a
+                  href={href}
+                  class="docs-nav-link"
+                  role="menuitem"
+                  data-current={docsCurrent === id ? "true" : "false"}
+                  aria-current={docsCurrent === id ? "page" : "false"}
+                >
+                  {name}
+                </a>
+              ))}
+            </nav>
+          </div>
           <button
             type="button"
             class="copy-button copy-page-button"

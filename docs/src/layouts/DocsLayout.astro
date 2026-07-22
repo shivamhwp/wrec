@@ -83,6 +83,45 @@ const { title, current } = Astro.props;
             });
           });
 
+          document.querySelectorAll("[data-docs-dropdown]").forEach((root) => {
+            const trigger = root.querySelector("[data-docs-dropdown-trigger]");
+            const menu = root.querySelector("[data-docs-dropdown-menu]");
+            const closeMs =
+              parseFloat(
+                getComputedStyle(document.documentElement).getPropertyValue(
+                  "--dropdown-close-dur",
+                ),
+              ) || 150;
+
+            const openDropdown = () => {
+              menu?.classList.remove("is-closing");
+              menu?.classList.add("is-open");
+              trigger?.setAttribute("aria-expanded", "true");
+            };
+            const closeDropdown = ({ restoreFocus = false } = {}) => {
+              if (!menu?.classList.contains("is-open")) return;
+              menu.classList.remove("is-open");
+              menu.classList.add("is-closing");
+              trigger?.setAttribute("aria-expanded", "false");
+              window.setTimeout(
+                () => menu.classList.remove("is-closing"),
+                closeMs,
+              );
+              if (restoreFocus) trigger?.focus();
+            };
+
+            trigger?.addEventListener("click", () => {
+              if (menu?.classList.contains("is-open")) closeDropdown();
+              else openDropdown();
+            });
+            document.addEventListener("click", (event) => {
+              if (!root.contains(event.target)) closeDropdown();
+            });
+            document.addEventListener("keydown", (event) => {
+              if (event.key === "Escape") closeDropdown({ restoreFocus: true });
+            });
+          });
+
           document
             .querySelector("[data-copy-page]")
             ?.addEventListener("click", (event) => {

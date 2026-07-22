@@ -14,7 +14,6 @@ import "../styles/global.css";
       title="wrec"
       description="The efficient, agent-native screen recorder for macOS."
     />
-    <Font cssVariable="--font-geist" preload />
     <Font cssVariable="--font-departure" preload />
     <script defer src="https://assets.onedollarstats.com/stonks.js"></script>
     <title>wrec</title>
@@ -60,9 +59,9 @@ import "../styles/global.css";
     inset: 0;
     display: flex;
     flex-direction: column;
+    padding: 0 16px;
+    box-sizing: border-box;
     background: #c62828;
-    /* Departure Mono is wrec's voice everywhere; only the giant wordmark
-       below stays Geist. */
     font-family: var(--font-departure), monospace;
   }
 
@@ -75,7 +74,10 @@ import "../styles/global.css";
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 5px 24px 4px;
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 5px 0 4px;
     font-size: 0.875rem;
     color: #fff;
   }
@@ -97,12 +99,14 @@ import "../styles/global.css";
     flex: 1;
     min-height: 0;
     width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
     display: block;
   }
 
   .home-word text {
-    font-family: var(--font-geist), sans-serif;
-    font-weight: 900;
+    font-family: var(--font-departure), monospace;
+    font-weight: 400;
     fill: #0d0d0d;
   }
 
