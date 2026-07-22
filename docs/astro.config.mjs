@@ -4,7 +4,7 @@ import { defineConfig, fontProviders } from "astro/config";
 
 // https://astro.build/config
 export default defineConfig({
-  site: "https://wrec.app",
+  site: "https://www.wrec.app",
   // compressHTML strips newline-only whitespace between text and inline
   // elements, gluing words to links ("Seearchitecture").
   compressHTML: false,
