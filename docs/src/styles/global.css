@@ -561,7 +561,6 @@ body {
   gap: 14px;
   padding: 18px 0 16px;
   margin-bottom: 20px;
-  border-bottom: 2px dashed var(--page-line);
 }
 
 .bench-brand {
