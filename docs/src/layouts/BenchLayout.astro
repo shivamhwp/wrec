@@ -1,5 +1,6 @@
 ---
 import { Font } from "astro:assets";
+import Seo from "../components/Seo.astro";
 import Topbar from "../components/Topbar.astro";
 import "../styles/global.css";
 
@@ -17,6 +18,10 @@ const { title, current } = Astro.props;
     <link rel="icon" type="image/svg+xml" href="/wrec.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
+    <Seo
+      {title}
+      description="Ground-truth performance benchmarks for the wrec screen recorder."
+    />
     <Font cssVariable="--font-departure" preload />
     <script defer src="https://assets.onedollarstats.com/stonks.js"></script>
     <script is:inline>
