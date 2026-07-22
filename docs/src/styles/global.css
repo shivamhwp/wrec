@@ -22,8 +22,8 @@
   --tt-delay: 80ms;
   --tt-in-ease: ease-out;
   --tt-out-ease: ease-out;
-  --tt-bg: #fff;
-  --tt-fg: #2f2f2f;
+  --tt-bg: #f6f8fa;
+  --tt-fg: #050505;
 }
 
 :root[data-theme="dark"] {
@@ -36,6 +36,8 @@
   --page-soft-bg: #111;
   --page-link: var(--wrec-red);
   --page-button-border: color-mix(in srgb, #4a4a4a 70%, transparent);
+  --tt-bg: #111;
+  --tt-fg: #f7f7f7;
 }
 
 html,
@@ -740,6 +742,7 @@ body {
   transform-origin: 50% 100%;
   padding: 8px 12px;
   border-radius: 8px;
+  border: 1px solid var(--page-line);
   background: var(--tt-bg);
   color: var(--tt-fg);
   width: max-content;
