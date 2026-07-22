@@ -1,4 +1,4 @@
-# wrec marketing
+# wrec docs site
 
 Astro site for the public wrec landing page and docs.
 

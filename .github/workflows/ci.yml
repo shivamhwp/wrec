@@ -62,8 +62,8 @@ jobs:
           cargo test
           swift test --package-path apps/mac
 
-  marketing:
-    name: Marketing checks
+  docs:
+    name: Docs site checks
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
     steps:
@@ -81,9 +81,9 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        working-directory: marketing
+        working-directory: docs
         run: bun install --frozen-lockfile
 
       - name: Check
-        working-directory: marketing
+        working-directory: docs
         run: bun run check

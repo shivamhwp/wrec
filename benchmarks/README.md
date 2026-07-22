@@ -4,7 +4,7 @@ This directory contains the pre-release performance gate for wrec.
 
 - `results/` — slim run summaries (verdicts, gates, aggregates; ~100 KB each).
   **Committed to git** — this is the published record of every bench. The UI
-  lives on the site: wrec.app/benchmarks (`marketing/src/pages/benchmarks/`)
+  lives on the site: wrec.app/benchmarks (`docs/src/pages/benchmarks/`)
   renders these files at build time.
 - `runs/` — full raw run documents (~2 MB each: per-frame decode arrays,
   process samples, event logs). Local debugging only, git-ignored.
@@ -35,7 +35,7 @@ daemon`) unless `--wrec` or `WREC_BIN` points at a specific one.
 View the rendered report — the site builds it from `results/`:
 
 ```sh
-cd marketing && bun run dev   # then open localhost:4321/benchmarks
+cd docs && bun run dev   # then open localhost:4321/benchmarks
 ```
 
 The smoke suite runs one balanced HEVC recording against the stimulus window and

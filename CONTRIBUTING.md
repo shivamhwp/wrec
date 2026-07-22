@@ -69,10 +69,10 @@ cargo check
 cargo test
 ```
 
-The marketing site and benchmark helpers use Bun:
+The docs site and benchmark helpers use Bun:
 
 ```bash
-cd marketing
+cd docs
 bun install
 bun run format
 bun run check
@@ -89,7 +89,7 @@ bun run bench release         # gated release profiles
 ```
 
 Results land in `benchmarks/results/`; the site renders them at
-`/benchmarks` (`cd marketing && bun run dev`).
+`/benchmarks` (`cd docs && bun run dev`).
 
 ## Packaging
 

@@ -251,7 +251,7 @@ const main = async () => {
   console.log(`results: ${resultPath}`);
   if (summaryPath) {
     console.log(`summary: ${summaryPath}`);
-    console.log("view: wrec.app/benchmarks (or `bun run dev` in marketing/) after committing the summary");
+    console.log("view: wrec.app/benchmarks (or `bun run dev` in docs/) after committing the summary");
   }
 };
 
