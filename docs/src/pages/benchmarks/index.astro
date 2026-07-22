@@ -61,7 +61,7 @@ const envLine = latest
           </div>
         </section>
 
-        {latest.profiles.map((profile) => (
+        {latest.profiles.map((profile, profileIndex) => (
           <section class="px card">
             <header class="card-head">
               <h3>{profile.name}</h3>
@@ -71,50 +71,128 @@ const envLine = latest
               </span>
             </header>
             <div class="tiles">
-              <div class="px-dim tile">
-                <div class="tile-label">observed fps</div>
-                <div class="tile-value">
-                  {fmt(profile.observed?.effectiveFps)}
-                </div>
-                {profile.observed?.stimulusAchievedFps ? (
-                  <div class="tile-sub">
-                    stimulus {fmt(profile.observed.stimulusAchievedFps)} fps
+              <div class="t-tt-wrap">
+                <div
+                  class="px-dim tile t-tt-trigger"
+                  tabindex="0"
+                  aria-describedby={`metric-${profileIndex}-fps`}
+                >
+                  <div class="tile-label">observed fps</div>
+                  <div class="tile-value">
+                    {fmt(profile.observed?.effectiveFps)}
                   </div>
-                ) : null}
-              </div>
-              <div class="px-dim tile">
-                <div class="tile-label">completeness</div>
-                <div class="tile-value">
-                  {fmtPercent(profile.observed?.captureCompleteness)}
+                  {profile.observed?.stimulusAchievedFps ? (
+                    <div class="tile-sub">
+                      stimulus {fmt(profile.observed.stimulusAchievedFps)} fps
+                    </div>
+                  ) : null}
                 </div>
+                <span
+                  class="t-tt"
+                  id={`metric-${profileIndex}-fps`}
+                  role="tooltip"
+                >
+                  Effective FPS measured from the decoded recording.
+                </span>
               </div>
-              <div class="px-dim tile">
-                <div class="tile-label">start</div>
-                <div class="tile-value">
-                  {fmt(profile.latency.startMs, 0)}
-                  <span class="unit">ms</span>
+              <div class="t-tt-wrap">
+                <div
+                  class="px-dim tile t-tt-trigger"
+                  tabindex="0"
+                  aria-describedby={`metric-${profileIndex}-completeness`}
+                >
+                  <div class="tile-label">completeness</div>
+                  <div class="tile-value">
+                    {fmtPercent(profile.observed?.captureCompleteness)}
+                  </div>
                 </div>
+                <span
+                  class="t-tt"
+                  id={`metric-${profileIndex}-completeness`}
+                  role="tooltip"
+                >
+                  Decoded frames captured divided by stimulus frames.
+                </span>
               </div>
-              <div class="px-dim tile">
-                <div class="tile-label">finalize</div>
-                <div class="tile-value">
-                  {fmt(profile.latency.finalizeMs, 0)}
-                  <span class="unit">ms</span>
+              <div class="t-tt-wrap">
+                <div
+                  class="px-dim tile t-tt-trigger"
+                  tabindex="0"
+                  aria-describedby={`metric-${profileIndex}-start`}
+                >
+                  <div class="tile-label">start</div>
+                  <div class="tile-value">
+                    {fmt(profile.latency.startMs, 0)}
+                    <span class="unit">ms</span>
+                  </div>
                 </div>
+                <span
+                  class="t-tt"
+                  id={`metric-${profileIndex}-start`}
+                  role="tooltip"
+                >
+                  Time from job submission until the first captured frame.
+                </span>
               </div>
-              <div class="px-dim tile">
-                <div class="tile-label">cpu avg/p95</div>
-                <div class="tile-value">
-                  {fmt(profile.process.avgTotalCpuPercent, 1)}/
-                  {fmt(profile.process.p95TotalCpuPercent, 1)}
-                  <span class="unit">%</span>
+              <div class="t-tt-wrap">
+                <div
+                  class="px-dim tile t-tt-trigger"
+                  tabindex="0"
+                  aria-describedby={`metric-${profileIndex}-finalize`}
+                >
+                  <div class="tile-label">finalize</div>
+                  <div class="tile-value">
+                    {fmt(profile.latency.finalizeMs, 0)}
+                    <span class="unit">ms</span>
+                  </div>
                 </div>
+                <span
+                  class="t-tt"
+                  id={`metric-${profileIndex}-finalize`}
+                  role="tooltip"
+                >
+                  Time from the stop request until the file is finalized.
+                </span>
               </div>
-              <div class="px-dim tile">
-                <div class="tile-label">peak rss</div>
-                <div class="tile-value">
-                  {fmtBytes(profile.process.maxTotalRssBytes)}
+              <div class="t-tt-wrap">
+                <div
+                  class="px-dim tile t-tt-trigger"
+                  tabindex="0"
+                  aria-describedby={`metric-${profileIndex}-cpu`}
+                >
+                  <div class="tile-label">cpu avg/p95</div>
+                  <div class="tile-value">
+                    {fmt(profile.process.avgTotalCpuPercent, 1)}/
+                    {fmt(profile.process.p95TotalCpuPercent, 1)}
+                    <span class="unit">%</span>
+                  </div>
                 </div>
+                <span
+                  class="t-tt"
+                  id={`metric-${profileIndex}-cpu`}
+                  role="tooltip"
+                >
+                  Average and p95 CPU across the recorder process tree.
+                </span>
+              </div>
+              <div class="t-tt-wrap">
+                <div
+                  class="px-dim tile t-tt-trigger"
+                  tabindex="0"
+                  aria-describedby={`metric-${profileIndex}-rss`}
+                >
+                  <div class="tile-label">peak rss</div>
+                  <div class="tile-value">
+                    {fmtBytes(profile.process.maxTotalRssBytes)}
+                  </div>
+                </div>
+                <span
+                  class="t-tt"
+                  id={`metric-${profileIndex}-rss`}
+                  role="tooltip"
+                >
+                  Highest resident memory used by the recorder process tree.
+                </span>
               </div>
             </div>
             {profile.gates.length ? (
