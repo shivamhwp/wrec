@@ -593,6 +593,10 @@ body {
   color: var(--page-bg);
 }
 
+.bench-nav-link:focus-visible {
+  outline: none;
+}
+
 .bench-nav-link[data-current="true"],
 .bench-nav-link:hover,
 .bench-nav-link:focus-visible {
