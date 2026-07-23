@@ -228,11 +228,10 @@ fn asset_name() -> Result<String, String> {
     if !cfg!(target_os = "macos") {
         return Err("wrec update only supports macOS".into());
     }
-    let target = if cfg!(target_arch = "aarch64") {
-        "aarch64-apple-darwin"
-    } else {
-        "x86_64-apple-darwin"
-    };
+    if !cfg!(target_arch = "aarch64") {
+        return Err("wrec releases currently require an Apple Silicon Mac".into());
+    }
+    let target = "aarch64-apple-darwin";
     let qualifier = std::env::var("WREC_ARTIFACT_QUALIFIER").unwrap_or_default();
     if qualifier.is_empty() {
         Ok(format!("wrec-cli-{target}.tar.gz"))

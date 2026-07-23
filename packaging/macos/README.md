@@ -11,6 +11,7 @@ Wrec*.app/
       daemon
       capture-engine
     Resources/
+      AppIcon.icns
       wrec-mac_wrec-app.bundle   # Swift resources (fonts, SKILL.md)
 ```
 

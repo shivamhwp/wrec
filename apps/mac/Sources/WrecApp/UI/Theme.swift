@@ -11,7 +11,7 @@ enum Theme {
     /// Registered once at launch, before any view renders.
     static func registerFonts() {
         guard
-            let url = Bundle.module.url(
+            let url = WrecResources.bundle.url(
                 forResource: "DepartureMono-Regular", withExtension: "otf")
         else { return }
         CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)

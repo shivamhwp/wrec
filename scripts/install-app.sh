@@ -43,7 +43,10 @@ target_name() {
 
   case "$arch" in
     arm64) echo "aarch64-apple-darwin" ;;
-    x86_64) echo "x86_64-apple-darwin" ;;
+    x86_64)
+      echo "unsupported architecture: Intel Macs are not supported by this release" >&2
+      exit 1
+      ;;
     *)
       echo "unsupported architecture: $arch" >&2
       exit 1
@@ -115,7 +118,20 @@ EOF
 }
 
 tmp_dir="$(mktemp -d)"
-trap 'rm -rf "$tmp_dir"' EXIT
+stage=""
+backup=""
+committed=0
+cleanup() {
+  rm -rf "$tmp_dir"
+  if [ "$committed" -ne 1 ] && [ -n "$backup" ] && [ -e "$backup" ] && [ ! -e "$dest" ]; then
+    run_root mv "$backup" "$dest" || true
+  fi
+  if [ -n "$stage" ]; then
+    run_root rm -rf "$stage" || true
+  fi
+}
+trap cleanup EXIT
+trap 'exit 1' HUP INT TERM
 
 archive="${WREC_APP_ARCHIVE:-$tmp_dir/wrec-app.tar.gz}"
 if [ -z "${WREC_APP_ARCHIVE:-}" ]; then
@@ -152,6 +168,8 @@ fi
 
 app_name="$(basename "$bundle" .app)"
 dest="$APPS_DIR/$app_name.app"
+stage="$APPS_DIR/.$app_name.app.staged-$$"
+backup="$APPS_DIR/.$app_name.app.old-$$"
 
 if pgrep -qf "$dest/Contents/MacOS/wrec-app"; then
   echo "Quitting running $app_name"
@@ -159,12 +177,28 @@ if pgrep -qf "$dest/Contents/MacOS/wrec-app"; then
   sleep 1
 fi
 
-run_root rm -rf "$dest"
+run_root install -d -m 0755 "$APPS_DIR"
+run_root rm -rf "$stage" "$backup"
+# Stage and verify the complete replacement before the installed app moves.
 # ditto preserves the code signature and bundle metadata.
-run_root ditto "$bundle" "$dest"
+run_root ditto "$bundle" "$stage"
+/usr/bin/codesign --verify --deep --strict "$stage"
 # curl downloads carry no quarantine flag; clear anything that slipped in
 # anyway (e.g. an archive that was originally fetched with a browser).
-run_root xattr -dr com.apple.quarantine "$dest" 2>/dev/null || true
+run_root xattr -dr com.apple.quarantine "$stage" 2>/dev/null || true
+
+if [ -e "$dest" ]; then
+  run_root mv "$dest" "$backup"
+fi
+if ! run_root mv "$stage" "$dest"; then
+  if [ -e "$backup" ] && [ ! -e "$dest" ]; then
+    run_root mv "$backup" "$dest"
+  fi
+  echo "failed to install $app_name; the previous app was restored" >&2
+  exit 1
+fi
+committed=1
+run_root rm -rf "$backup"
 
 echo "Installed $dest"
 echo "Run: open \"$dest\""

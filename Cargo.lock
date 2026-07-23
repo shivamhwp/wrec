@@ -62,7 +62,7 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
 name = "cli"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "control",
  "ctrlc",
@@ -72,7 +72,7 @@ dependencies = [
 
 [[package]]
 name = "config"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "domain",
  "serde",
@@ -83,7 +83,7 @@ dependencies = [
 
 [[package]]
 name = "control"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "domain",
  "serde",
@@ -103,7 +103,7 @@ dependencies = [
 
 [[package]]
 name = "daemon"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "config",
  "control",
@@ -131,7 +131,7 @@ dependencies = [
 
 [[package]]
 name = "domain"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "serde",
@@ -229,7 +229,7 @@ checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 
 [[package]]
 name = "macos"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "domain",
@@ -902,7 +902,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.2.0"
+version = "0.3.0"
 
 [[package]]
 name = "zmij"

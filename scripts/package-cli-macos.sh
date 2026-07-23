@@ -81,14 +81,20 @@ log "Archive: $ARCHIVE"
 log "Building CLI"
 run cargo "${cargo_args[@]}" -p cli --bin wrec
 log "Building daemon and capture engine"
-run cargo "${cargo_args[@]}" -p daemon --bin daemon
-
-CAPTURE_ENGINE=""
-if [[ -d "$TARGET_DIR/$PROFILE_DIR/build" ]]; then
-  CAPTURE_ENGINE="$(find "$TARGET_DIR/$PROFILE_DIR/build" -path "*/out/capture-engine" -type f -print | sort | tail -n 1)"
+cargo_messages="$(mktemp)"
+trap 'rm -f "$cargo_messages"' EXIT
+log "+ cargo ${cargo_args[*]} -p daemon --bin daemon --message-format=json-render-diagnostics"
+cargo "${cargo_args[@]}" -p daemon --bin daemon \
+  --message-format=json-render-diagnostics >"$cargo_messages"
+CAPTURE_ENGINE="$(
+  sed -n 's/.*\["WREC_CAPTURE_ENGINE_PATH","\([^"]*\)"\].*/\1/p' "$cargo_messages" \
+    | tail -n 1
+)"
+if [[ ! -f "$CAPTURE_ENGINE" ]]; then
+  die "Cargo did not report the capture-engine built for this daemon"
 fi
-if [[ -z "$CAPTURE_ENGINE" ]]; then
-  die "Could not find compiled capture-engine in $TARGET_DIR/$PROFILE_DIR/build"
+if ! file "$CAPTURE_ENGINE" | grep -q "Mach-O 64-bit executable $(uname -m)"; then
+  die "Capture engine is not a Mach-O executable for $(uname -m): $CAPTURE_ENGINE"
 fi
 
 for file in "$TARGET_DIR/$PROFILE_DIR/wrec" "$TARGET_DIR/$PROFILE_DIR/daemon"; do

@@ -145,7 +145,19 @@ impl<E> JobRecord<E> {
             ),
             metrics: Some(metrics),
         };
-        self.events.push(event);
+        // Metrics are a live snapshot, not an audit log. Replacing the
+        // previous metrics event keeps job.show payloads and daemon memory
+        // constant during long recordings while SQLite retains the full
+        // time-series separately.
+        if let Some(previous) = self
+            .events
+            .last_mut()
+            .filter(|event| event.metrics.is_some())
+        {
+            *previous = event;
+        } else {
+            self.events.push(event);
+        }
         self.updated_at_ms = now_ms();
     }
 }
@@ -296,6 +308,52 @@ mod tests {
         let event = job.events.last().unwrap();
         assert_eq!(event.message, "3s  1024 bytes  1.50 Mbps");
         assert_eq!(event.metrics.as_ref().unwrap().output_bytes, 1024);
+    }
+
+    #[test]
+    fn consecutive_metrics_replace_the_live_snapshot() {
+        let _guard = env_lock();
+        isolate_env();
+        let mut job = job();
+
+        for elapsed_secs in 1..=10_000 {
+            job.push_metrics(RecorderMetrics {
+                elapsed_secs,
+                output_bytes: elapsed_secs * 1024,
+                estimated_bitrate_mbps: 1.5,
+                frames: Some(elapsed_secs * 30),
+                dropped_frames: Some(0),
+            });
+        }
+
+        assert_eq!(job.events.len(), 1);
+        let metrics = job.events[0].metrics.as_ref().unwrap();
+        assert_eq!(metrics.elapsed_secs, 10_000);
+        assert_eq!(metrics.output_bytes, 10_240_000);
+    }
+
+    #[test]
+    fn lifecycle_events_preserve_the_latest_metrics_snapshot() {
+        let _guard = env_lock();
+        isolate_env();
+        let mut job = job();
+
+        let metrics = || RecorderMetrics {
+            elapsed_secs: 1,
+            output_bytes: 1024,
+            estimated_bitrate_mbps: 1.5,
+            frames: Some(30),
+            dropped_frames: Some(0),
+        };
+        job.push_metrics(metrics());
+        job.push_event(EventLevel::Info, "paused");
+        job.push_metrics(metrics());
+        job.push_metrics(metrics());
+
+        assert_eq!(job.events.len(), 3);
+        assert!(job.events[0].metrics.is_some());
+        assert_eq!(job.events[1].message, "paused");
+        assert!(job.events[2].metrics.is_some());
     }
 
     #[test]

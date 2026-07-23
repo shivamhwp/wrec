@@ -1,49 +1,54 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Runs the REAL in-place update flow against the local dev build: packages
-# dist/dev/Wrec Dev.app, archives it, points the app's mock hooks at the
-# archive, and opens the app. About -> "Update to <version>" then performs
-# the actual pipeline: extract, validate, daemon stop, bundle swap, relaunch.
+# Runs the real updater end to end in a disposable directory: packages an old
+# release-like app and a newer replacement, archives the replacement, launches
+# the old app with local release metadata, then verifies the atomic swap.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="${1:-9.9.9}"
-MOCK_DIR="${WREC_DATA_DIR:-$HOME/Library/Application Support/Wrec Dev}"
-ARCHIVE="$ROOT/dist/dev/wrec-app-mock-update.tar.gz"
+PREVIEW_DIR="$ROOT/dist/update-preview"
+APP_NAME="Wrec Update Preview"
+APP="$PREVIEW_DIR/installed/$APP_NAME.app"
+ARCHIVE="$PREVIEW_DIR/wrec-app-update.tar.gz"
+DATA_DIR="$PREVIEW_DIR/data"
+HOME_DIR="$PREVIEW_DIR/home"
 
 log() {
   printf '[wrec-preview-update] %s\n' "$*"
 }
 
-# `preview-app-update.sh clean` removes every trace of the mock and
-# restores real release-driven update behavior.
 if [ "${1:-}" = "clean" ]; then
-  rm -f "$MOCK_DIR/mock-latest-version" "$MOCK_DIR/mock-latest-archive" "$ARCHIVE"
-  log "Mock cleared; the app is back to real update behavior."
+  rm -rf "$PREVIEW_DIR"
+  log "Update preview artifacts removed."
   exit 0
 fi
 
-log "Packaging the dev app"
-"$ROOT/scripts/package-macos.sh"
+rm -rf "$PREVIEW_DIR"
+mkdir -p "$PREVIEW_DIR/installed" "$DATA_DIR" "$HOME_DIR"
 
-log "Archiving dist/dev/Wrec Dev.app"
-rm -f "$ARCHIVE"
-tar -C "$ROOT/dist/dev" -czf "$ARCHIVE" "Wrec Dev.app"
+log "Packaging installed version 0.0.1"
+APP_NAME="$APP_NAME" BUNDLE_ID="app.wrec.update-preview" VERSION="0.0.1" \
+  CREATE_DMG=0 "$ROOT/scripts/package-macos.sh" release
+ditto "$ROOT/dist/release/$APP_NAME.app" "$APP"
 
-mkdir -p "$MOCK_DIR"
-printf '%s\n' "$VERSION" >"$MOCK_DIR/mock-latest-version"
-printf '%s\n' "$ARCHIVE" >"$MOCK_DIR/mock-latest-archive"
+log "Packaging replacement version $VERSION"
+APP_NAME="$APP_NAME" BUNDLE_ID="app.wrec.update-preview" VERSION="$VERSION" \
+  CREATE_DMG=0 "$ROOT/scripts/package-macos.sh" release
+tar -C "$ROOT/dist/release" -czf "$ARCHIVE" "$APP_NAME.app"
 
-log "Opening the dev app"
-if [ -n "${WREC_DATA_DIR:-}" ]; then
-  # `open` launches through LaunchServices, which drops the shell's
-  # environment — run the binary directly so the app resolves the same
-  # WREC_DATA_DIR the mock files were just written to.
-  "$ROOT/dist/dev/Wrec Dev.app/Contents/MacOS/wrec-app" >/dev/null 2>&1 &
-else
-  open "$ROOT/dist/dev/Wrec Dev.app"
+log "Running updater smoke"
+WREC_DATA_DIR="$DATA_DIR" \
+WREC_HOME="$HOME_DIR" \
+WREC_UPDATE_VERSION="$VERSION" \
+WREC_UPDATE_ARCHIVE="$ARCHIVE" \
+WREC_UPDATE_SMOKE=1 \
+  "$APP/Contents/MacOS/wrec-app"
+
+actual="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
+if [ "$actual" != "$VERSION" ]; then
+  printf '[wrec-preview-update] error: expected %s, got %s\n' "$VERSION" "$actual" >&2
+  exit 1
 fi
-
-log "In the app: About -> \"Update to $VERSION\" runs the real update and relaunches."
-log "The relaunched app still shows the mock; clean up with:"
-log "  rm \"$MOCK_DIR/mock-latest-version\" \"$MOCK_DIR/mock-latest-archive\""
+codesign --verify --deep --strict "$APP"
+log "PASS: installed bundle is now $VERSION"

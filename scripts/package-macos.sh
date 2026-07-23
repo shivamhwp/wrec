@@ -242,16 +242,20 @@ log "Building Swift app shell ($SWIFT_CONFIG)"
 run swift build -c "$SWIFT_CONFIG" --package-path "$ROOT/apps/mac"
 SWIFT_BIN_DIR="$(swift build -c "$SWIFT_CONFIG" --package-path "$ROOT/apps/mac" --show-bin-path)"
 log "Building daemon and capture engine"
-run cargo "${cargo_args[@]}" -p daemon --bin "$DAEMON_BIN_NAME"
-
-CAPTURE_ENGINE=""
-if [[ -d "$TARGET_DIR/$PROFILE_DIR/build" ]]; then
-  # Multiple macos-<hash> build dirs can linger from old cargo fingerprints;
-  # an alphabetical sort here once shipped a stale engine. Newest mtime wins.
-  CAPTURE_ENGINE="$(find "$TARGET_DIR/$PROFILE_DIR/build" -path "*/out/capture-engine" -type f -print0 | xargs -0 ls -t 2>/dev/null | head -n 1)"
-fi
+cargo_messages="$(mktemp)"
+trap 'rm -f "$cargo_messages"' EXIT
+log "+ cargo ${cargo_args[*]} -p daemon --bin $DAEMON_BIN_NAME --message-format=json-render-diagnostics"
+cargo "${cargo_args[@]}" -p daemon --bin "$DAEMON_BIN_NAME" \
+  --message-format=json-render-diagnostics >"$cargo_messages"
+CAPTURE_ENGINE="$(
+  sed -n 's/.*\["WREC_CAPTURE_ENGINE_PATH","\([^"]*\)"\].*/\1/p' "$cargo_messages" \
+    | tail -n 1
+)"
 if [[ ! -f "$CAPTURE_ENGINE" ]]; then
-  die "Could not find compiled capture-engine in $TARGET_DIR/$PROFILE_DIR/build"
+  die "Cargo did not report the capture-engine built for this daemon"
+fi
+if ! file "$CAPTURE_ENGINE" | grep -q "Mach-O 64-bit executable $(uname -m)"; then
+  die "Capture engine is not a Mach-O executable for $(uname -m): $CAPTURE_ENGINE"
 fi
 
 if [[ ! -f "$SWIFT_BIN_DIR/$BIN_NAME" ]]; then

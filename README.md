@@ -103,7 +103,7 @@ with `wrec update --check`).
 ## Requirements
 
 - macOS 15+.
-- Apple Silicon is the primary target.
+- Apple Silicon (M-series) Mac. Intel Macs are not supported yet.
 - Screen Recording permission for the app or terminal.
 - Audio Recording permission when system audio capture is enabled.
 - Microphone permission when microphone capture is enabled.

@@ -27,8 +27,8 @@ can_write_prefix() {
 run_root() {
   if [ "$(id -u)" -eq 0 ]; then
     "$@"
-  elif can_write_prefix && "$@"; then
-    return 0
+  elif can_write_prefix; then
+    "$@"
   else
     sudo "$@"
   fi
@@ -49,7 +49,10 @@ target_name() {
 
   case "$arch" in
     arm64) echo "aarch64-apple-darwin" ;;
-    x86_64) echo "x86_64-apple-darwin" ;;
+    x86_64)
+      echo "unsupported architecture: Intel Macs are not supported by this release" >&2
+      exit 1
+      ;;
     *)
       echo "unsupported architecture: $arch" >&2
       exit 1
@@ -142,7 +145,30 @@ if [ -e "$BIN" ] && ! is_managed_bin; then
 fi
 
 tmp_dir="$(mktemp -d)"
-trap 'rm -rf "$tmp_dir"' EXIT
+stage=""
+backup=""
+wrapper_stage=""
+runtime_swapped=0
+committed=0
+cleanup() {
+  rm -rf "$tmp_dir"
+  if [ "$committed" -ne 1 ]; then
+    if [ "$runtime_swapped" -eq 1 ] && [ -e "$LIB_DIR" ]; then
+      run_root rm -rf "$LIB_DIR" || true
+    fi
+    if [ -n "$backup" ] && [ -e "$backup" ] && [ ! -e "$LIB_DIR" ]; then
+      run_root mv "$backup" "$LIB_DIR" || true
+    fi
+  fi
+  if [ -n "$stage" ]; then
+    run_root rm -rf "$stage" || true
+  fi
+  if [ -n "$wrapper_stage" ]; then
+    run_root rm -f "$wrapper_stage" || true
+  fi
+}
+trap cleanup EXIT
+trap 'exit 1' HUP INT TERM
 
 archive="${WREC_CLI_ARCHIVE:-$tmp_dir/wrec-cli.tar.gz}"
 if [ -z "${WREC_CLI_ARCHIVE:-}" ]; then
@@ -180,11 +206,35 @@ wrapper="$tmp_dir/wrec-wrapper"
   echo "exec \"$CLI\" \"\$@\""
 } >"$wrapper"
 
-run_root install -d -m 0755 "$BIN_DIR" "$LIB_DIR"
-run_root install -m 0755 "$payload/wrec" "$CLI"
-run_root install -m 0755 "$payload/daemon" "$DAEMON"
-run_root install -m 0755 "$payload/capture-engine" "$CAPTURE_ENGINE"
-run_root install -m 0755 "$wrapper" "$BIN"
+lib_parent="$PREFIX/lib"
+stage="$lib_parent/.wrec.staged-$$"
+backup="$lib_parent/.wrec.old-$$"
+wrapper_stage="$BIN_DIR/.wrec.staged-$$"
+run_root install -d -m 0755 "$BIN_DIR" "$lib_parent"
+run_root rm -rf "$stage" "$backup"
+run_root rm -f "$wrapper_stage"
+run_root install -d -m 0755 "$stage"
+run_root install -m 0755 "$payload/wrec" "$stage/wrec"
+run_root install -m 0755 "$payload/daemon" "$stage/daemon"
+run_root install -m 0755 "$payload/capture-engine" "$stage/capture-engine"
+run_root install -m 0755 "$wrapper" "$wrapper_stage"
+
+# Swap the complete three-binary runtime as one directory so an interrupted
+# update cannot leave a CLI, daemon, and capture engine from mixed releases.
+if [ -e "$LIB_DIR" ]; then
+  run_root mv "$LIB_DIR" "$backup"
+fi
+if ! run_root mv "$stage" "$LIB_DIR"; then
+  if [ -e "$backup" ] && [ ! -e "$LIB_DIR" ]; then
+    run_root mv "$backup" "$LIB_DIR"
+  fi
+  echo "failed to install wrec runtime; the previous version was restored" >&2
+  exit 1
+fi
+runtime_swapped=1
+run_root mv "$wrapper_stage" "$BIN"
+committed=1
+run_root rm -rf "$backup"
 
 echo "Installed wrec CLI at $BIN"
 echo "Run: wrec help"

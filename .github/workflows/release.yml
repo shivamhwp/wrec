@@ -9,7 +9,7 @@ on:
       version:
         description: "Version to package"
         required: true
-        default: "0.1.0"
+        default: "0.3.0"
 
 permissions:
   contents: write
@@ -138,24 +138,16 @@ jobs:
       - name: Archive app bundle for in-place updates
         run: |
           set -euo pipefail
-
-          case "$(uname -m)" in
-            arm64) target="aarch64-apple-darwin" ;;
-            x86_64) target="x86_64-apple-darwin" ;;
-            *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;;
-          esac
+          test "$(uname -m)" = "arm64"
+          target="aarch64-apple-darwin"
 
           tar -C dist/release -czf "dist/release/wrec-app-$target.tar.gz" "Wrec.app"
 
       - name: Verify artifacts
         run: |
           set -euo pipefail
-
-          case "$(uname -m)" in
-            arm64) target="aarch64-apple-darwin" ;;
-            x86_64) target="x86_64-apple-darwin" ;;
-            *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;;
-          esac
+          test "$(uname -m)" = "arm64"
+          target="aarch64-apple-darwin"
 
           dmg="dist/release/wrec-${{ steps.release.outputs.version }}.dmg"
           cli_archive="dist/cli/wrec-cli-$target.tar.gz"
@@ -165,7 +157,11 @@ jobs:
           test -f "$cli_archive"
           test -f "$app_archive"
           codesign --verify --deep --strict --verbose=2 "dist/release/Wrec.app"
+          test -d "dist/release/Wrec.app/Contents/Resources/wrec-mac_wrec-app.bundle"
+          file "dist/release/Wrec.app/Contents/MacOS/capture-engine" | grep -q "Mach-O 64-bit executable"
+          file "dist/cli/wrec-cli/capture-engine" | grep -q "Mach-O 64-bit executable"
           tar -tzf "$app_archive" | grep -qx 'Wrec.app/Contents/MacOS/wrec-app'
+          tar -tzf "$app_archive" | grep -qx 'Wrec.app/Contents/Resources/wrec-mac_wrec-app.bundle/'
           tar -tzf "$cli_archive" | grep -qx 'wrec-cli/wrec'
           tar -tzf "$cli_archive" | grep -qx 'wrec-cli/daemon'
           tar -tzf "$cli_archive" | grep -qx 'wrec-cli/capture-engine'
@@ -179,6 +175,31 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$mount_dir/Wrec.app"
           hdiutil detach "$mount_dir"
           rmdir "$mount_dir"
+
+      - name: Verify isolated installs and packaged launch
+        run: |
+          set -euo pipefail
+          target="aarch64-apple-darwin"
+          install_root="$(mktemp -d)"
+          trap 'rm -rf "$install_root"' EXIT
+
+          for pass in 1 2; do
+            WREC_APPS_DIR="$install_root/apps" \
+              WREC_APP_ARCHIVE="dist/release/wrec-app-$target.tar.gz" \
+              sh scripts/install-app.sh
+            WREC_PREFIX="$install_root/prefix" \
+              WREC_CLI_ARCHIVE="dist/cli/wrec-cli-$target.tar.gz" \
+              sh scripts/install-cli.sh
+          done
+
+          test "$("$install_root/prefix/bin/wrec" --version)" = \
+            "wrec ${{ steps.release.outputs.version }}"
+          codesign --verify --deep --strict --verbose=2 "$install_root/apps/Wrec.app"
+          WREC_HOME="$install_root/home" WREC_SMOKE=1 \
+            "$install_root/apps/Wrec.app/Contents/MacOS/wrec-app"
+
+      - name: Verify in-place app updater
+        run: ./scripts/preview-app-update.sh 9.9.9
 
       - name: Generate SHA256SUMS
         run: |

@@ -7,6 +7,27 @@ import AppKit
 import Foundation
 import UniformTypeIdentifiers
 
+enum WrecResources {
+    /// SwiftPM executable targets look for Bundle.module beside the `.app`
+    /// root, which is not a code-signable bundle layout. Packaged builds keep
+    /// the generated resource bundle in Contents/Resources; source/test builds
+    /// fall back to SwiftPM's normal accessor.
+    static var bundle: Bundle {
+        if let resources = Bundle.main.resourceURL,
+            let candidates = try? FileManager.default.contentsOfDirectory(
+                at: resources, includingPropertiesForKeys: nil),
+            let bundleURL = candidates.first(where: {
+                $0.pathExtension == "bundle"
+                    && $0.lastPathComponent.hasPrefix("wrec-mac_")
+            }),
+            let packaged = Bundle(url: bundleURL)
+        {
+            return packaged
+        }
+        return Bundle.module
+    }
+}
+
 enum CliInstallStatus: Equatable {
     case installed
     case needsUpdate
@@ -71,7 +92,7 @@ enum Platform {
     }
 
     private static func bundledSkill() -> String? {
-        guard let url = Bundle.module.url(forResource: "SKILL", withExtension: "md") else {
+        guard let url = WrecResources.bundle.url(forResource: "SKILL", withExtension: "md") else {
             return nil
         }
         return try? String(contentsOf: url, encoding: .utf8)

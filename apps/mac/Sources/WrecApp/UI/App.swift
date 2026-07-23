@@ -23,6 +23,9 @@ struct WrecApp: App {
     @State private var model: RecorderModel
 
     init() {
+        if UpdateSmoke.requested {
+            Task { await UpdateSmoke.run() }
+        }
         if Smoke.requested {
             Task { await Smoke.run() }
         }
@@ -57,39 +60,44 @@ struct WrecApp: App {
 /// touching the menu bar. Debug builds only.
 @MainActor
 enum UIPreview {
+    // AppKit does not retain an ordered window for us. Keep the automation
+    // host alive until the process exits.
+    private static var window: NSWindow?
+
     static func openIfRequested(model: RecorderModel) {
         guard let mode = ProcessInfo.processInfo.environment["WREC_UI_PREVIEW"],
             mode == "1" || mode == "settings"
         else { return }
         DispatchQueue.main.async {
-            let window = NSWindow(
+            let previewWindow = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 320, height: 640),
                 styleMask: [.titled],
                 backing: .buffered,
                 defer: false
             )
-            window.title = "wrec preview"
-            window.contentView =
+            previewWindow.title = "wrec preview"
+            previewWindow.contentView =
                 mode == "settings"
                 ? NSHostingView(
                     rootView: SettingsGeneralPreview(model: model).frame(width: 440))
                 : NSHostingView(rootView: PopoverView(model: model))
-            window.level = .floating
-            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            previewWindow.level = .floating
+            previewWindow.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
             // Pin to a known spot: 40pt from the screen's top-left.
             if let screen = NSScreen.main {
                 let top = screen.frame.maxY - 40
-                window.setFrameTopLeftPoint(NSPoint(x: 40, y: top))
+                previewWindow.setFrameTopLeftPoint(NSPoint(x: 40, y: top))
             }
             if mode == "settings" {
-                window.setContentSize(NSSize(width: 440, height: 520))
+                previewWindow.setContentSize(NSSize(width: 440, height: 520))
             }
-            window.makeKeyAndOrderFront(nil)
+            window = previewWindow
+            previewWindow.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             // The content sizes itself; print the final frame (both Cocoa
             // bottom-left and CG top-left coords) for the click driver.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                let frame = window.frame
+                let frame = previewWindow.frame
                 let screenH = NSScreen.main?.frame.height ?? 0
                 print(
                     "WREC_PREVIEW_FRAME cocoa=\(frame) cg_top_left=(\(frame.origin.x),\(screenH - frame.maxY)) size=(\(frame.width)x\(frame.height))"

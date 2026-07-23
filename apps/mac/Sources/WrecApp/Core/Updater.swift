@@ -88,8 +88,12 @@ enum Updater {
         defer { try? FileManager.default.removeItem(at: work) }
 
         let archive = work.appending(path: "update.tar.gz")
-        let (downloaded, _) = try await URLSession.shared.download(from: release.assetURL)
-        try FileManager.default.moveItem(at: downloaded, to: archive)
+        if release.assetURL.isFileURL {
+            try FileManager.default.copyItem(at: release.assetURL, to: archive)
+        } else {
+            let (downloaded, _) = try await URLSession.shared.download(from: release.assetURL)
+            try FileManager.default.moveItem(at: downloaded, to: archive)
+        }
 
         guard let expected = release.sha256 else {
             throw UpdaterError.message("release has no published digest; refusing to update")
@@ -133,6 +137,25 @@ enum Updater {
     // MARK: - GitHub
 
     private static func latestRelease() async throws -> Release {
+        let environment = ProcessInfo.processInfo.environment
+        if let archivePath = environment["WREC_UPDATE_ARCHIVE"] {
+            guard let version = environment["WREC_UPDATE_VERSION"], !version.isEmpty else {
+                throw UpdaterError.message(
+                    "WREC_UPDATE_VERSION is required with WREC_UPDATE_ARCHIVE")
+            }
+            let archive = URL(fileURLWithPath: archivePath)
+            guard FileManager.default.fileExists(atPath: archive.path) else {
+                throw UpdaterError.message("local update archive does not exist")
+            }
+            let digest: String
+            if let supplied = environment["WREC_UPDATE_SHA256"] {
+                digest = supplied
+            } else {
+                digest = try sha256(of: archive)
+            }
+            return Release(version: version, assetURL: archive, sha256: digest)
+        }
+
         var request = URLRequest(
             url: URL(string: "https://api.github.com/repos/\(repo)/releases/latest")!)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
@@ -159,7 +182,7 @@ enum Updater {
         #if arch(arm64)
         let assetName = "wrec-app-aarch64-apple-darwin.tar.gz"
         #else
-        let assetName = "wrec-app-x86_64-apple-darwin.tar.gz"
+        throw UpdaterError.message("Wrec releases currently require an Apple Silicon Mac")
         #endif
         guard let asset = release.assets.first(where: { $0.name == assetName }) else {
             throw UpdaterError.message("release \(version) has no asset \(assetName)")
