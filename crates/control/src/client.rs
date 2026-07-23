@@ -360,10 +360,20 @@ pub fn send_request(method: &str, params: Value) -> Result<IpcResponse, AgentErr
 pub fn wait_for_job(job_id: u64, json_output: bool) -> Result<JobSnapshot, AgentError> {
     let client = DaemonClient::new();
     let mut seen_events = 0;
+    let mut last_metrics_timestamp = None;
     loop {
         let job = client.show_job(job_id)?;
-        for event in job.events.iter().skip(seen_events) {
-            emit_job_event(json_output, job.id, event);
+        for (index, event) in job.events.iter().enumerate() {
+            if should_emit_job_event(index, seen_events, event, last_metrics_timestamp) {
+                emit_job_event(json_output, job.id, event);
+            }
+            if event.metrics.is_some()
+                && last_metrics_timestamp
+                    .map(|timestamp| event.timestamp_ms > timestamp)
+                    .unwrap_or(true)
+            {
+                last_metrics_timestamp = Some(event.timestamp_ms);
+            }
         }
         seen_events = job.events.len();
 
@@ -375,6 +385,19 @@ pub fn wait_for_job(job_id: u64, json_output: bool) -> Result<JobSnapshot, Agent
         }
         thread::sleep(WAIT_POLL_INTERVAL);
     }
+}
+
+fn should_emit_job_event(
+    index: usize,
+    seen_events: usize,
+    event: &JobEvent,
+    last_metrics_timestamp: Option<u64>,
+) -> bool {
+    index >= seen_events
+        || (event.metrics.is_some()
+            && last_metrics_timestamp
+                .map(|timestamp| event.timestamp_ms > timestamp)
+                .unwrap_or(true))
 }
 
 pub fn emit_error(error: &AgentError, json_output: bool) {
@@ -584,8 +607,34 @@ fn dev_cargo_daemon_launch() -> Option<DaemonLaunch> {
 
 #[cfg(test)]
 mod tests {
-    use super::{daemon_candidates, daemon_executable_launch};
+    use super::{daemon_candidates, daemon_executable_launch, should_emit_job_event};
+    use crate::protocol::{EventLevel, JobEvent};
+    use domain::RecorderMetrics;
     use std::path::PathBuf;
+
+    fn metrics_event(timestamp_ms: u64) -> JobEvent {
+        JobEvent {
+            timestamp_ms,
+            level: EventLevel::Info,
+            message: "metrics".into(),
+            metrics: Some(RecorderMetrics {
+                elapsed_secs: 2,
+                output_bytes: 2048,
+                estimated_bitrate_mbps: 1.0,
+                frames: Some(60),
+                dropped_frames: Some(0),
+            }),
+        }
+    }
+
+    #[test]
+    fn replaced_metrics_snapshot_is_emitted_when_its_timestamp_advances() {
+        let event = metrics_event(200);
+
+        assert!(should_emit_job_event(4, 5, &event, Some(100)));
+        assert!(!should_emit_job_event(4, 5, &event, Some(200)));
+        assert!(should_emit_job_event(5, 5, &event, Some(200)));
+    }
 
     #[test]
     fn daemon_candidates_prefer_sibling_daemon() {
