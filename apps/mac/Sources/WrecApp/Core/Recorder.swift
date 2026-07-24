@@ -164,11 +164,18 @@ final class RecorderModel {
 
     /// If a daemon is already recording (e.g. started from the CLI, or the
     /// app relaunched mid-session), attach to it instead of pretending idle.
-    /// A no-op while a job is already known: the poll loop owns it from here,
-    /// and re-adopting would just restart the same poll task.
+    /// Keyed on the daemon's job id, not just "is one tracked": back-to-back
+    /// CLI recordings can start a new job before the old job's poll loop has
+    /// seen its terminal snapshot, and a guard on the stale id would drop the
+    /// new job's only notification. Same-id deliveries stay no-ops.
     func adoptRunningJob() async {
-        guard activeJobId == nil else { return }
         guard let status = try? await daemon.status(), let jobId = status.activeJobId else { return }
+        guard jobId != activeJobId else { return }
+        if activeJobId != nil {
+            // Hand the session over; the old poll loop would otherwise keep
+            // painting a dead job's timer over the new one's.
+            finishSession()
+        }
         activeJobId = jobId
         startPolling(jobId)
     }
