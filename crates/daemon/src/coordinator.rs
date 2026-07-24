@@ -335,11 +335,16 @@ impl<R: RecordingRuntime> Coordinator<R> {
         notify_job_changed();
 
         if let Err(err) = lock_control(&control, id)?.stop() {
-            let mut state = lock_state(&state)?;
-            if let Ok(job) = active_job_mut(&mut state, id) {
-                job.status = JobStatus::Recording;
-                job.push_event(EventLevel::Error, format!("stop failed: {err}"));
+            {
+                let mut state = lock_state(&state)?;
+                if let Ok(job) = active_job_mut(&mut state, id) {
+                    job.status = JobStatus::Recording;
+                    job.push_event(EventLevel::Error, format!("stop failed: {err}"));
+                }
             }
+            // The finishing notification already went out; announce the
+            // revert too so observers re-query instead of trusting it.
+            notify_job_changed();
             return Err(record_control_error("job_stop_failed", id, err.to_string()));
         }
 

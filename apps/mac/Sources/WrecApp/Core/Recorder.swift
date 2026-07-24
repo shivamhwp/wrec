@@ -141,13 +141,26 @@ final class RecorderModel {
                     await model.adoptRunningJob()
                 }
             },
-            Self.jobChangedNotificationName,
+            Self.jobChangedNotificationName as CFString,
             nil,
             .deliverImmediately
         )
     }
 
-    private static let jobChangedNotificationName = "app.wrec.job-changed" as CFString
+    // A plain String so the nonisolated deinit can reach it too.
+    private nonisolated static let jobChangedNotificationName = "app.wrec.job-changed"
+
+    /// The production model lives for the whole process, but anything that
+    /// creates a short-lived instance (tests) must not leave the center
+    /// holding a dangling observer pointer.
+    deinit {
+        CFNotificationCenterRemoveObserver(
+            CFNotificationCenterGetDistributedCenter(),
+            Unmanaged.passUnretained(self).toOpaque(),
+            CFNotificationName(Self.jobChangedNotificationName as CFString),
+            nil
+        )
+    }
 
     /// If a daemon is already recording (e.g. started from the CLI, or the
     /// app relaunched mid-session), attach to it instead of pretending idle.
