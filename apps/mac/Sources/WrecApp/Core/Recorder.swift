@@ -171,10 +171,16 @@ final class RecorderModel {
     func adoptRunningJob() async {
         guard let status = try? await daemon.status(), let jobId = status.activeJobId else { return }
         guard jobId != activeJobId else { return }
-        if activeJobId != nil {
+        if let outgoing = activeJobId {
             // Hand the session over; the old poll loop would otherwise keep
-            // painting a dead job's timer over the new one's.
-            finishSession()
+            // painting a dead job's timer over the new one's. Its terminal
+            // snapshot still owes the user the Saved toast (and auto-open),
+            // so deliver that before tearing the session down.
+            if let final = try? await daemon.showJob(outgoing), final.status.isTerminal {
+                apply(final)
+            } else {
+                finishSession()
+            }
         }
         activeJobId = jobId
         startPolling(jobId)
